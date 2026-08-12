@@ -5,6 +5,8 @@ const THEME_COLOURS = {
   classic: '#f3f0e9',
   winged: '#eee2c3',
   sport: '#f5c400',
+  focus: '#dededb',
+  banner: '#d6a20a',
 }
 
 const getInitialTheme = () => {
