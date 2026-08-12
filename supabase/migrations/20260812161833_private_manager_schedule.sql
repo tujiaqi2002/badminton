@@ -8,16 +8,6 @@ alter table private.booking_admin_actions add column if not exists previous_end_
 alter table private.booking_admin_actions add column if not exists new_start_at timestamp;
 alter table private.booking_admin_actions add column if not exists new_end_at timestamp;
 
-create or replace function public.hook_allow_manager_accounts(event jsonb)
-returns jsonb language plpgsql stable set search_path = '' as $$
-declare v_email text := lower(trim(event->'user'->>'email'));
-begin
-  if v_email in ('321756623tu@gmail.com','zhangk7@gmail.com') then return '{}'::jsonb; end if;
-  return jsonb_build_object('error',jsonb_build_object('message','This Tiger workspace is restricted to approved manager accounts.','http_code',403));
-end; $$;
-grant execute on function public.hook_allow_manager_accounts(jsonb) to supabase_auth_admin;
-revoke execute on function public.hook_allow_manager_accounts(jsonb) from public,anon,authenticated;
-
 create or replace function public.admin_create_booking(
   p_court_id uuid, p_start_at timestamp, p_end_at timestamp,
   p_customer_name text, p_customer_email text, p_party_size smallint default 2

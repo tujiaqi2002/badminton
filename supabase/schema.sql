@@ -673,12 +673,12 @@ grant execute on function public.admin_reschedule_booking(uuid, uuid, timestamp,
 grant execute on function public.admin_update_booking_details(uuid, text, text, text) to authenticated;
 
 -- Multi-court booking, group rescheduling, resize and undo functions are maintained in
--- supabase/migrations/20260812200936_multi_court_schedule_v2.sql. They intentionally
+-- supabase/migrations/20260812202340_multi_court_schedule_v2.sql. They intentionally
 -- remain transaction-based so a multi-court request succeeds or fails as one unit.
 -- Contiguous multi-court lane shifting is maintained in
--- supabase/migrations/20260812203238_shift_multi_court_group.sql and its adjacent
+-- supabase/migrations/20260812203328_shift_multi_court_group.sql and its adjacent
 -- shift hardening migration. Legacy single-court RPCs remain compatible through
--- supabase/migrations/20260812204045_legacy_booking_wrappers_v2.sql.
+-- supabase/migrations/20260812204252_legacy_booking_wrappers_v2.sql.
 
 alter table public.court_slots replica identity full;
 do $$ begin
