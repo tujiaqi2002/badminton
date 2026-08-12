@@ -111,7 +111,7 @@ a { color: inherit; text-decoration: none; }
 .court-label span { color: var(--ink-soft); font-size: 8px; letter-spacing: .14em; margin-top: 5px; text-transform: uppercase; }
 .slot { min-height: 68px; border: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: grid; place-items: center; background: rgba(255,255,255,.36); transition: .15s ease; }
 .slot.available { cursor: pointer; color: rgba(34,36,33,.54); }
-.slot.available:hover { color: white; background: var(--red); box-shadow: 0 7px 20px rgba(199,70,54,.24); transform: scale(1.04); z-index: 1; }
+.slot.available:hover, .slot.available:focus-visible { color: white; background: var(--red); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2), inset 0 -12px 24px rgba(159,49,39,.18); outline: 0; }
 .slot.occupied { color: rgba(255,255,255,.52); background: rgba(34,36,33,.58); cursor: not-allowed; }
 .slot-state { font-size: 9px; letter-spacing: .08em; }
 .mobile-time { display: none; }
@@ -314,7 +314,6 @@ footer small { text-align: right; }
   .mobile-court-heading p { margin: 0; color: var(--ink-soft); font-size: 9px; }
   .mobile-slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .mobile-slot-grid .slot { min-height: 49px; border: 1px solid var(--line); display: flex; justify-content: space-between; padding: 0 10px; }
-  .mobile-slot-grid .slot.available:hover { transform: none; }
   .mobile-time { display: inline; font-size: 10px; }
   .slot-state { font-size: 8px; }
   .ritual-section { margin: 0 18px 70px; padding-top: 55px; grid-template-columns: 1fr; gap: 35px; }
