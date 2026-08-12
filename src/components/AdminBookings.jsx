@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   CalendarRange,
+  CalendarClock,
   Clock3,
   Mail,
   RefreshCw,
@@ -13,6 +14,7 @@ import {
 import { addDays, COURTS, formatMoney, timeFromDateTime, toDateKey } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 import AdminSchedule from './AdminSchedule'
+import AdminRescheduleModal from './AdminRescheduleModal'
 
 const durationMinutes = (booking) => Math.round(
   (new Date(booking.end_at).getTime() - new Date(booking.start_at).getTime()) / 60_000,
@@ -34,6 +36,7 @@ export default function AdminBookings({
   const { courtName, courtTitle, locale, t } = useI18n()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('active')
+  const [editingBooking, setEditingBooking] = useState(null)
 
   const applyPreset = (days) => {
     const today = new Date()
@@ -132,6 +135,20 @@ export default function AdminBookings({
         }}
       />
 
+      {editingBooking && (
+        <AdminRescheduleModal
+          booking={editingBooking}
+          busy={scheduleBusy}
+          onClose={() => setEditingBooking(null)}
+          onSubmit={onReschedule}
+          onMoved={(date, bookingId) => {
+            setEditingBooking(null)
+            onRangeChange({ start: date, end: date })
+            window.setTimeout(() => document.querySelector(`[data-booking-id="${bookingId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80)
+          }}
+        />
+      )}
+
       {loading ? (
         <div className="board-loading"><RefreshCw className="spin" /> {t('admin.loading')}</div>
       ) : filteredBookings.length === 0 ? (
@@ -153,7 +170,7 @@ export default function AdminBookings({
                   const court = COURTS.find((item) => item.id === booking.court_id) || COURTS[0]
                   const minutes = durationMinutes(booking)
                   return (
-                    <article className="admin-booking-row" key={booking.id}>
+                    <article className="admin-booking-row" data-booking-id={booking.id} key={booking.id}>
                       <div className="admin-booking-time">
                         <Clock3 size={16} />
                         <strong>{timeFromDateTime(booking.start_at)}</strong>
@@ -174,15 +191,24 @@ export default function AdminBookings({
                         <span>{t(`payment.${booking.payment_status}`)}</span>
                         <strong>{formatMoney(booking.total_amount || 0, locale)}</strong>
                         {['held', 'confirmed'].includes(booking.status) && (
-                          <button
-                            className="admin-cancel-booking"
-                            onClick={() => onCancel(booking)}
-                            disabled={Boolean(cancellingId)}
-                          >
-                            {cancellingId === booking.id
-                              ? <><RefreshCw size={13} className="spin" /> {t('admin.cancelling')}</>
-                              : <><Trash2 size={13} /> {t('admin.cancel')}</>}
-                          </button>
+                          <div className="admin-booking-actions">
+                            <button
+                              className="admin-reschedule-booking"
+                              onClick={() => setEditingBooking(booking)}
+                              disabled={scheduleBusy || Boolean(cancellingId)}
+                            >
+                              <CalendarClock size={13} /> {t('admin.reschedule')}
+                            </button>
+                            <button
+                              className="admin-cancel-booking"
+                              onClick={() => onCancel(booking)}
+                              disabled={Boolean(cancellingId)}
+                            >
+                              {cancellingId === booking.id
+                                ? <><RefreshCw size={13} className="spin" /> {t('admin.cancelling')}</>
+                                : <><Trash2 size={13} /> {t('admin.cancel')}</>}
+                            </button>
+                          </div>
                         )}
                       </div>
                     </article>

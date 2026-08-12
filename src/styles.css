@@ -281,9 +281,13 @@ a { color: inherit; text-decoration: none; }
 .admin-booking-details { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 9px; color: var(--ink-soft); font-size: 9px; }
 .admin-booking-details > span:not(.status-pill) { display: flex; align-items: center; white-space: nowrap; }
 .admin-booking-details > strong { color: var(--ink); font: 17px/1 "Songti SC", serif; }
-.admin-cancel-booking { grid-column: 1/-1; width: max-content; margin: 2px 0 0 auto; padding: 5px 0; display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--red-dark); cursor: pointer; font-size: 9px; text-decoration: underline; text-underline-offset: 3px; }
+.admin-booking-actions { grid-column: 1/-1; margin: 2px 0 0 auto; display: flex; align-items: center; gap: 15px; }
+.admin-booking-actions button { width: max-content; padding: 5px 0; display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; cursor: pointer; font-size: 9px; text-decoration: underline; text-underline-offset: 3px; }
+.admin-reschedule-booking { color: var(--ink); }
+.admin-reschedule-booking:hover { color: var(--red); }
+.admin-cancel-booking { color: var(--red-dark); }
 .admin-cancel-booking:hover { color: var(--red); }
-.admin-cancel-booking:disabled { opacity: .45; cursor: wait; }
+.admin-booking-actions button:disabled { opacity: .45; cursor: wait; }
 .admin-schedule-editor { margin: 42px 0 55px; border: 1px solid var(--line); background: rgba(255,255,255,.28); box-shadow: 0 22px 58px rgba(40,38,32,.06); }
 .admin-schedule-editor > header { min-height: 128px; padding: 25px 28px; display: flex; justify-content: space-between; align-items: center; gap: 25px; border-bottom: 1px solid var(--line); }
 .admin-schedule-editor h2 { margin: 8px 0 7px; font: 32px/1.1 "Songti SC", serif; }
@@ -294,6 +298,16 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-date label { min-width: 185px; padding: 10px 12px; display: grid; text-align: center; border-inline: 1px solid var(--line); }
 .admin-schedule-date strong { font: 15px/1.2 "Songti SC", serif; }
 .admin-schedule-date input { margin-top: 5px; border: 0; background: transparent; color: var(--ink-soft); font-size: 9px; text-align: center; }
+.admin-schedule-day-strip { padding: 12px 18px; display: grid; grid-template-columns: repeat(7,1fr); gap: 7px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.2); }
+.admin-schedule-day-strip button { min-width: 0; min-height: 54px; padding: 8px 5px; display: grid; place-items: center; gap: 4px; border: 1px solid var(--line); background: rgba(255,255,255,.42); color: var(--ink); cursor: pointer; }
+.admin-schedule-day-strip button:hover, .admin-schedule-day-strip button:focus-visible { border-color: var(--red); outline: 0; }
+.admin-schedule-day-strip button.active { color: white; border-color: var(--ink); background: var(--ink); }
+.admin-schedule-day-strip small { color: inherit; opacity: .7; font-size: 8px; }
+.admin-schedule-day-strip strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.admin-schedule-transfer { min-height: 46px; padding: 9px 20px; display: flex; align-items: center; gap: 8px; color: white; background: var(--red-dark); font-size: 9px; }
+.admin-schedule-transfer strong { font-size: 11px; }
+.admin-schedule-transfer span { opacity: .75; }
+.admin-schedule-transfer button { margin-left: auto; padding: 6px 9px; border: 1px solid rgba(255,255,255,.35); background: transparent; color: white; cursor: pointer; font-size: 8px; }
 .admin-schedule-hint { min-height: 42px; padding: 0 22px; display: flex; align-items: center; gap: 7px; border-bottom: 1px solid var(--line); color: var(--ink-soft); font-size: 9px; }
 .admin-schedule-hint span { margin-left: auto; display: flex; align-items: center; gap: 7px; }
 .admin-schedule-scroll { overflow-x: auto; }
@@ -331,6 +345,17 @@ a { color: inherit; text-decoration: none; }
 .admin-create-fields span { color: var(--ink-soft); font-size: 9px; }
 .admin-create-fields input, .admin-create-fields select { min-height: 42px; padding: 0 11px; border: 1px solid var(--line); background: rgba(255,255,255,.72); color: var(--ink); outline: 0; }
 .admin-create-modal > .primary-button { width: 100%; margin-top: 18px; }
+.admin-reschedule-modal { position: relative; width: min(560px,calc(100vw - 28px)); padding: 34px; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: modalIn .22s ease; }
+.admin-reschedule-modal h2 { margin: 9px 0 8px; font: 31px/1.1 "Songti SC",serif; }
+.admin-reschedule-modal > p { margin: 0 0 18px; color: var(--ink-soft); font-size: 10px; }
+.admin-reschedule-current { min-height: 44px; margin-bottom: 17px; padding: 10px 12px; display: flex; align-items: center; gap: 9px; border-left: 3px solid var(--ink); background: rgba(34,36,33,.055); color: var(--ink-soft); font-size: 9px; }
+.admin-reschedule-current strong { color: var(--ink); }
+.admin-reschedule-current svg:last-child { margin-left: auto; color: var(--red); }
+.admin-reschedule-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+.admin-reschedule-fields label { display: grid; gap: 6px; }
+.admin-reschedule-fields span { color: var(--ink-soft); font-size: 9px; }
+.admin-reschedule-fields input, .admin-reschedule-fields select { min-height: 42px; padding: 0 11px; border: 1px solid var(--line); background: rgba(255,255,255,.72); color: var(--ink); outline: 0; }
+.admin-reschedule-modal > .primary-button { width: 100%; margin-top: 18px; }
 .private-login-shell { min-height: 100vh; display: grid; place-items: center; background: var(--paper); }
 .private-login-brand { position: fixed; top: 28px; left: 34px; display: flex; align-items: center; gap: 10px; }
 .private-login-brand > span { width: 39px; height: 39px; display: grid; place-items: center; color: white; background: var(--ink); font: 21px/1 "Songti SC",serif; }
@@ -375,9 +400,12 @@ footer small { text-align: right; }
   .admin-schedule-editor h2 { font-size: 28px; }
   .admin-schedule-date { width: 100%; }
   .admin-schedule-date label { min-width: 0; flex: 1; }
+  .admin-schedule-day-strip { overflow-x: auto; grid-template-columns: repeat(7,112px); padding-inline: 12px; }
+  .admin-schedule-transfer { align-items: flex-start; flex-wrap: wrap; }
+  .admin-schedule-transfer button { margin-left: auto; }
   .admin-schedule-grid { min-width: 890px; }
-  .admin-create-modal { padding: 29px 20px; }
-  .admin-create-fields { grid-template-columns: 1fr; }
+  .admin-create-modal, .admin-reschedule-modal { padding: 29px 20px; }
+  .admin-create-fields, .admin-reschedule-fields { grid-template-columns: 1fr; }
   .admin-create-fields label { grid-column: 1/-1; }
   .private-login-brand { top: 18px; left: 18px; }
 }

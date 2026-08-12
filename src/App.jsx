@@ -354,14 +354,14 @@ export default function App() {
     const endAt = addMinutes(startAt, duration)
     if (endAt.slice(11, 16) > '22:00') {
       notify(t('errors.outsideHours'), 'error')
-      return
+      return false
     }
     if (!isSupabaseConfigured) {
       const update = (item) => item.id === booking.id ? { ...item, court_id: court.id, start_at: startAt, end_at: endAt } : item
       setAdminBookings((current) => current.map(update).sort((a, b) => a.start_at.localeCompare(b.start_at)))
       setSchedule((current) => current.map(update))
       notify(t('success.adminReschedule', { name: booking.customer_name }))
-      return
+      return true
     }
     setAdminScheduleBusy(true)
     const { error } = await supabase.rpc('admin_reschedule_booking', {
@@ -373,10 +373,11 @@ export default function App() {
     setAdminScheduleBusy(false)
     if (error) {
       notify(t(error.message.includes('already booked') ? 'errors.slotTaken' : 'errors.adminReschedule'), 'error')
-      return
+      return false
     }
     notify(t('success.adminReschedule', { name: booking.customer_name }))
     await Promise.all([fetchAdminBookings(), fetchSchedule()])
+    return true
   }
 
   const loginByEmail = async (email) => {
