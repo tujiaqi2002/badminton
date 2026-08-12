@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  Trash2,
   UserRound,
   UsersRound,
 } from 'lucide-react'
@@ -47,6 +48,8 @@ export default function AdminBookings({
   endDate,
   onRangeChange,
   onRefresh,
+  onCancel,
+  cancellingId,
 }) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('active')
@@ -171,6 +174,17 @@ export default function AdminBookings({
                         <span><UsersRound size={14} /> {booking.party_size} 人</span>
                         <span>{PAYMENT_LABELS[booking.payment_status] || booking.payment_status}</span>
                         <strong>{formatMoney(booking.total_amount || 0)}</strong>
+                        {['held', 'confirmed'].includes(booking.status) && (
+                          <button
+                            className="admin-cancel-booking"
+                            onClick={() => onCancel(booking)}
+                            disabled={Boolean(cancellingId)}
+                          >
+                            {cancellingId === booking.id
+                              ? <><RefreshCw size={13} className="spin" /> 取消中</>
+                              : <><Trash2 size={13} /> 取消预订</>}
+                          </button>
+                        )}
                       </div>
                     </article>
                   )

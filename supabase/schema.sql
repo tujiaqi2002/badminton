@@ -3,6 +3,8 @@
 
 create extension if not exists pgcrypto;
 create extension if not exists btree_gist;
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
 
 do $$ begin
   create type public.booking_status as enum ('held', 'confirmed', 'cancelled', 'completed', 'expired', 'no_show');
@@ -125,6 +127,20 @@ create index if not exists bookings_court_start_idx on public.bookings (court_id
 create index if not exists bookings_admin_start_idx on public.bookings (start_at desc, id);
 create index if not exists bookings_held_expiry_idx on public.bookings (hold_expires_at)
 where status = 'held';
+
+-- 馆长操作日志不对客户端开放，由受控数据库函数写入。
+create table if not exists private.booking_admin_actions (
+  id bigint generated always as identity primary key,
+  booking_id uuid not null references public.bookings(id) on delete restrict,
+  actor_id uuid references auth.users(id) on delete set null,
+  action text not null check (action in ('cancelled')),
+  previous_status public.booking_status not null,
+  new_status public.booking_status not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists booking_admin_actions_booking_created_idx
+on private.booking_admin_actions (booking_id, created_at desc);
 
 -- 公开实时表只含占用信息，不含 user_id，避免实时看板泄露用户身份。
 create table if not exists public.court_slots (
@@ -276,16 +292,77 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
-declare v_booking public.bookings;
+declare
+  v_user_id uuid := auth.uid();
+  v_booking public.bookings;
 begin
+  if v_user_id is null then raise exception 'Authentication required'; end if;
+
+  select *
+    into v_booking
+    from public.bookings
+   where id = p_booking_id
+     and user_id = v_user_id
+   for update;
+
+  if v_booking.id is null then raise exception 'Booking not found or it does not belong to you'; end if;
+  if v_booking.status not in ('held', 'confirmed') then raise exception 'Booking is no longer active'; end if;
+  if v_booking.start_at <= timezone('America/Toronto', now()) + interval '12 hours' then
+    raise exception 'Booking cannot be cancelled within 12 hours of start time';
+  end if;
+
   update public.bookings
      set status = 'cancelled', cancelled_at = now()
    where id = p_booking_id
-     and user_id = auth.uid()
-     and status in ('held', 'confirmed')
-     and start_at > timezone('America/Toronto', now()) + interval '12 hours'
   returning * into v_booking;
-  if v_booking.id is null then raise exception 'Booking cannot be cancelled within 12 hours of start time'; end if;
+
+  return v_booking;
+end;
+$$;
+
+create or replace function public.admin_cancel_booking(p_booking_id uuid)
+returns public.bookings
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor_id uuid := auth.uid();
+  v_booking public.bookings;
+  v_previous_status public.booking_status;
+begin
+  if v_actor_id is null then raise exception 'Authentication required'; end if;
+  if not exists (
+    select 1
+    from public.staff_members as staff
+    where staff.user_id = v_actor_id
+      and staff.role = 'admin'
+  ) then
+    raise exception 'Manager access required';
+  end if;
+
+  select *
+    into v_booking
+    from public.bookings
+   where id = p_booking_id
+   for update;
+
+  if v_booking.id is null then raise exception 'Booking not found'; end if;
+  if v_booking.status not in ('held', 'confirmed') then raise exception 'Booking is no longer active'; end if;
+
+  v_previous_status := v_booking.status;
+
+  update public.bookings
+     set status = 'cancelled', cancelled_at = now()
+   where id = p_booking_id
+  returning * into v_booking;
+
+  insert into private.booking_admin_actions (
+    booking_id, actor_id, action, previous_status, new_status
+  ) values (
+    v_booking.id, v_actor_id, 'cancelled', v_previous_status, v_booking.status
+  );
+
   return v_booking;
 end;
 $$;
@@ -294,6 +371,7 @@ alter table public.courts enable row level security;
 alter table public.profiles enable row level security;
 alter table public.staff_members enable row level security;
 alter table public.bookings enable row level security;
+alter table private.booking_admin_actions enable row level security;
 alter table public.court_slots enable row level security;
 
 drop policy if exists "courts are public" on public.courts;
@@ -339,6 +417,7 @@ using (
 );
 
 revoke all on public.courts, public.profiles, public.staff_members, public.bookings, public.court_slots from anon, authenticated;
+revoke all on private.booking_admin_actions from public, anon, authenticated;
 grant usage on schema public to anon, authenticated;
 grant select on public.courts, public.court_slots to anon, authenticated;
 grant select on public.bookings to authenticated;
@@ -350,8 +429,10 @@ revoke execute on function public.handle_new_user() from PUBLIC, anon, authentic
 revoke execute on function public.sync_public_court_slot() from PUBLIC, anon, authenticated;
 revoke execute on function public.create_booking(uuid, timestamp, timestamp, smallint, public.payment_method) from PUBLIC, anon, authenticated;
 revoke execute on function public.cancel_booking(uuid) from PUBLIC, anon, authenticated;
+revoke execute on function public.admin_cancel_booking(uuid) from PUBLIC, anon, authenticated;
 grant execute on function public.create_booking(uuid, timestamp, timestamp, smallint, public.payment_method) to authenticated;
 grant execute on function public.cancel_booking(uuid) to authenticated;
+grant execute on function public.admin_cancel_booking(uuid) to authenticated;
 
 alter table public.court_slots replica identity full;
 do $$ begin
