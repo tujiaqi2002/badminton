@@ -7,6 +7,7 @@ const THEME_COLOURS = {
   sport: '#f5c400',
   focus: '#dededb',
   banner: '#d6a20a',
+  colorfocus: '#f3f0e9',
 }
 
 const getInitialTheme = () => {

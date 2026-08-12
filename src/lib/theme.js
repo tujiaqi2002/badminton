@@ -6,6 +6,7 @@ export const THEMES = [
   { id: 'sport', number: '03', nameKey: 'theme.sport.name', noteKey: 'theme.sport.note' },
   { id: 'focus', number: '04', nameKey: 'theme.focus.name', noteKey: 'theme.focus.note', heroKey: 'hero.focus' },
   { id: 'banner', number: '05', nameKey: 'theme.banner.name', noteKey: 'theme.banner.note', heroKey: 'hero.banner' },
+  { id: 'colorfocus', number: '06', nameKey: 'theme.colorfocus.name', noteKey: 'theme.colorfocus.note', heroKey: 'hero.focus' },
 ]
 
 export const ThemeContext = createContext(null)
