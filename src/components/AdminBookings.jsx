@@ -130,6 +130,7 @@ export default function AdminBookings({
         busy={scheduleBusy}
         onCreate={onCreate}
         onReschedule={onReschedule}
+        onCancel={onCancel}
         onDateChange={(date) => {
           if (date < startDate || date > endDate) onRangeChange({ start: date, end: date })
         }}

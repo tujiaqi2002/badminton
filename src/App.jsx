@@ -299,6 +299,13 @@ export default function App() {
     })
     if (!window.confirm(t('confirm.adminCancel', { name: booking.customer_name, label: bookingLabel }))) return
 
+    if (!isSupabaseConfigured) {
+      setAdminBookings((current) => current.map((item) => item.id === booking.id ? { ...item, status: 'cancelled' } : item))
+      setSchedule((current) => current.filter((item) => item.id !== booking.id))
+      notify(t('success.adminCancel'))
+      return
+    }
+
     setAdminCancellingId(booking.id)
     const { error } = await supabase.rpc('admin_cancel_booking', { p_booking_id: booking.id })
     setAdminCancellingId(null)
@@ -415,7 +422,7 @@ export default function App() {
   }
 
   const signOut = async () => {
-    if (isSupabaseConfigured) await supabase.auth.signOut()
+    if (isSupabaseConfigured && user?.id !== 'demo-user') await supabase.auth.signOut()
     setUser(null)
     setIsAdmin(false)
     setAdminAccessReady(true)
