@@ -32,6 +32,7 @@ export default function AdminBookings({
   scheduleBusy,
   onCreate,
   onReschedule,
+  onUpdateDetails,
 }) {
   const { courtName, courtTitle, locale, t } = useI18n()
   const [query, setQuery] = useState('')
@@ -132,6 +133,7 @@ export default function AdminBookings({
         busy={scheduleBusy}
         onCreate={onCreate}
         onReschedule={onReschedule}
+        onUpdateDetails={onUpdateDetails}
         onCancel={onCancel}
         onDateChange={(date) => {
           if (date < startDate || date > endDate) onRangeChange({ start: date, end: date })

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Trash2, X } from 'lucide-react'
+import { CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Pencil, Save, Trash2, X } from 'lucide-react'
 import { addDays, COURTS, timeFromDateTime, toDateKey } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
@@ -45,9 +45,10 @@ function NewBookingModal({ draft, busy, onClose, onSubmit }) {
   )
 }
 
-export default function AdminSchedule({ bookings, initialDate, busy, onCreate, onReschedule, onCancel, onDateChange }) {
+export default function AdminSchedule({ bookings, initialDate, busy, onCreate, onReschedule, onCancel, onUpdateDetails, onDateChange }) {
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
+  const [weekStart, setWeekStart] = useState(initialDate)
   const [draggedId, setDraggedId] = useState(null)
   const [dragPreview, setDragPreview] = useState(null)
   const [cancelArmed, setCancelArmed] = useState(false)
@@ -55,10 +56,18 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   const [pointerDrag, setPointerDrag] = useState(null)
   const [selectedBooking, setSelectedBooking] = useState(null)
   const [draft, setDraft] = useState(null)
+  const [editingDetails, setEditingDetails] = useState(false)
+  const [detailsForm, setDetailsForm] = useState({ email: '', phone: '', notes: '' })
   const pointerMoved = useRef(false)
   const pointerTarget = useRef(null)
 
-  useEffect(() => setDateKey(initialDate), [initialDate])
+  useEffect(() => {
+    setDateKey(initialDate)
+    setWeekStart((current) => {
+      const end = toDateKey(addDays(new Date(`${current}T12:00:00`), 6))
+      return initialDate < current || initialDate > end ? initialDate : current
+    })
+  }, [initialDate])
 
   const dayBookings = useMemo(() => bookings.filter((booking) => (
     booking.start_at.startsWith(dateKey) && ['held', 'confirmed'].includes(booking.status)
@@ -69,19 +78,36 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   const draggedBooking = bookings.find((booking) => booking.id === draggedId)
   const activeSelection = selectedBooking && (bookings.find((booking) => booking.id === selectedBooking.id) || selectedBooking)
   const quickDays = useMemo(() => Array.from({ length: 7 }, (_, index) => {
-    const date = addDays(new Date(`${dateKey}T12:00:00`), index)
+    const date = addDays(new Date(`${weekStart}T12:00:00`), index)
     return {
       key: toDateKey(date),
       weekday: new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(date),
       day: new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(date),
     }
-  }), [dateKey, locale])
+  }), [weekStart, locale])
+
+  useEffect(() => {
+    if (!activeSelection) {
+      setEditingDetails(false)
+      return
+    }
+    setDetailsForm({
+      email: activeSelection.customer_email || '',
+      phone: activeSelection.customer_phone || '',
+      notes: activeSelection.customer_notes || '',
+    })
+    setEditingDetails(false)
+  }, [activeSelection])
 
   const selectDate = (next) => {
     setDateKey(next)
     onDateChange(next)
   }
-  const moveWeek = (amount) => selectDate(toDateKey(addDays(new Date(`${dateKey}T12:00:00`), amount * 7)))
+  const moveWeek = (amount) => {
+    const next = toDateKey(addDays(new Date(`${weekStart}T12:00:00`), amount * 7))
+    setWeekStart(next)
+    selectDate(next)
+  }
 
   const finishDrag = () => {
     setDraggedId(null)
@@ -207,14 +233,14 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
 
       <div className="admin-schedule-day-strip" aria-label={t('admin.schedule.quickDays')}>
         <button className="week-nav" onClick={() => moveWeek(-1)} aria-label={t('admin.schedule.previousWeek')}><ChevronLeft size={18} /><small>{t('admin.schedule.previousWeekShort')}</small></button>
-        {quickDays.map((day, index) => (
+        {quickDays.map((day) => (
           <button
-            className={`${index === 0 ? 'active' : ''} ${dragDay === day.key ? 'drop-target' : ''}`}
+            className={`${dateKey === day.key ? 'active' : ''} ${dragDay === day.key ? 'drop-target' : ''}`}
             data-transfer-date={day.key}
             key={day.key}
             onClick={() => chooseTransferDay(day.key, null)}
           >
-            <small>{index === 0 ? t('admin.schedule.currentDay') : day.weekday}</small>
+            <small>{dateKey === day.key ? t('admin.schedule.selectedDay') : day.weekday}</small>
             <strong>{day.day}</strong>
           </button>
         ))}
@@ -227,14 +253,28 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
               <span>{t('admin.schedule.bookingDetails')}</span>
               <strong>{activeSelection.customer_name}</strong>
               <span className={`status-pill ${activeSelection.status}`}>{t(`status.${activeSelection.status}`)}</span>
+              {!editingDetails && <button className="admin-inspector-edit" onClick={() => setEditingDetails(true)}><Pencil size={12} /> {t('admin.schedule.editDetails')}</button>}
             </div>
-            <dl>
-              <div><dt>{t('admin.schedule.courtTime')}</dt><dd>{courtTitle(COURTS.find((court) => court.id === activeSelection.court_id) || COURTS[0])} · {activeSelection.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(activeSelection.start_at)}–{timeFromDateTime(activeSelection.end_at)}</dd></div>
-              <div><dt>{t('admin.schedule.bookedAt')}</dt><dd>{activeSelection.created_at ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activeSelection.created_at)) : t('admin.schedule.notRecorded')}</dd></div>
-              <div><dt>{t('admin.schedule.contact')}</dt><dd>{activeSelection.customer_email || t('admin.schedule.notProvided')} · {activeSelection.customer_phone || t('admin.schedule.notProvided')}</dd></div>
-              <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd>{t('admin.people', { count: activeSelection.party_size })} · {t(`payment.${activeSelection.payment_status}`)}</dd></div>
-              <div className="notes"><dt>{t('admin.schedule.customerNotes')}</dt><dd>{activeSelection.customer_notes || t('admin.schedule.noNotes')}</dd></div>
-            </dl>
+            {editingDetails ? (
+              <form className="admin-inspector-form" onSubmit={async (event) => {
+                event.preventDefault()
+                const saved = await onUpdateDetails(activeSelection, detailsForm)
+                if (saved) setEditingDetails(false)
+              }}>
+                <label><span>{t('admin.schedule.customerEmailOptional')}</span><input type="email" maxLength="320" value={detailsForm.email} onChange={(event) => setDetailsForm((current) => ({ ...current, email: event.target.value }))} /></label>
+                <label><span>{t('admin.schedule.customerPhoneOptional')}</span><input type="tel" maxLength="40" value={detailsForm.phone} onChange={(event) => setDetailsForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+                <label className="notes"><span>{t('admin.schedule.customerNotesOptional')}</span><textarea maxLength="2000" rows="2" value={detailsForm.notes} onChange={(event) => setDetailsForm((current) => ({ ...current, notes: event.target.value }))} /></label>
+                <div className="admin-inspector-form-actions"><button type="button" onClick={() => setEditingDetails(false)}>{t('admin.schedule.discardDetails')}</button><button className="save" disabled={busy}><Save size={12} /> {busy ? t('admin.schedule.saving') : t('admin.schedule.saveDetails')}</button></div>
+              </form>
+            ) : (
+              <dl>
+                <div><dt>{t('admin.schedule.courtTime')}</dt><dd>{courtTitle(COURTS.find((court) => court.id === activeSelection.court_id) || COURTS[0])} · {activeSelection.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(activeSelection.start_at)}–{timeFromDateTime(activeSelection.end_at)}</dd></div>
+                <div><dt>{t('admin.schedule.bookedAt')}</dt><dd>{activeSelection.created_at ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activeSelection.created_at)) : t('admin.schedule.notRecorded')}</dd></div>
+                <div><dt>{t('admin.schedule.contact')}</dt><dd>{activeSelection.customer_email || t('admin.schedule.notProvided')} · {activeSelection.customer_phone || t('admin.schedule.notProvided')}</dd></div>
+                <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd>{t('admin.people', { count: activeSelection.party_size })} · {t(`payment.${activeSelection.payment_status}`)}</dd></div>
+                <div className="notes"><dt>{t('admin.schedule.customerNotes')}</dt><dd>{activeSelection.customer_notes || t('admin.schedule.noNotes')}</dd></div>
+              </dl>
+            )}
           </>
         ) : (
           <div className="admin-inspector-empty"><strong>{t('admin.schedule.noSelectionTitle')}</strong><span>{t('admin.schedule.noSelectionText')}</span></div>
