@@ -7,10 +7,18 @@ import BookingDrawer from './components/BookingDrawer'
 import DateStrip from './components/DateStrip'
 import Header from './components/Header'
 import MyBookings from './components/MyBookings'
-import { addDays, addMinutes, demoSchedule, overlaps, slotDateTime, toDateKey } from './lib/booking'
+import { addDays, addMinutes, COURTS, demoSchedule, overlaps, slotDateTime, toDateKey } from './lib/booking'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
 
 const todayKey = () => toDateKey(new Date())
+const cancellationErrorMessage = (message = '') => {
+  if (message.includes('within 12 hours')) return '开场前 12 小时内不能取消预订'
+  if (message.includes('does not belong to you')) return '找不到该预订，或它不属于当前账号'
+  if (message.includes('no longer active')) return '该预订已经取消或结束'
+  if (message.includes('Manager access required')) return '当前账号没有馆长权限'
+  if (message.includes('Booking not found')) return '找不到这笔预订，请刷新后重试'
+  return '取消失败，请稍后重试'
+}
 
 export default function App() {
   const [view, setView] = useState('book')
@@ -29,6 +37,7 @@ export default function App() {
   const [loadingSchedule, setLoadingSchedule] = useState(false)
   const [loadingBookings, setLoadingBookings] = useState(false)
   const [loadingAdminBookings, setLoadingAdminBookings] = useState(false)
+  const [adminCancellingId, setAdminCancellingId] = useState(null)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState(null)
 
@@ -62,7 +71,11 @@ export default function App() {
     if (!user) return setBookings([])
     if (!isSupabaseConfigured) return
     setLoadingBookings(true)
-    const { data, error } = await supabase.from('bookings').select('*').order('start_at', { ascending: false })
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('start_at', { ascending: false })
     setLoadingBookings(false)
     if (error) notify('无法读取个人预订', 'error')
     else setBookings(data || [])
@@ -235,8 +248,25 @@ export default function App() {
       return
     }
     const { error } = await supabase.rpc('cancel_booking', { p_booking_id: booking.id })
-    if (error) notify(error.message, 'error')
+    if (error) notify(cancellationErrorMessage(error.message), 'error')
     else { notify('预订已取消'); await Promise.all([fetchSchedule(), fetchBookings()]) }
+  }
+
+  const adminCancelBooking = async (booking) => {
+    const court = booking.court_id && COURTS.find((item) => item.id === booking.court_id)
+    const bookingLabel = `${booking.start_at.slice(0, 10)} ${court?.name || ''}场 ${booking.start_at.slice(11, 16)}—${booking.end_at.slice(11, 16)}`
+    if (!window.confirm(`确定以馆长身份取消 ${booking.customer_name} 的预订吗？\n${bookingLabel}`)) return
+
+    setAdminCancellingId(booking.id)
+    const { error } = await supabase.rpc('admin_cancel_booking', { p_booking_id: booking.id })
+    setAdminCancellingId(null)
+    if (error) {
+      notify(cancellationErrorMessage(error.message), 'error')
+      return
+    }
+
+    notify('客户预订已由馆长取消')
+    await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchBookings()])
   }
 
   const loginByEmail = async (email) => {
@@ -310,6 +340,8 @@ export default function App() {
           endDate={adminRange.end}
           onRangeChange={setAdminRange}
           onRefresh={fetchAdminBookings}
+          onCancel={adminCancelBooking}
+          cancellingId={adminCancellingId}
         />
       ) : (
         <MyBookings user={user} bookings={bookings} loading={loadingBookings} onLogin={() => setShowAuth(true)} onCancel={cancelBooking} />

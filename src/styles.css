@@ -242,6 +242,9 @@ a { color: inherit; text-decoration: none; }
 .admin-booking-details { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 9px; color: var(--ink-soft); font-size: 9px; }
 .admin-booking-details > span:not(.status-pill) { display: flex; align-items: center; white-space: nowrap; }
 .admin-booking-details > strong { color: var(--ink); font: 17px/1 "Songti SC", serif; }
+.admin-cancel-booking { grid-column: 1/-1; width: max-content; margin: 2px 0 0 auto; padding: 5px 0; display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--red-dark); cursor: pointer; font-size: 9px; text-decoration: underline; text-underline-offset: 3px; }
+.admin-cancel-booking:hover { color: var(--red); }
+.admin-cancel-booking:disabled { opacity: .45; cursor: wait; }
 .status-pill.cancelled, .status-pill.expired, .status-pill.no_show { color: var(--ink-soft); background: rgba(34,36,33,.07); }
 .status-pill.completed { color: #315c3f; background: rgba(49,92,63,.08); }
 
