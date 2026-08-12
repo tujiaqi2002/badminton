@@ -20,6 +20,7 @@ exception when duplicate_object then null; end $$;
 
 create table if not exists public.courts (
   id uuid primary key default gen_random_uuid(),
+  booking_group_id uuid not null default gen_random_uuid(),
   name_zh text not null unique,
   name_en text not null,
   description text,
@@ -30,11 +31,11 @@ create table if not exists public.courts (
 
 insert into public.courts (id, name_zh, name_en, description, sort_order)
 values
-  ('10000000-0000-0000-0000-000000000001', '风', 'Wind', '轻盈迅捷', 1),
-  ('10000000-0000-0000-0000-000000000002', '林', 'Forest', '沉静专注', 2),
-  ('10000000-0000-0000-0000-000000000003', '火', 'Fire', '热烈竞技', 3),
-  ('10000000-0000-0000-0000-000000000004', '山', 'Mountain', '稳定从容', 4),
-  ('10000000-0000-0000-0000-000000000005', '雷', 'Thunder', '果决凌厉', 5)
+  ('10000000-0000-0000-0000-000000000001', '一', 'Court 1', '一号场地', 1),
+  ('10000000-0000-0000-0000-000000000002', '二', 'Court 2', '二号场地', 2),
+  ('10000000-0000-0000-0000-000000000003', '三', 'Court 3', '三号场地', 3),
+  ('10000000-0000-0000-0000-000000000004', '四', 'Court 4', '四号场地', 4),
+  ('10000000-0000-0000-0000-000000000005', '五', 'Court 5', '五号场地', 5)
 on conflict (id) do update set
   name_zh = excluded.name_zh,
   name_en = excluded.name_en,
@@ -80,8 +81,7 @@ create table if not exists public.bookings (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint valid_booking_interval check (end_at > start_at),
-  constraint valid_booking_duration check (end_at <= start_at + interval '4 hours'),
-  constraint same_booking_day check (start_at::date = end_at::date)
+  constraint valid_booking_duration check (end_at <= start_at + interval '4 hours')
 );
 
 -- 为已经存在的项目补齐客户快照列；姓名与邮箱来自受信任的 Auth 数据。
@@ -89,6 +89,11 @@ alter table public.bookings add column if not exists customer_name text;
 alter table public.bookings add column if not exists customer_email text;
 alter table public.bookings add column if not exists customer_phone text;
 alter table public.bookings add column if not exists customer_notes text;
+alter table public.bookings add column if not exists booking_group_id uuid;
+update public.bookings set booking_group_id = id where booking_group_id is null;
+alter table public.bookings alter column booking_group_id set default gen_random_uuid();
+alter table public.bookings alter column booking_group_id set not null;
+alter table public.bookings drop constraint if exists same_booking_day;
 
 update public.bookings as booking
 set
@@ -128,6 +133,7 @@ $$;
 create index if not exists bookings_user_start_idx on public.bookings (user_id, start_at desc);
 create index if not exists bookings_court_start_idx on public.bookings (court_id, start_at);
 create index if not exists bookings_admin_start_idx on public.bookings (start_at desc, id);
+create index if not exists bookings_group_idx on public.bookings (booking_group_id, start_at);
 create index if not exists bookings_held_expiry_idx on public.bookings (hold_expires_at)
 where status = 'held';
 
@@ -136,7 +142,8 @@ create table if not exists private.booking_admin_actions (
   id bigint generated always as identity primary key,
   booking_id uuid not null references public.bookings(id) on delete restrict,
   actor_id uuid references auth.users(id) on delete set null,
-  action text not null check (action in ('cancelled', 'created', 'rescheduled', 'details_updated')),
+  action text not null check (action in ('cancelled', 'created', 'rescheduled', 'details_updated', 'undone')),
+  operation_id uuid not null default gen_random_uuid(),
   previous_status public.booking_status not null,
   new_status public.booking_status not null,
   previous_court_id uuid references public.courts(id),
@@ -150,7 +157,8 @@ create table if not exists private.booking_admin_actions (
 
 alter table private.booking_admin_actions drop constraint if exists booking_admin_actions_action_check;
 alter table private.booking_admin_actions add constraint booking_admin_actions_action_check
-check (action in ('cancelled', 'created', 'rescheduled'));
+check (action in ('cancelled', 'created', 'rescheduled', 'details_updated', 'undone'));
+alter table private.booking_admin_actions add column if not exists operation_id uuid default gen_random_uuid() not null;
 alter table private.booking_admin_actions add column if not exists previous_court_id uuid references public.courts(id);
 alter table private.booking_admin_actions add column if not exists new_court_id uuid references public.courts(id);
 alter table private.booking_admin_actions add column if not exists previous_start_at timestamp;
@@ -663,6 +671,14 @@ grant execute on function public.admin_cancel_booking(uuid) to authenticated;
 grant execute on function public.admin_create_booking(uuid, timestamp, timestamp, text, text, smallint, text, text) to authenticated;
 grant execute on function public.admin_reschedule_booking(uuid, uuid, timestamp, timestamp) to authenticated;
 grant execute on function public.admin_update_booking_details(uuid, text, text, text) to authenticated;
+
+-- Multi-court booking, group rescheduling, resize and undo functions are maintained in
+-- supabase/migrations/20260812200936_multi_court_schedule_v2.sql. They intentionally
+-- remain transaction-based so a multi-court request succeeds or fails as one unit.
+-- Contiguous multi-court lane shifting is maintained in
+-- supabase/migrations/20260812203238_shift_multi_court_group.sql and its adjacent
+-- shift hardening migration. Legacy single-court RPCs remain compatible through
+-- supabase/migrations/20260812204045_legacy_booking_wrappers_v2.sql.
 
 alter table public.court_slots replica identity full;
 do $$ begin

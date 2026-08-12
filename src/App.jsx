@@ -131,7 +131,7 @@ export default function App() {
     for (let from = 0; ; from += pageSize) {
       const result = await supabase
         .from('bookings')
-        .select('id, user_id, court_id, customer_name, customer_email, customer_phone, customer_notes, start_at, end_at, status, payment_status, payment_method, total_amount, currency, party_size, created_at')
+        .select('id, booking_group_id, user_id, court_id, customer_name, customer_email, customer_phone, customer_notes, start_at, end_at, status, payment_status, payment_method, total_amount, currency, party_size, created_at')
         .gte('start_at', `${adminRange.start}T00:00:00`)
         .lt('start_at', `${endExclusive}T00:00:00`)
         .order('start_at', { ascending: true })
@@ -191,6 +191,7 @@ export default function App() {
   const openSelection = (slot) => {
     setSelection({
       ...slot,
+      courts: [slot.court],
       duration: 60,
       partySize: 2,
       paymentMethod: 'venue',
@@ -207,9 +208,13 @@ export default function App() {
   }, [selection])
 
   const selectionConflicts = selectedInterval && schedule.some(
-    (item) => item.court_id === selection.court.id && overlaps(selectedInterval.start, selectedInterval.end, item.start_at, item.end_at),
+    (item) => (selection.courts || [selection.court]).some((court) => court.id === item.court_id)
+      && overlaps(selectedInterval.start, selectedInterval.end, item.start_at, item.end_at),
   )
-  const selectionOutsideHours = selectedInterval && selectedInterval.end.slice(11, 16) > '22:00'
+  const selectionOutsideHours = selectedInterval && (
+    selectedInterval.start.slice(11, 16) < '10:00'
+    || new Date(selectedInterval.end).getTime() > new Date(`${selection.dateKey}T24:00:00`).getTime()
+  )
   const selectionInvalid = Boolean(selectionConflicts || selectionOutsideHours)
 
   const confirmBooking = async (details) => {
@@ -231,9 +236,10 @@ export default function App() {
     setBusy(true)
 
     if (!isSupabaseConfigured) {
-      const booking = {
-        id: `local-${Date.now()}`,
-        court_id: details.court.id,
+      const groupId = `local-group-${Date.now()}`
+      const created = (details.courts || [details.court]).map((court, index) => ({
+        id: `local-${Date.now()}-${index}`, booking_group_id: groupId,
+        court_id: court.id,
         start_at: startAt,
         end_at: endAt,
         status: 'confirmed',
@@ -243,17 +249,17 @@ export default function App() {
         customer_phone: details.phone,
         customer_notes: details.notes || null,
         created_at: new Date().toISOString(),
-      }
-      setSchedule((current) => [...current, booking])
-      setBookings((current) => [booking, ...current])
+      }))
+      setSchedule((current) => [...current, ...created])
+      setBookings((current) => [...created, ...current])
       setBusy(false)
       setSelection(null)
       notify(t('success.demoBooking'))
       return
     }
 
-    const { data, error } = await supabase.rpc('create_booking', {
-      p_court_id: details.court.id,
+    const { data, error } = await supabase.rpc('create_multi_booking', {
+      p_court_ids: (details.courts || [details.court]).map((court) => court.id),
       p_start_at: startAt,
       p_end_at: endAt,
       p_customer_phone: details.phone,
@@ -270,8 +276,9 @@ export default function App() {
     }
 
     if (details.paymentMethod === 'stripe') {
-      const bookingId = data?.id || data?.[0]?.id
-      const { data: checkout, error: checkoutError } = await supabase.functions.invoke('create-checkout', { body: { bookingId } })
+      const bookingId = data?.[0]?.id || data?.id
+      const bookingIds = Array.isArray(data) ? data.map((item) => item.id) : [bookingId]
+      const { data: checkout, error: checkoutError } = await supabase.functions.invoke('create-checkout', { body: { bookingId, bookingIds } })
       if (checkoutError || !checkout?.url) {
         setBusy(false)
         notify(t('errors.checkout'), 'error')
@@ -332,27 +339,28 @@ export default function App() {
   const adminCreateBooking = async (details) => {
     const startAt = slotDateTime(details.dateKey, details.time)
     const endAt = addMinutes(startAt, details.duration)
-    if (endAt.slice(11, 16) > '22:00') {
+    if (new Date(endAt).getTime() > new Date(`${details.dateKey}T24:00:00`).getTime()) {
       notify(t('errors.outsideHours'), 'error')
       return false
     }
     if (!isSupabaseConfigured) {
-      const booking = {
-        id: `local-admin-${Date.now()}`, user_id: 'demo-user', court_id: details.court.id,
+      const groupId = `local-admin-group-${Date.now()}`
+      const created = (details.courts || [details.court]).map((court, index) => ({
+        id: `local-admin-${Date.now()}-${index}`, booking_group_id: groupId, user_id: 'demo-user', court_id: court.id,
         customer_name: details.name, customer_email: details.email || null, customer_phone: details.phone || null,
         customer_notes: details.notes || null, start_at: startAt, end_at: endAt,
         status: 'confirmed', payment_status: 'pay_at_venue', payment_method: 'venue',
         total_amount: 28 * details.duration / 60, party_size: details.partySize,
         created_at: new Date().toISOString(),
-      }
-      setAdminBookings((current) => [...current, booking].sort((a, b) => a.start_at.localeCompare(b.start_at)))
-      setSchedule((current) => [...current, booking])
+      }))
+      setAdminBookings((current) => [...current, ...created].sort((a, b) => a.start_at.localeCompare(b.start_at)))
+      setSchedule((current) => [...current, ...created])
       notify(t('success.adminCreate'))
       return true
     }
     setAdminScheduleBusy(true)
-    const { error } = await supabase.rpc('admin_create_booking', {
-      p_court_id: details.court.id,
+    const { error } = await supabase.rpc('admin_create_multi_booking', {
+      p_court_ids: (details.courts || [details.court]).map((court) => court.id),
       p_start_at: startAt,
       p_end_at: endAt,
       p_customer_name: details.name,
@@ -374,12 +382,18 @@ export default function App() {
   const adminRescheduleBooking = async (booking, court, time, duration, targetDate) => {
     const startAt = slotDateTime(targetDate, time)
     const endAt = addMinutes(startAt, duration)
-    if (endAt.slice(11, 16) > '22:00') {
+    if (new Date(endAt).getTime() > new Date(`${targetDate}T24:00:00`).getTime()) {
       notify(t('errors.outsideHours'), 'error')
       return false
     }
     if (!isSupabaseConfigured) {
-      const update = (item) => item.id === booking.id ? { ...item, court_id: court.id, start_at: startAt, end_at: endAt } : item
+      const update = (item) => item.id === booking.id ? {
+        ...item,
+        __previous: { court_id: item.court_id, start_at: item.start_at, end_at: item.end_at },
+        court_id: court.id,
+        start_at: startAt,
+        end_at: endAt,
+      } : item
       setAdminBookings((current) => current.map(update).sort((a, b) => a.start_at.localeCompare(b.start_at)))
       setSchedule((current) => current.map(update))
       notify(t('success.adminReschedule', { name: booking.customer_name }))
@@ -398,6 +412,76 @@ export default function App() {
       return false
     }
     notify(t('success.adminReschedule', { name: booking.customer_name }))
+    await Promise.all([fetchAdminBookings(), fetchSchedule()])
+    return true
+  }
+
+  const adminRescheduleBookingGroup = async (booking, time, duration, targetDate, anchorCourt = null) => {
+    const startAt = slotDateTime(targetDate, time)
+    const endAt = addMinutes(startAt, duration)
+    if (new Date(endAt).getTime() > new Date(`${targetDate}T24:00:00`).getTime()) {
+      notify(t('errors.outsideHours'), 'error')
+      return false
+    }
+    const groupId = booking.booking_group_id || booking.id
+    if (!isSupabaseConfigured) {
+      const groupRows = adminBookings.filter((item) => (item.booking_group_id || item.id) === groupId)
+      const sourceIndex = COURTS.findIndex((court) => court.id === booking.court_id)
+      const targetIndex = anchorCourt ? COURTS.findIndex((court) => court.id === anchorCourt.id) : sourceIndex
+      const offset = targetIndex - sourceIndex
+      if (groupRows.some((item) => {
+        const index = COURTS.findIndex((court) => court.id === item.court_id) + offset
+        return index < 0 || index >= COURTS.length
+      })) {
+        notify(t('errors.adminReschedule'), 'error')
+        return false
+      }
+      const update = (item) => {
+        if ((item.booking_group_id || item.id) !== groupId) return item
+        const index = COURTS.findIndex((court) => court.id === item.court_id) + offset
+        return {
+          ...item,
+          __previous: { court_id: item.court_id, start_at: item.start_at, end_at: item.end_at },
+          court_id: COURTS[index].id,
+          start_at: startAt,
+          end_at: endAt,
+        }
+      }
+      setAdminBookings((current) => current.map(update).sort((a, b) => a.start_at.localeCompare(b.start_at)))
+      setSchedule((current) => current.map(update))
+      notify(t('success.adminReschedule', { name: booking.customer_name }))
+      return true
+    }
+    setAdminScheduleBusy(true)
+    const rpc = anchorCourt ? 'admin_move_booking_group' : 'admin_reschedule_booking_group'
+    const payload = { p_booking_id: booking.id, p_start_at: startAt, p_end_at: endAt }
+    if (anchorCourt) payload.p_anchor_court_id = anchorCourt.id
+    const { error } = await supabase.rpc(rpc, payload)
+    setAdminScheduleBusy(false)
+    if (error) { notify(t(error.message.includes('already booked') ? 'errors.slotTaken' : 'errors.adminReschedule'), 'error'); return false }
+    notify(t('success.adminReschedule', { name: booking.customer_name }))
+    await Promise.all([fetchAdminBookings(), fetchSchedule()])
+    return true
+  }
+
+  const adminUndoBookingChange = async (booking) => {
+    if (!isSupabaseConfigured) {
+      const currentBooking = adminBookings.find((item) => item.id === booking.id) || booking
+      const groupId = currentBooking.booking_group_id || currentBooking.id
+      const update = (item) => {
+        if ((item.booking_group_id || item.id) !== groupId || !item.__previous) return item
+        return { ...item, ...item.__previous, __previous: null }
+      }
+      setAdminBookings((current) => current.map(update).sort((a, b) => a.start_at.localeCompare(b.start_at)))
+      setSchedule((current) => current.map(update))
+      notify(t('success.adminUndo'))
+      return true
+    }
+    setAdminScheduleBusy(true)
+    const { error } = await supabase.rpc('admin_undo_booking_change', { p_booking_id: booking.id })
+    setAdminScheduleBusy(false)
+    if (error) { notify(t('errors.adminUndo'), 'error'); return false }
+    notify(t('success.adminUndo'))
     await Promise.all([fetchAdminBookings(), fetchSchedule()])
     return true
   }
@@ -547,6 +631,8 @@ export default function App() {
           scheduleBusy={adminScheduleBusy}
           onCreate={adminCreateBooking}
           onReschedule={adminRescheduleBooking}
+          onRescheduleGroup={adminRescheduleBookingGroup}
+          onUndo={adminUndoBookingChange}
           onUpdateDetails={adminUpdateBookingDetails}
         />
       ) : (

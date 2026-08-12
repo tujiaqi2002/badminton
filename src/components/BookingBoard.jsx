@@ -4,8 +4,8 @@ import { useI18n } from '../lib/i18n'
 
 function isOccupied(schedule, courtId, dateKey, time) {
   const start = slotDateTime(dateKey, time)
-  const endHour = String(Number(time.slice(0, 2)) + 1).padStart(2, '0')
-  const end = slotDateTime(dateKey, `${endHour}:00`)
+  const endHour = Number(time.slice(0, 2)) + 1
+  const end = endHour === 24 ? `${dateKey}T24:00:00` : slotDateTime(dateKey, `${String(endHour).padStart(2, '0')}:00`)
   return schedule.some((item) => item.court_id === courtId && overlaps(start, end, item.start_at, item.end_at))
 }
 

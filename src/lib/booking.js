@@ -1,12 +1,12 @@
 export const COURTS = [
-  { id: '10000000-0000-0000-0000-000000000001', name: '风', english: 'Wind', note: '轻盈迅捷', noteEn: 'Light and agile', tone: 'wind' },
-  { id: '10000000-0000-0000-0000-000000000002', name: '林', english: 'Forest', note: '沉静专注', noteEn: 'Calm and focused', tone: 'forest' },
-  { id: '10000000-0000-0000-0000-000000000003', name: '火', english: 'Fire', note: '热烈竞技', noteEn: 'Bold and competitive', tone: 'fire' },
-  { id: '10000000-0000-0000-0000-000000000004', name: '山', english: 'Mountain', note: '稳定从容', noteEn: 'Steady and composed', tone: 'mountain' },
-  { id: '10000000-0000-0000-0000-000000000005', name: '雷', english: 'Thunder', note: '果决凌厉', noteEn: 'Fast and decisive', tone: 'thunder' },
+  { id: '10000000-0000-0000-0000-000000000001', name: '一', english: 'Court 1', note: '一号场地', noteEn: 'Court one', tone: 'wind' },
+  { id: '10000000-0000-0000-0000-000000000002', name: '二', english: 'Court 2', note: '二号场地', noteEn: 'Court two', tone: 'forest' },
+  { id: '10000000-0000-0000-0000-000000000003', name: '三', english: 'Court 3', note: '三号场地', noteEn: 'Court three', tone: 'fire' },
+  { id: '10000000-0000-0000-0000-000000000004', name: '四', english: 'Court 4', note: '四号场地', noteEn: 'Court four', tone: 'mountain' },
+  { id: '10000000-0000-0000-0000-000000000005', name: '五', english: 'Court 5', note: '五号场地', noteEn: 'Court five', tone: 'thunder' },
 ]
 
-export const SLOTS = Array.from({ length: 15 }, (_, index) => `${String(index + 7).padStart(2, '0')}:00`)
+export const SLOTS = Array.from({ length: 14 }, (_, index) => `${String(index + 10).padStart(2, '0')}:00`)
 
 export const toDateKey = (date) => {
   const year = date.getFullYear()
@@ -32,6 +32,18 @@ export const addMinutes = (dateTime, minutes) => {
 
 export const timeFromDateTime = (dateTime) => dateTime.slice(11, 16)
 
+export const endTimeFromDateTime = (startAt, endAt) => (
+  endAt.slice(0, 10) !== startAt.slice(0, 10) && endAt.slice(11, 16) === '00:00'
+    ? '24:00'
+    : endAt.slice(11, 16)
+)
+
+export const mondayOfWeek = (dateKey) => {
+  const date = new Date(`${dateKey}T12:00:00`)
+  const day = date.getDay() || 7
+  return toDateKey(addDays(date, 1 - day))
+}
+
 export const overlaps = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && aEnd > bStart
 
 export const formatMoney = (amount, locale = 'zh-CN') => new Intl.NumberFormat(locale, {
@@ -45,7 +57,7 @@ export const priceFor = (time, duration) => {
 }
 
 export const demoSchedule = (dateKey) => [
-  { id: 'demo-1', court_id: COURTS[0].id, start_at: slotDateTime(dateKey, '09:00'), end_at: slotDateTime(dateKey, '11:00'), status: 'confirmed' },
+  { id: 'demo-1', booking_group_id: 'demo-1', court_id: COURTS[0].id, start_at: slotDateTime(dateKey, '10:00'), end_at: slotDateTime(dateKey, '12:00'), status: 'confirmed' },
   { id: 'demo-2', court_id: COURTS[1].id, start_at: slotDateTime(dateKey, '13:00'), end_at: slotDateTime(dateKey, '14:30'), status: 'confirmed' },
   { id: 'demo-3', court_id: COURTS[2].id, start_at: slotDateTime(dateKey, '18:00'), end_at: slotDateTime(dateKey, '20:00'), status: 'confirmed' },
   { id: 'demo-4', court_id: COURTS[3].id, start_at: slotDateTime(dateKey, '20:00'), end_at: slotDateTime(dateKey, '21:00'), status: 'held' },
