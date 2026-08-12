@@ -9,6 +9,7 @@
 - 60 / 90 / 120 分钟预订、人数、动态价格、到店付款
 - Supabase 邮箱 Magic Link 和 Google OAuth 接口
 - “我的预订”、取消、状态与支付信息
+- 馆长专属预订管理：日期范围、状态、客户搜索、场地、时长与营收概览
 - PostgreSQL `EXCLUDE` 时间区间约束，防止任意重叠和并发超卖
 - 公开占用表与私人订单表分离，公开看板不泄露用户身份
 - Supabase RLS、Realtime、原子预订 RPC
@@ -51,6 +52,20 @@ VITE_STRIPE_ENABLED=false
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
 7. 在 GitHub Settings → Pages → Build and deployment，把 Source 设为 **GitHub Actions**。
+
+### 设置馆长账号
+
+用户至少登录一次后，在 Supabase SQL Editor 运行以下一次性语句。不要在前端通过邮箱判断管理员，也不要把真实馆长邮箱提交到公开仓库。
+
+```sql
+insert into public.staff_members (user_id, role)
+select id, 'admin'
+from auth.users
+where lower(email) = lower('OWNER_EMAIL')
+on conflict (user_id) do update set role = excluded.role;
+```
+
+客户端只有 `staff_members` 的只读权限，而且只能读取自己的角色；全部订单的可见性由 `bookings` RLS 在数据库端裁决。
 
 ## Stripe（可选）
 

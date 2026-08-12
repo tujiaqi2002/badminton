@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CalendarDays, CircleUserRound, Clock3, MapPin, Radio, Sparkles } from 'lucide-react'
+import { CalendarDays, CircleUserRound, Clock3, MapPin, Radio, ShieldCheck, Sparkles } from 'lucide-react'
+import AdminBookings from './components/AdminBookings'
 import AuthModal from './components/AuthModal'
 import BookingBoard from './components/BookingBoard'
 import BookingDrawer from './components/BookingDrawer'
 import DateStrip from './components/DateStrip'
 import Header from './components/Header'
 import MyBookings from './components/MyBookings'
-import { addMinutes, demoSchedule, overlaps, slotDateTime, toDateKey } from './lib/booking'
+import { addDays, addMinutes, demoSchedule, overlaps, slotDateTime, toDateKey } from './lib/booking'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
 
 const todayKey = () => toDateKey(new Date())
@@ -16,11 +17,18 @@ export default function App() {
   const [dateKey, setDateKey] = useState(todayKey)
   const [schedule, setSchedule] = useState(() => demoSchedule(todayKey()))
   const [bookings, setBookings] = useState([])
+  const [adminBookings, setAdminBookings] = useState([])
+  const [adminRange, setAdminRange] = useState(() => ({
+    start: todayKey(),
+    end: toDateKey(addDays(new Date(), 6)),
+  }))
   const [user, setUser] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [selection, setSelection] = useState(null)
   const [showAuth, setShowAuth] = useState(false)
   const [loadingSchedule, setLoadingSchedule] = useState(false)
   const [loadingBookings, setLoadingBookings] = useState(false)
+  const [loadingAdminBookings, setLoadingAdminBookings] = useState(false)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState(null)
 
@@ -60,6 +68,54 @@ export default function App() {
     else setBookings(data || [])
   }, [user, notify])
 
+  const fetchAdminAccess = useCallback(async () => {
+    if (!user || !isSupabaseConfigured) {
+      setIsAdmin(false)
+      return
+    }
+    const { data, error } = await supabase
+      .from('staff_members')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (error) {
+      setIsAdmin(false)
+      notify('无法验证馆长权限，请稍后重试', 'error')
+      return
+    }
+    setIsAdmin(data?.role === 'admin')
+  }, [user, notify])
+
+  const fetchAdminBookings = useCallback(async () => {
+    if (!user || !isAdmin || !isSupabaseConfigured) return setAdminBookings([])
+    setLoadingAdminBookings(true)
+    const endExclusive = toDateKey(addDays(new Date(`${adminRange.end}T12:00:00`), 1))
+    const pageSize = 1000
+    const data = []
+    let error = null
+
+    for (let from = 0; ; from += pageSize) {
+      const result = await supabase
+        .from('bookings')
+        .select('id, user_id, court_id, customer_name, customer_email, start_at, end_at, status, payment_status, payment_method, total_amount, currency, party_size, created_at')
+        .gte('start_at', `${adminRange.start}T00:00:00`)
+        .lt('start_at', `${endExclusive}T00:00:00`)
+        .order('start_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, from + pageSize - 1)
+      if (result.error) {
+        error = result.error
+        break
+      }
+      data.push(...(result.data || []))
+      if ((result.data?.length || 0) < pageSize) break
+    }
+
+    setLoadingAdminBookings(false)
+    if (error) notify('无法读取球馆预订', 'error')
+    else setAdminBookings(data)
+  }, [adminRange, isAdmin, user, notify])
+
   useEffect(() => {
     if (!isSupabaseConfigured) return
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user || null))
@@ -69,6 +125,9 @@ export default function App() {
 
   useEffect(() => { fetchSchedule() }, [fetchSchedule])
   useEffect(() => { if (view === 'mine') fetchBookings() }, [view, fetchBookings])
+  useEffect(() => { fetchAdminAccess() }, [fetchAdminAccess])
+  useEffect(() => { if (view === 'admin') fetchAdminBookings() }, [view, fetchAdminBookings])
+  useEffect(() => { if (view === 'admin' && !isAdmin) setView('mine') }, [view, isAdmin])
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -201,12 +260,14 @@ export default function App() {
   const signOut = async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut()
     setUser(null)
+    setIsAdmin(false)
+    setAdminBookings([])
     setView('book')
   }
 
   return (
     <div className="app-shell">
-      <Header user={user} view={view} onViewChange={setView} onAuth={() => setShowAuth(true)} onSignOut={signOut} />
+      <Header user={user} isAdmin={isAdmin} view={view} onViewChange={setView} onAuth={() => setShowAuth(true)} onSignOut={signOut} />
 
       {view === 'book' ? (
         <main>
@@ -241,15 +302,25 @@ export default function App() {
             </div>
           </section>
         </main>
+      ) : view === 'admin' && isAdmin ? (
+        <AdminBookings
+          bookings={adminBookings}
+          loading={loadingAdminBookings}
+          startDate={adminRange.start}
+          endDate={adminRange.end}
+          onRangeChange={setAdminRange}
+          onRefresh={fetchAdminBookings}
+        />
       ) : (
         <MyBookings user={user} bookings={bookings} loading={loadingBookings} onLogin={() => setShowAuth(true)} onCancel={cancelBooking} />
       )}
 
       <footer><div className="footer-brand">TIGER <span>羽球馆</span></div><p>风林火山雷 · 五场一心</p><small>© {new Date().getFullYear()} Tiger Badminton Club</small></footer>
 
-      <nav className="mobile-bottom-nav" aria-label="移动端导航">
+      <nav className={`mobile-bottom-nav ${isAdmin ? 'admin-mobile-nav' : ''}`} aria-label="移动端导航">
         <button className={view === 'book' ? 'active' : ''} onClick={() => setView('book')}><CalendarDays size={20} /><span>场地</span></button>
         <button className={view === 'mine' ? 'active' : ''} onClick={() => setView('mine')}><CircleUserRound size={20} /><span>我的</span></button>
+        {isAdmin && <button className={view === 'admin' ? 'active' : ''} onClick={() => setView('admin')}><ShieldCheck size={20} /><span>管理</span></button>}
         <button onClick={() => view === 'book' && document.getElementById('availability')?.scrollIntoView({ behavior: 'smooth' })}><Clock3 size={20} /><span>时段</span></button>
       </nav>
 

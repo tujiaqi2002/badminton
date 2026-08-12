@@ -48,10 +48,19 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+-- 馆长权限只由数据库管理员写入。客户端仅能读取自己的角色，不能自行提权。
+create table if not exists public.staff_members (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  role text not null default 'admin' check (role in ('admin')),
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.bookings (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   court_id uuid not null references public.courts(id),
+  customer_name text not null,
+  customer_email text not null,
   start_at timestamp not null,
   end_at timestamp not null,
   status public.booking_status not null default 'held',
@@ -71,17 +80,49 @@ create table if not exists public.bookings (
   constraint same_booking_day check (start_at::date = end_at::date)
 );
 
+-- 为已经存在的项目补齐客户快照列；姓名与邮箱来自受信任的 Auth 数据。
+alter table public.bookings add column if not exists customer_name text;
+alter table public.bookings add column if not exists customer_email text;
+
+update public.bookings as booking
+set
+  customer_name = coalesce(
+    booking.customer_name,
+    nullif(trim(profile.display_name), ''),
+    nullif(trim(auth_user.raw_user_meta_data->>'full_name'), ''),
+    nullif(split_part(auth_user.email, '@', 1), ''),
+    'Tiger guest'
+  ),
+  customer_email = coalesce(booking.customer_email, auth_user.email, 'unknown@tiger.local')
+from auth.users as auth_user
+left join public.profiles as profile on profile.id = auth_user.id
+where booking.user_id = auth_user.id
+  and (booking.customer_name is null or booking.customer_email is null);
+
+alter table public.bookings alter column customer_name set not null;
+alter table public.bookings alter column customer_email set not null;
+
 -- PostgreSQL 原生时间区间排他约束：同一场地任意重叠时段只能有一条有效订单。
-do $$ begin
-  alter table public.bookings add constraint bookings_no_time_overlap
-  exclude using gist (
-    court_id with =,
-    tsrange(start_at, end_at, '[)') with &&
-  ) where (status in ('held', 'confirmed'));
-exception when duplicate_object then null; end $$;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'bookings_no_time_overlap'
+      and conrelid = 'public.bookings'::regclass
+  ) then
+    alter table public.bookings add constraint bookings_no_time_overlap
+    exclude using gist (
+      court_id with =,
+      tsrange(start_at, end_at, '[)') with &&
+    ) where (status in ('held', 'confirmed'));
+  end if;
+end
+$$;
 
 create index if not exists bookings_user_start_idx on public.bookings (user_id, start_at desc);
 create index if not exists bookings_court_start_idx on public.bookings (court_id, start_at);
+create index if not exists bookings_admin_start_idx on public.bookings (start_at desc, id);
 create index if not exists bookings_held_expiry_idx on public.bookings (hold_expires_at)
 where status = 'held';
 
@@ -170,6 +211,8 @@ set search_path = ''
 as $$
 declare
   v_user_id uuid := auth.uid();
+  v_customer_name text;
+  v_customer_email text;
   v_hourly_rate numeric(10,2);
   v_total numeric(10,2);
   v_booking public.bookings;
@@ -183,6 +226,21 @@ begin
   if p_party_size not between 1 and 8 then raise exception 'Party size must be between 1 and 8'; end if;
   if not exists (select 1 from public.courts where id = p_court_id and status = 'open') then raise exception 'Court is unavailable'; end if;
 
+  select
+    coalesce(
+      nullif(trim(profile.display_name), ''),
+      nullif(trim(auth_user.raw_user_meta_data->>'full_name'), ''),
+      nullif(split_part(auth_user.email, '@', 1), ''),
+      'Tiger guest'
+    ),
+    coalesce(auth_user.email, 'unknown@tiger.local')
+  into v_customer_name, v_customer_email
+  from auth.users as auth_user
+  left join public.profiles as profile on profile.id = auth_user.id
+  where auth_user.id = v_user_id;
+
+  if v_customer_email is null then raise exception 'Authenticated user profile is unavailable'; end if;
+
   -- 清理超时的支付锁，触发器会同步释放公开占用表。
   update public.bookings
      set status = 'expired'
@@ -193,10 +251,12 @@ begin
 
   begin
     insert into public.bookings (
-      user_id, court_id, start_at, end_at, status, payment_status, payment_method,
+      user_id, court_id, customer_name, customer_email,
+      start_at, end_at, status, payment_status, payment_method,
       total_amount, party_size, hold_expires_at
     ) values (
-      v_user_id, p_court_id, p_start_at, p_end_at,
+      v_user_id, p_court_id, v_customer_name, v_customer_email,
+      p_start_at, p_end_at,
       case when p_payment_method = 'stripe' then 'held'::public.booking_status else 'confirmed'::public.booking_status end,
       case when p_payment_method = 'stripe' then 'pending'::public.payment_status else 'pay_at_venue'::public.payment_status end,
       p_payment_method, v_total, p_party_size,
@@ -232,6 +292,7 @@ $$;
 
 alter table public.courts enable row level security;
 alter table public.profiles enable row level security;
+alter table public.staff_members enable row level security;
 alter table public.bookings enable row level security;
 alter table public.court_slots enable row level security;
 
@@ -255,15 +316,33 @@ to authenticated
 using ((select auth.uid()) = id)
 with check ((select auth.uid()) = id);
 
-drop policy if exists "users read own bookings" on public.bookings;
-create policy "users read own bookings" on public.bookings for select
+drop policy if exists "staff read own role" on public.staff_members;
+create policy "staff read own role" on public.staff_members for select
 to authenticated
 using ((select auth.uid()) = user_id);
 
-revoke all on public.courts, public.profiles, public.bookings, public.court_slots from anon, authenticated;
+drop policy if exists "users read own bookings" on public.bookings;
+drop policy if exists "admins read all bookings" on public.bookings;
+drop policy if exists "users read permitted bookings" on public.bookings;
+create policy "users read permitted bookings" on public.bookings for select
+to authenticated
+using (
+  (select auth.uid()) = user_id
+  or (
+    select exists (
+      select 1
+      from public.staff_members as staff
+      where staff.user_id = (select auth.uid())
+        and staff.role = 'admin'
+    )
+  )
+);
+
+revoke all on public.courts, public.profiles, public.staff_members, public.bookings, public.court_slots from anon, authenticated;
 grant usage on schema public to anon, authenticated;
 grant select on public.courts, public.court_slots to anon, authenticated;
 grant select on public.bookings to authenticated;
+grant select on public.staff_members to authenticated;
 grant select, update on public.profiles to authenticated;
 
 revoke execute on function public.set_updated_at() from PUBLIC, anon, authenticated;
