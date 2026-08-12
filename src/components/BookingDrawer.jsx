@@ -1,5 +1,5 @@
 import { Check, Clock3, Minus, Plus, ShieldCheck, WalletCards, X } from 'lucide-react'
-import { formatMoney, priceFor } from '../lib/booking'
+import { COURTS, formatMoney, priceFor } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
 const DURATIONS = [60, 90, 120]
@@ -8,9 +8,9 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
   const { courtNote, courtTitle, locale, t } = useI18n()
   if (!selection) return null
 
-  const { court, time, dateKey, duration, partySize, paymentMethod, phone = '', notes = '' } = selection
+  const { court, courts = [court], time, dateKey, duration, partySize, paymentMethod, phone = '', notes = '' } = selection
   const set = selection.set
-  const price = priceFor(time, duration)
+  const price = priceFor(time, duration) * courts.length
   const endMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) + duration
   const endTime = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
 
@@ -33,11 +33,25 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
           <label>{t('drawer.duration')}</label>
           <div className="segmented-control">
             {DURATIONS.map((minutes) => (
-              <button key={minutes} disabled={Number(time.slice(0, 2)) * 60 + minutes > 22 * 60} className={duration === minutes ? 'selected' : ''} onClick={() => set({ duration: minutes })}>
+              <button key={minutes} disabled={Number(time.slice(0, 2)) * 60 + minutes > 24 * 60} className={duration === minutes ? 'selected' : ''} onClick={() => set({ duration: minutes })}>
                 {minutes === 60 ? t('drawer.oneHour') : minutes === 90 ? t('drawer.ninetyMinutes') : t('drawer.twoHours')}
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="drawer-field">
+          <label>{t('drawer.courts')}</label>
+          <div className="court-multi-picker">
+            {COURTS.map((item) => {
+              const selected = courts.some((selectedCourt) => selectedCourt.id === item.id)
+              return <button type="button" className={selected ? 'selected' : ''} key={item.id} onClick={() => {
+                const next = selected ? courts.filter((selectedCourt) => selectedCourt.id !== item.id) : [...courts, item]
+                if (next.length) set({ courts: next, court: next[0], paymentMethod: next.length > 1 ? 'venue' : paymentMethod })
+              }}><span>{item.name}</span><small>{item.english}</small>{selected && <Check size={15} />}</button>
+            })}
+          </div>
+          <small className="drawer-help">{t('drawer.multiCourtHelp', { count: courts.length })}</small>
         </div>
 
         <div className="drawer-field party-row">
@@ -61,7 +75,7 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
           <button className={`payment-option ${paymentMethod === 'venue' ? 'selected' : ''}`} onClick={() => set({ paymentMethod: 'venue' })}>
             <WalletCards size={19} /><span><strong>{t('drawer.payVenue')}</strong><small>{t('drawer.payVenueNote')}</small></span>{paymentMethod === 'venue' && <Check size={18} />}
           </button>
-          <button className={`payment-option ${paymentMethod === 'stripe' ? 'selected' : ''}`} disabled={!stripeEnabled} onClick={() => set({ paymentMethod: 'stripe' })}>
+          <button className={`payment-option ${paymentMethod === 'stripe' ? 'selected' : ''}`} disabled={!stripeEnabled || courts.length > 1} onClick={() => set({ paymentMethod: 'stripe' })}>
             <ShieldCheck size={19} /><span><strong>{t('drawer.payOnline')}</strong><small>{t(stripeEnabled ? 'drawer.stripeReady' : 'drawer.stripeUnavailable')}</small></span>{paymentMethod === 'stripe' && <Check size={18} />}
           </button>
         </div>

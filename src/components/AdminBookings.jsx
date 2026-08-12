@@ -32,6 +32,8 @@ export default function AdminBookings({
   scheduleBusy,
   onCreate,
   onReschedule,
+  onRescheduleGroup,
+  onUndo,
   onUpdateDetails,
 }) {
   const { courtName, courtTitle, locale, t } = useI18n()
@@ -133,6 +135,8 @@ export default function AdminBookings({
         busy={scheduleBusy}
         onCreate={onCreate}
         onReschedule={onReschedule}
+        onRescheduleGroup={onRescheduleGroup}
+        onUndo={onUndo}
         onUpdateDetails={onUpdateDetails}
         onCancel={onCancel}
         onDateChange={(date) => {
@@ -184,7 +188,7 @@ export default function AdminBookings({
                       </div>
                       <div className="admin-booking-court">
                         <span className={`admin-court-seal ${court.tone}`}>{court.name}</span>
-                        <div><strong>{courtTitle(court)}</strong><small>{t('admin.court', { court: courtName(court) })}</small></div>
+                        <div><strong>{courtTitle(court)}</strong><small>{courtName(court)}</small></div>
                       </div>
                       <div className="admin-customer">
                         <UserRound size={17} />

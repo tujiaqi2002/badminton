@@ -52,7 +52,7 @@ export default function AdminRescheduleModal({ booking, busy, onClose, onSubmit,
         <div className="admin-reschedule-fields">
           <label><span>{t('admin.reschedule.date')}</span><input required name="date" type="date" value={form.date} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} /></label>
           <label><span>{t('admin.reschedule.court')}</span><select name="courtId" value={form.courtId} onChange={(event) => setForm((current) => ({ ...current, courtId: event.target.value }))}>{COURTS.map((court) => <option value={court.id} key={court.id}>{courtTitle(court)}</option>)}</select></label>
-          <label><span>{t('admin.reschedule.time')}</span><input required name="time" type="time" min="07:00" max="21:00" step="1800" value={form.time} onChange={(event) => setForm((current) => ({ ...current, time: event.target.value }))} /></label>
+          <label><span>{t('admin.reschedule.time')}</span><input required name="time" type="time" min="10:00" max="23:00" step="1800" value={form.time} onChange={(event) => setForm((current) => ({ ...current, time: event.target.value }))} /></label>
           <label><span>{t('admin.schedule.duration')}</span><select name="duration" value={form.duration} onChange={(event) => setForm((current) => ({ ...current, duration: Number(event.target.value) }))}>{durations.map((minutes) => <option value={minutes} key={minutes}>{minutes} min</option>)}</select></label>
         </div>
         <button className="primary-button" disabled={busy}>{busy ? t('admin.schedule.saving') : t('admin.reschedule.confirm')}</button>
