@@ -44,7 +44,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
   const [draggedId, setDraggedId] = useState(null)
-  const [selectedId, setSelectedId] = useState(null)
+  const [selectedBooking, setSelectedBooking] = useState(null)
   const [draft, setDraft] = useState(null)
 
   useEffect(() => setDateKey(initialDate), [initialDate])
@@ -55,6 +55,14 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
 
   const dayLabel = new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'long', day: 'numeric' })
     .format(new Date(`${dateKey}T12:00:00`))
+  const quickDays = useMemo(() => Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(new Date(`${dateKey}T12:00:00`), index)
+    return {
+      key: toDateKey(date),
+      weekday: new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(date),
+      day: new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(date),
+    }
+  }), [dateKey, locale])
 
   const selectDate = (next) => {
     setDateKey(next)
@@ -62,21 +70,28 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   }
   const moveDay = (amount) => selectDate(toDateKey(addDays(new Date(`${dateKey}T12:00:00`), amount)))
 
-  const dropBooking = (court, time, bookingId) => {
-    const booking = dayBookings.find((item) => item.id === bookingId)
+  const dropBooking = async (court, time, bookingId) => {
+    const booking = bookings.find((item) => item.id === bookingId) || selectedBooking
     setDraggedId(null)
     if (!booking) return
-    onReschedule(booking, court, time, durationMinutes(booking), dateKey)
+    const saved = await onReschedule(booking, court, time, durationMinutes(booking), dateKey)
+    if (saved) setSelectedBooking(null)
   }
 
-  const chooseSlot = (court, time) => {
-    const booking = dayBookings.find((item) => item.id === selectedId)
-    if (booking) {
-      setSelectedId(null)
-      onReschedule(booking, court, time, durationMinutes(booking), dateKey)
+  const chooseSlot = async (court, time) => {
+    if (selectedBooking) {
+      const saved = await onReschedule(selectedBooking, court, time, durationMinutes(selectedBooking), dateKey)
+      if (saved) setSelectedBooking(null)
       return
     }
     setDraft({ court, dateKey, time })
+  }
+
+  const chooseTransferDay = (next, bookingId = draggedId) => {
+    const booking = bookings.find((item) => item.id === bookingId) || selectedBooking
+    if (booking) setSelectedBooking(booking)
+    setDraggedId(null)
+    selectDate(next)
   }
 
   return (
@@ -94,7 +109,29 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
         </div>
       </header>
 
-      <div className="admin-schedule-hint"><GripVertical size={14} /> {selectedId ? t('admin.schedule.pickDestination') : t('admin.schedule.hint')}<span><CalendarPlus size={14} /> {t('admin.schedule.addHint')}</span></div>
+      <div className="admin-schedule-day-strip" aria-label={t('admin.schedule.quickDays')}>
+        {quickDays.map((day, index) => (
+          <button
+            className={index === 0 ? 'active' : ''}
+            key={day.key}
+            onClick={() => chooseTransferDay(day.key, null)}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => chooseTransferDay(day.key, event.dataTransfer.getData('text/plain') || draggedId)}
+          >
+            <small>{index === 0 ? t('admin.schedule.currentDay') : day.weekday}</small>
+            <strong>{day.day}</strong>
+          </button>
+        ))}
+      </div>
+      {selectedBooking && (
+        <div className="admin-schedule-transfer" role="status">
+          <GripVertical size={14} />
+          <strong>{selectedBooking.customer_name}</strong>
+          <span>{t('admin.schedule.transferReady')}</span>
+          <button onClick={() => setSelectedBooking(null)}>{t('admin.schedule.clearSelection')}</button>
+        </div>
+      )}
+      <div className="admin-schedule-hint"><GripVertical size={14} /> {selectedBooking ? t('admin.schedule.pickDestination') : t('admin.schedule.hint')}<span><CalendarPlus size={14} /> {t('admin.schedule.addHint')}</span></div>
       <div className="admin-schedule-scroll">
         <div className="admin-schedule-grid">
           <div className="admin-schedule-corner"><Clock3 size={14} /></div>
@@ -120,13 +157,13 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                 const minutes = durationMinutes(booking)
                 return (
                   <article
-                    className={`admin-schedule-booking ${draggedId === booking.id ? 'dragging' : ''} ${selectedId === booking.id ? 'selected' : ''}`}
+                    className={`admin-schedule-booking ${draggedId === booking.id ? 'dragging' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
                     draggable={!busy}
                     role="button"
                     tabIndex="0"
-                    aria-pressed={selectedId === booking.id}
-                    onClick={(event) => { event.stopPropagation(); setSelectedId((current) => current === booking.id ? null : booking.id) }}
-                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedId((current) => current === booking.id ? null : booking.id) } }}
+                    aria-pressed={selectedBooking?.id === booking.id}
+                    onClick={(event) => { event.stopPropagation(); setSelectedBooking((current) => current?.id === booking.id ? null : booking) }}
+                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedBooking((current) => current?.id === booking.id ? null : booking) } }}
                     onDragStart={(event) => { event.dataTransfer.setData('text/plain', booking.id); event.dataTransfer.effectAllowed = 'move'; setDraggedId(booking.id) }}
                     onDragEnd={() => setDraggedId(null)}
                     style={{ '--start': offset / 30, '--span': minutes / 30 }}
