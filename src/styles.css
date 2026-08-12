@@ -100,13 +100,14 @@ a { color: inherit; text-decoration: none; }
 .available-dot { border: 1px solid rgba(34,36,33,.38); background: white; }
 .occupied-dot { background: rgba(34,36,33,.45); }
 
-.schedule-table { display: grid; grid-template-columns: 105px repeat(15, minmax(58px, 1fr)); min-width: 1000px; border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
-.schedule-table-wrap { overflow-x: auto; }
+.schedule-table { --court-column: clamp(136px, 11vw, 148px); display: grid; grid-template-columns: var(--court-column) repeat(15, minmax(58px, 1fr)); min-width: max(100%, 1000px); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.schedule-table-wrap { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; scrollbar-color: rgba(34,36,33,.24) transparent; }
+.schedule-table-wrap:focus-visible { outline: 1px solid rgba(199,70,54,.42); outline-offset: 4px; }
 .schedule-row { display: contents; }
 .schedule-corner, .time-header { min-height: 39px; display: grid; place-items: center; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 9px; color: var(--ink-soft); letter-spacing: .03em; }
 .schedule-corner { font-size: 9px; }
-.court-label { min-height: 68px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; justify-content: center; padding-left: 18px; background: rgba(255,255,255,.28); }
-.court-label strong { font: 23px/1 "Songti SC", serif; }
+.court-label { min-width: 0; min-height: 68px; overflow: hidden; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; justify-content: center; padding-inline: clamp(14px, 1.4vw, 20px) 8px; background: rgba(255,255,255,.28); }
+.court-label strong { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "Songti SC", serif; font-size: 23px; font-size: clamp(19px, calc(14px + .7vw), 23px); line-height: 1.05; letter-spacing: -.02em; }
 .court-label span { color: var(--ink-soft); font-size: 8px; letter-spacing: .14em; margin-top: 5px; text-transform: uppercase; }
 .slot { min-height: 68px; border: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: grid; place-items: center; background: rgba(255,255,255,.36); transition: .15s ease; }
 .slot.available { cursor: pointer; color: rgba(34,36,33,.54); }
@@ -267,8 +268,7 @@ footer small { text-align: right; }
 
 @media (max-width: 1100px) {
   .schedule-table { display: grid; }
-  .board-section { overflow-x: auto; padding-bottom: 10px; }
-  .section-heading, .legend { position: sticky; left: 0; }
+  .board-section { overflow: visible; padding-bottom: 10px; }
   .ritual-section { margin-inline: 42px; }
   .admin-controls { grid-template-columns: repeat(2, 1fr); }
   .admin-presets, .admin-search { grid-column: 1/-1; }
@@ -304,6 +304,7 @@ footer small { text-align: right; }
   .legend { flex-wrap: wrap; }
   .legend span:last-child { width: 100%; margin: 0; }
   .schedule-table { display: none; }
+  .schedule-table-wrap { display: none; }
   .mobile-schedule { display: grid; gap: 12px; }
   .board-section { overflow: visible; }
   .mobile-court-card { background: rgba(255,255,255,.38); border: 1px solid var(--line); padding: 18px 14px 14px; }

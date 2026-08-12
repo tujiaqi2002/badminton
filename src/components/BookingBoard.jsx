@@ -58,20 +58,22 @@ export default function BookingBoard({ dateKey, schedule, loading, onSelect }) {
         <div className="board-loading"><LoaderCircle className="spin" /> {t('board.loading')}</div>
       ) : (
         <>
-          <div className="schedule-table" role="grid" aria-label={t('board.aria')}>
-            <div className="schedule-corner">{t('board.corner')}</div>
-            {SLOTS.map((time) => <div className="time-header" key={time}>{time}</div>)}
-            {COURTS.map((court) => (
-              <div className="schedule-row" key={court.id}>
-                <div className={`court-label ${court.tone}`}>
-                  <strong>{courtName(court)}</strong>
-                  <span>{language === 'zh' ? court.english : court.name}</span>
+          <div className="schedule-table-wrap" tabIndex="0">
+            <div className="schedule-table" role="grid" aria-label={t('board.aria')}>
+              <div className="schedule-corner">{t('board.corner')}</div>
+              {SLOTS.map((time) => <div className="time-header" key={time}>{time}</div>)}
+              {COURTS.map((court) => (
+                <div className="schedule-row" key={court.id}>
+                  <div className={`court-label ${court.tone}`}>
+                    <strong>{courtName(court)}</strong>
+                    <span>{language === 'zh' ? court.english : court.name}</span>
+                  </div>
+                  {SLOTS.map((time) => (
+                    <SlotButton key={time} court={court} time={time} dateKey={dateKey} schedule={schedule} onSelect={onSelect} />
+                  ))}
                 </div>
-                {SLOTS.map((time) => (
-                  <SlotButton key={time} court={court} time={time} dateKey={dateKey} schedule={schedule} onSelect={onSelect} />
-                ))}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           <div className="mobile-schedule">
