@@ -2,7 +2,7 @@ import { ArrowRight, Mail, X } from 'lucide-react'
 import { useState } from 'react'
 import { useI18n } from '../lib/i18n'
 
-export default function AuthModal({ onClose, onEmail, onGoogle, onDemo, demoMode, googleEnabled }) {
+export default function AuthModal({ onClose, onEmail, onGoogle, onDemo, demoMode, googleEnabled, locked = false }) {
   const { t } = useI18n()
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
@@ -18,9 +18,9 @@ export default function AuthModal({ onClose, onEmail, onGoogle, onDemo, demoMode
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className={`modal-backdrop ${locked ? 'locked-auth' : ''}`} onMouseDown={(event) => !locked && event.target === event.currentTarget && onClose()}>
       <div className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-        <button className="icon-button modal-close" onClick={onClose} aria-label={t('auth.close')}><X size={20} /></button>
+        {!locked && <button className="icon-button modal-close" onClick={onClose} aria-label={t('auth.close')}><X size={20} /></button>}
         <div className="auth-seal">虎</div>
         <span className="eyebrow">{t('auth.eyebrow')}</span>
         <h2 id="auth-title">{t('auth.title')}</h2>
