@@ -8,6 +8,7 @@ const THEME_COLOURS = {
   focus: '#dededb',
   banner: '#d6a20a',
   colorfocus: '#f3f0e9',
+  inkplay: '#efe3cc',
 }
 
 const getInitialTheme = () => {
