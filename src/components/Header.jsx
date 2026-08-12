@@ -1,5 +1,6 @@
 import { CalendarDays, Globe2, LogOut, ShieldCheck, UserRound } from 'lucide-react'
 import { useI18n } from '../lib/i18n'
+import ThemeSwitcher from './ThemeSwitcher'
 
 export default function Header({ user, isAdmin, view, onViewChange, onAuth, onSignOut }) {
   const { t, toggleLanguage } = useI18n()
@@ -27,6 +28,7 @@ export default function Header({ user, isAdmin, view, onViewChange, onAuth, onSi
       </nav>
 
       <div className="header-actions">
+        <ThemeSwitcher />
         <button className="language-switch" onClick={toggleLanguage} aria-label={t('language.switch')} title={t('language.switch')}>
           <Globe2 size={14} /><span>{t('language.switchShort')}</span>
         </button>
