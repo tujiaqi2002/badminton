@@ -299,21 +299,6 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
         </div>
       </header>
 
-      <div className="admin-schedule-day-strip" aria-label={t('admin.schedule.quickDays')}>
-        <button className="week-nav" onClick={() => moveWeek(-1)} aria-label={t('admin.schedule.previousWeek')}><ChevronLeft size={18} /><small>{t('admin.schedule.previousWeekShort')}</small></button>
-        {quickDays.map((day) => (
-          <button
-            className={`${dateKey === day.key ? 'active' : ''} ${dragDay === day.key ? 'drop-target' : ''}`}
-            data-transfer-date={day.key}
-            key={day.key}
-            onClick={() => chooseTransferDay(day.key, null)}
-          >
-            <small>{dateKey === day.key ? t('admin.schedule.selectedDay') : day.weekday}</small>
-            <strong>{day.day}</strong>
-          </button>
-        ))}
-        <button className="week-nav" onClick={() => moveWeek(1)} aria-label={t('admin.schedule.nextWeek')}><ChevronRight size={18} /><small>{t('admin.schedule.nextWeekShort')}</small></button>
-      </div>
       <section className={`admin-schedule-inspector ${activeSelection ? 'has-booking' : ''}`} aria-live="polite">
         {activeSelection ? (
           <>
@@ -348,13 +333,6 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           <div className="admin-inspector-empty"><strong>{t('admin.schedule.noSelectionTitle')}</strong><span>{t('admin.schedule.noSelectionText')}</span></div>
         )}
       </section>
-      <div
-        className={`admin-schedule-cancel-drop ${draggedId ? 'active' : ''} ${cancelArmed ? 'armed' : ''}`}
-        aria-label={t('admin.schedule.cancelDrop')}
-      >
-        <Trash2 size={17} />
-        <div><strong>{cancelArmed ? t('admin.schedule.cancelRelease') : t('admin.schedule.cancelDrop')}</strong><span>{t('admin.schedule.cancelProtection')}</span></div>
-      </div>
       <div className={`admin-schedule-context ${draggedBooking && dragPreview ? 'dragging' : activeSelection ? 'selected' : ''}`}>
         {draggedBooking && dragPreview ? (
           <div className="admin-drag-readout" role="status" aria-live="polite">
@@ -375,8 +353,26 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
         )}
       </div>
       {undoBooking && <div className="admin-undo-bar" role="status"><span>{t('admin.schedule.changeSaved')}</span><button disabled={busy} onClick={async () => { const saved = await onUndo(undoBooking); if (saved) setUndoBooking(null) }}><RotateCcw size={14} /> {t('admin.schedule.undo')}</button><button aria-label={t('admin.schedule.dismissUndo')} onClick={() => setUndoBooking(null)}><X size={13} /></button></div>}
-      <div className="admin-schedule-scroll">
-        <div className="admin-schedule-grid">
+      <div className="admin-schedule-workbench">
+        <aside className="admin-schedule-side admin-schedule-side-left">
+          <div className="admin-schedule-day-strip" aria-label={t('admin.schedule.quickDays')}>
+            <button className="week-nav" onClick={() => moveWeek(-1)} aria-label={t('admin.schedule.previousWeek')}><ChevronLeft size={18} /><small>{t('admin.schedule.previousWeekShort')}</small></button>
+            {quickDays.map((day) => (
+              <button
+                className={`${dateKey === day.key ? 'active' : ''} ${dragDay === day.key ? 'drop-target' : ''}`}
+                data-transfer-date={day.key}
+                key={day.key}
+                onClick={() => chooseTransferDay(day.key, null)}
+              >
+                <small>{dateKey === day.key ? t('admin.schedule.selectedDay') : day.weekday}</small>
+                <strong>{day.day}</strong>
+              </button>
+            ))}
+            <button className="week-nav" onClick={() => moveWeek(1)} aria-label={t('admin.schedule.nextWeek')}><ChevronRight size={18} /><small>{t('admin.schedule.nextWeekShort')}</small></button>
+          </div>
+        </aside>
+        <div className="admin-schedule-scroll">
+          <div className="admin-schedule-grid">
           <div className="admin-schedule-corner"><Clock3 size={14} /></div>
           {COURTS.map((court) => <div className={`admin-schedule-court ${court.tone}`} key={court.id}><span>{court.name}</span><strong>{courtTitle(court)}</strong></div>)}
           <div className="admin-schedule-times">
@@ -456,7 +452,17 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
               })}
             </div>
           ))}
+          </div>
         </div>
+        <aside className="admin-schedule-side admin-schedule-side-right">
+          <div
+            className={`admin-schedule-cancel-drop ${draggedId ? 'active' : ''} ${cancelArmed ? 'armed' : ''}`}
+            aria-label={t('admin.schedule.cancelDrop')}
+          >
+            <Trash2 size={22} />
+            <div><strong>{cancelArmed ? t('admin.schedule.cancelRelease') : t('admin.schedule.cancelDrop')}</strong><span>{t('admin.schedule.cancelProtection')}</span></div>
+          </div>
+        </aside>
       </div>
       {draft && <NewBookingModal draft={draft} busy={busy} onClose={() => setDraft(null)} onSubmit={async (details) => { const saved = await onCreate(details); if (saved) setDraft(null) }} />}
     </section>

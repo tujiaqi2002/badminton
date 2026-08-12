@@ -59,7 +59,7 @@ export default function BookingBoard({ dateKey, schedule, loading, onSelect }) {
       ) : (
         <>
           <div className="schedule-table-wrap" tabIndex="0">
-            <div className="schedule-table" role="grid" aria-label={t('board.aria')}>
+            <div className="schedule-table" role="grid" aria-label={t('board.aria')} style={{ '--slot-count': SLOTS.length }}>
               <div className="schedule-corner">{t('board.corner')}</div>
               {SLOTS.map((time) => <div className="time-header" key={time}>{time}</div>)}
               {COURTS.map((court) => (
