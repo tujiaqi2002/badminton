@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { addDays, COURTS, formatMoney, timeFromDateTime, toDateKey } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
+import AdminSchedule from './AdminSchedule'
 
 const durationMinutes = (booking) => Math.round(
   (new Date(booking.end_at).getTime() - new Date(booking.start_at).getTime()) / 60_000,
@@ -26,6 +27,9 @@ export default function AdminBookings({
   onRefresh,
   onCancel,
   cancellingId,
+  scheduleBusy,
+  onCreate,
+  onReschedule,
 }) {
   const { courtName, courtTitle, locale, t } = useI18n()
   const [query, setQuery] = useState('')
@@ -116,6 +120,17 @@ export default function AdminBookings({
           <option value="completed">{t('status.completed')}</option>
         </select>
       </section>
+
+      <AdminSchedule
+        bookings={bookings}
+        initialDate={startDate}
+        busy={scheduleBusy}
+        onCreate={onCreate}
+        onReschedule={onReschedule}
+        onDateChange={(date) => {
+          if (date < startDate || date > endDate) onRangeChange({ start: date, end: date })
+        }}
+      />
 
       {loading ? (
         <div className="board-loading"><RefreshCw className="spin" /> {t('admin.loading')}</div>

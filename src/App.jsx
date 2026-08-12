@@ -37,12 +37,15 @@ export default function App() {
   }))
   const [user, setUser] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [authReady, setAuthReady] = useState(false)
+  const [adminAccessReady, setAdminAccessReady] = useState(false)
   const [selection, setSelection] = useState(null)
   const [showAuth, setShowAuth] = useState(false)
   const [loadingSchedule, setLoadingSchedule] = useState(false)
   const [loadingBookings, setLoadingBookings] = useState(false)
   const [loadingAdminBookings, setLoadingAdminBookings] = useState(false)
   const [adminCancellingId, setAdminCancellingId] = useState(null)
+  const [adminScheduleBusy, setAdminScheduleBusy] = useState(false)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState(null)
 
@@ -59,6 +62,10 @@ export default function App() {
       })
       return
     }
+    if (!isAdmin) {
+      setSchedule([])
+      return
+    }
     setLoadingSchedule(true)
     const { data, error } = await supabase
       .from('court_slots')
@@ -70,7 +77,7 @@ export default function App() {
     setLoadingSchedule(false)
     if (error) notify(t('errors.schedule'), 'error')
     else setSchedule(data || [])
-  }, [dateKey, notify, t])
+  }, [dateKey, isAdmin, notify, t])
 
   const fetchBookings = useCallback(async () => {
     if (!user) return setBookings([])
@@ -87,10 +94,16 @@ export default function App() {
   }, [user, notify, t])
 
   const fetchAdminAccess = useCallback(async () => {
-    if (!user || !isSupabaseConfigured) {
+    if (!user) {
       setIsAdmin(false)
+      setAdminAccessReady(true)
       return
     }
+    if (!isSupabaseConfigured) {
+      setAdminAccessReady(true)
+      return
+    }
+    setAdminAccessReady(false)
     const { data, error } = await supabase
       .from('staff_members')
       .select('role')
@@ -98,14 +111,17 @@ export default function App() {
       .maybeSingle()
     if (error) {
       setIsAdmin(false)
+      setAdminAccessReady(true)
       notify(t('errors.adminAccess'), 'error')
       return
     }
     setIsAdmin(data?.role === 'admin')
+    setAdminAccessReady(true)
   }, [user, notify, t])
 
   const fetchAdminBookings = useCallback(async () => {
-    if (!user || !isAdmin || !isSupabaseConfigured) return setAdminBookings([])
+    if (!user || !isAdmin) return setAdminBookings([])
+    if (!isSupabaseConfigured) return
     setLoadingAdminBookings(true)
     const endExclusive = toDateKey(addDays(new Date(`${adminRange.end}T12:00:00`), 1))
     const pageSize = 1000
@@ -135,9 +151,25 @@ export default function App() {
   }, [adminRange, isAdmin, user, notify, t])
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user || null))
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user || null))
+    if (!isSupabaseConfigured) {
+      setAuthReady(true)
+      setAdminAccessReady(true)
+      return
+    }
+    supabase.auth.getSession().then(({ data }) => {
+      const nextUser = data.session?.user || null
+      setUser(nextUser)
+      setIsAdmin(false)
+      setAdminAccessReady(!nextUser)
+      setAuthReady(true)
+    })
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextUser = session?.user || null
+      setUser(nextUser)
+      setIsAdmin(false)
+      setAdminAccessReady(!nextUser)
+      setAuthReady(true)
+    })
     return () => data.subscription.unsubscribe()
   }, [])
 
@@ -148,13 +180,13 @@ export default function App() {
   useEffect(() => { if (view === 'admin' && !isAdmin) setView('mine') }, [view, isAdmin])
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return
+    if (!isSupabaseConfigured || !isAdmin) return
     const channel = supabase
       .channel('public-court-schedule')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'court_slots' }, fetchSchedule)
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [fetchSchedule])
+  }, [fetchSchedule, isAdmin])
 
   const openSelection = (slot) => {
     setSelection({
@@ -279,9 +311,81 @@ export default function App() {
     await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchBookings()])
   }
 
+  const adminCreateBooking = async (details) => {
+    const startAt = slotDateTime(details.dateKey, details.time)
+    const endAt = addMinutes(startAt, details.duration)
+    if (endAt.slice(11, 16) > '22:00') {
+      notify(t('errors.outsideHours'), 'error')
+      return false
+    }
+    if (!isSupabaseConfigured) {
+      const booking = {
+        id: `local-admin-${Date.now()}`, user_id: 'demo-user', court_id: details.court.id,
+        customer_name: details.name, customer_email: details.email, start_at: startAt, end_at: endAt,
+        status: 'confirmed', payment_status: 'pay_at_venue', payment_method: 'venue',
+        total_amount: 28 * details.duration / 60, party_size: details.partySize,
+      }
+      setAdminBookings((current) => [...current, booking].sort((a, b) => a.start_at.localeCompare(b.start_at)))
+      setSchedule((current) => [...current, booking])
+      notify(t('success.adminCreate'))
+      return true
+    }
+    setAdminScheduleBusy(true)
+    const { error } = await supabase.rpc('admin_create_booking', {
+      p_court_id: details.court.id,
+      p_start_at: startAt,
+      p_end_at: endAt,
+      p_customer_name: details.name,
+      p_customer_email: details.email,
+      p_party_size: details.partySize,
+    })
+    setAdminScheduleBusy(false)
+    if (error) {
+      notify(t(error.message.includes('already booked') ? 'errors.slotTaken' : 'errors.adminCreate'), 'error')
+      return false
+    }
+    notify(t('success.adminCreate'))
+    await Promise.all([fetchAdminBookings(), fetchSchedule()])
+    return true
+  }
+
+  const adminRescheduleBooking = async (booking, court, time, duration, targetDate) => {
+    const startAt = slotDateTime(targetDate, time)
+    const endAt = addMinutes(startAt, duration)
+    if (endAt.slice(11, 16) > '22:00') {
+      notify(t('errors.outsideHours'), 'error')
+      return
+    }
+    if (!isSupabaseConfigured) {
+      const update = (item) => item.id === booking.id ? { ...item, court_id: court.id, start_at: startAt, end_at: endAt } : item
+      setAdminBookings((current) => current.map(update).sort((a, b) => a.start_at.localeCompare(b.start_at)))
+      setSchedule((current) => current.map(update))
+      notify(t('success.adminReschedule', { name: booking.customer_name }))
+      return
+    }
+    setAdminScheduleBusy(true)
+    const { error } = await supabase.rpc('admin_reschedule_booking', {
+      p_booking_id: booking.id,
+      p_court_id: court.id,
+      p_start_at: startAt,
+      p_end_at: endAt,
+    })
+    setAdminScheduleBusy(false)
+    if (error) {
+      notify(t(error.message.includes('already booked') ? 'errors.slotTaken' : 'errors.adminReschedule'), 'error')
+      return
+    }
+    notify(t('success.adminReschedule', { name: booking.customer_name }))
+    await Promise.all([fetchAdminBookings(), fetchSchedule()])
+  }
+
   const loginByEmail = async (email) => {
     if (!isSupabaseConfigured) return false
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href.split('#')[0] } })
+    if (!['321756623tu@gmail.com', 'zhangk7@gmail.com'].includes(email.trim().toLowerCase())) {
+      notify(t('errors.restrictedLogin'), 'error')
+      return false
+    }
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href.split('#')[0], shouldCreateUser: false } })
     if (error) {
       notify(t(error.message.toLowerCase().includes('rate limit') ? 'errors.emailRateLimit' : 'errors.auth'), 'error')
       return false
@@ -290,12 +394,21 @@ export default function App() {
   }
 
   const loginWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href.split('#')[0] } })
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href.split('#')[0], queryParams: { prompt: 'select_account' } } })
     if (error) notify(t('errors.auth'), 'error')
   }
 
   const enterDemo = () => {
     setUser({ id: 'demo-user', email: 'demo@tiger.local' })
+    setIsAdmin(true)
+    setAdminAccessReady(true)
+    setView('admin')
+    setAdminBookings([{
+      id: 'local-admin-preview', user_id: 'demo-user', court_id: COURTS[1].id,
+      customer_name: 'Anna', customer_email: 'anna@example.com',
+      start_at: slotDateTime(todayKey(), '10:00'), end_at: slotDateTime(todayKey(), '11:30'),
+      status: 'confirmed', payment_status: 'pay_at_venue', payment_method: 'venue', total_amount: 42, party_size: 2,
+    }])
     setShowAuth(false)
     notify(t('success.demoMode'))
   }
@@ -304,8 +417,29 @@ export default function App() {
     if (isSupabaseConfigured) await supabase.auth.signOut()
     setUser(null)
     setIsAdmin(false)
+    setAdminAccessReady(true)
     setAdminBookings([])
     setView('book')
+  }
+
+  const accessLoading = !authReady || (user && !adminAccessReady)
+  const accessDenied = authReady && adminAccessReady && user && !isAdmin
+  const accessLocked = authReady && !user
+
+  if (accessLoading || accessDenied || accessLocked) {
+    return (
+      <div className="private-login-shell">
+        <div className="private-login-brand"><span>虎</span><strong>TIGER</strong><small>{t('auth.privateSubtitle')}</small></div>
+        {accessLoading ? (
+          <div className="private-login-loading"><Clock3 size={22} className="spin" /><p>{t('auth.checkingAccess')}</p></div>
+        ) : accessDenied ? (
+          <div className="private-access-denied"><ShieldCheck size={30} /><h1>{t('auth.deniedTitle')}</h1><p>{t('auth.deniedText')}</p><button className="primary-button" onClick={signOut}>{t('account.signOut')}</button></div>
+        ) : (
+          <AuthModal onClose={() => {}} onEmail={loginByEmail} onGoogle={loginWithGoogle} onDemo={enterDemo} demoMode={!isSupabaseConfigured} googleEnabled={googleAuthEnabled} locked />
+        )}
+        {toast && <div className={`toast ${toast.tone}`} role="status">{toast.message}</div>}
+      </div>
+    )
   }
 
   return (
@@ -355,6 +489,9 @@ export default function App() {
           onRefresh={fetchAdminBookings}
           onCancel={adminCancelBooking}
           cancellingId={adminCancellingId}
+          scheduleBusy={adminScheduleBusy}
+          onCreate={adminCreateBooking}
+          onReschedule={adminRescheduleBooking}
         />
       ) : (
         <MyBookings user={user} bookings={bookings} loading={loadingBookings} onLogin={() => setShowAuth(true)} onCancel={cancelBooking} />

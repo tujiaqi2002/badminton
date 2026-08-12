@@ -284,6 +284,63 @@ a { color: inherit; text-decoration: none; }
 .admin-cancel-booking { grid-column: 1/-1; width: max-content; margin: 2px 0 0 auto; padding: 5px 0; display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--red-dark); cursor: pointer; font-size: 9px; text-decoration: underline; text-underline-offset: 3px; }
 .admin-cancel-booking:hover { color: var(--red); }
 .admin-cancel-booking:disabled { opacity: .45; cursor: wait; }
+.admin-schedule-editor { margin: 42px 0 55px; border: 1px solid var(--line); background: rgba(255,255,255,.28); box-shadow: 0 22px 58px rgba(40,38,32,.06); }
+.admin-schedule-editor > header { min-height: 128px; padding: 25px 28px; display: flex; justify-content: space-between; align-items: center; gap: 25px; border-bottom: 1px solid var(--line); }
+.admin-schedule-editor h2 { margin: 8px 0 7px; font: 32px/1.1 "Songti SC", serif; }
+.admin-schedule-editor header p { max-width: 590px; margin: 0; color: var(--ink-soft); font-size: 10px; line-height: 1.7; }
+.admin-schedule-date { display: flex; align-items: stretch; border: 1px solid var(--line); background: rgba(255,255,255,.52); }
+.admin-schedule-date button { width: 42px; border: 0; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.admin-schedule-date button:hover { color: var(--red); }
+.admin-schedule-date label { min-width: 185px; padding: 10px 12px; display: grid; text-align: center; border-inline: 1px solid var(--line); }
+.admin-schedule-date strong { font: 15px/1.2 "Songti SC", serif; }
+.admin-schedule-date input { margin-top: 5px; border: 0; background: transparent; color: var(--ink-soft); font-size: 9px; text-align: center; }
+.admin-schedule-hint { min-height: 42px; padding: 0 22px; display: flex; align-items: center; gap: 7px; border-bottom: 1px solid var(--line); color: var(--ink-soft); font-size: 9px; }
+.admin-schedule-hint span { margin-left: auto; display: flex; align-items: center; gap: 7px; }
+.admin-schedule-scroll { overflow-x: auto; }
+.admin-schedule-grid { --slot-height: 26px; min-width: 960px; display: grid; grid-template-columns: 72px repeat(5, minmax(160px,1fr)); }
+.admin-schedule-corner, .admin-schedule-court { min-height: 64px; display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.admin-schedule-court { gap: 9px; }
+.admin-schedule-court span { width: 31px; height: 31px; display: grid; place-items: center; color: white; background: var(--ink); font: 17px/1 "Songti SC", serif; border-radius: 50%; }
+.admin-schedule-court strong { font-size: 10px; }
+.admin-schedule-times, .admin-schedule-lane { position: relative; height: calc(var(--slot-height) * 30); border-right: 1px solid var(--line); }
+.admin-schedule-times > div, .admin-schedule-slot { height: var(--slot-height); border: 0; border-bottom: 1px solid rgba(34,36,33,.12); background: transparent; }
+.admin-schedule-times > div { padding: 4px 7px; color: var(--ink-soft); font-size: 8px; text-align: right; }
+.admin-schedule-times > .half, .admin-schedule-slot:nth-child(even) { border-bottom-color: rgba(34,36,33,.055); }
+.admin-schedule-lane { display: grid; grid-template-rows: repeat(30,var(--slot-height)); }
+.admin-schedule-slot { width: 100%; cursor: crosshair; }
+.admin-schedule-slot:hover, .admin-schedule-slot:focus-visible { background: rgba(199,70,54,.08); outline: 0; }
+.admin-schedule-booking { position: absolute; z-index: 2; top: calc(var(--start) * var(--slot-height) + 2px); left: 5px; right: 5px; min-height: calc(var(--span) * var(--slot-height) - 4px); padding: 7px 8px 7px 5px; display: flex; align-items: start; gap: 5px; border: 1px solid rgba(255,255,255,.3); background: var(--ink); color: white; box-shadow: 0 7px 17px rgba(34,36,33,.17); cursor: grab; overflow: hidden; }
+.admin-schedule-booking:active { cursor: grabbing; }
+.admin-schedule-booking.dragging { opacity: .4; }
+.admin-schedule-booking.selected { outline: 3px solid var(--paper-light); box-shadow: 0 0 0 5px var(--red), 0 8px 20px rgba(34,36,33,.24); }
+.admin-schedule-booking svg { flex: 0 0 auto; opacity: .65; }
+.admin-schedule-booking div { min-width: 0; display: grid; gap: 4px; }
+.admin-schedule-booking strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+.admin-schedule-booking span { opacity: .72; font-size: 8px; }
+.admin-schedule-lane.wind .admin-schedule-booking { background: #547f8b; }
+.admin-schedule-lane.forest .admin-schedule-booking { background: #607759; }
+.admin-schedule-lane.fire .admin-schedule-booking { background: #a44e43; }
+.admin-schedule-lane.mountain .admin-schedule-booking { background: #92734d; }
+.admin-schedule-lane.thunder .admin-schedule-booking { background: #755f80; }
+.admin-create-modal { position: relative; width: min(490px,calc(100vw - 28px)); padding: 34px; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: modalIn .22s ease; }
+.admin-create-modal h2 { margin: 9px 0 8px; font: 31px/1.1 "Songti SC",serif; }
+.admin-create-modal > p { margin: 0 0 23px; color: var(--ink-soft); font-size: 10px; }
+.admin-create-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+.admin-create-fields label { display: grid; gap: 6px; }
+.admin-create-fields label:nth-child(-n+2) { grid-column: 1/-1; }
+.admin-create-fields span { color: var(--ink-soft); font-size: 9px; }
+.admin-create-fields input, .admin-create-fields select { min-height: 42px; padding: 0 11px; border: 1px solid var(--line); background: rgba(255,255,255,.72); color: var(--ink); outline: 0; }
+.admin-create-modal > .primary-button { width: 100%; margin-top: 18px; }
+.private-login-shell { min-height: 100vh; display: grid; place-items: center; background: var(--paper); }
+.private-login-brand { position: fixed; top: 28px; left: 34px; display: flex; align-items: center; gap: 10px; }
+.private-login-brand > span { width: 39px; height: 39px; display: grid; place-items: center; color: white; background: var(--ink); font: 21px/1 "Songti SC",serif; }
+.private-login-brand strong { letter-spacing: .18em; font-size: 13px; }
+.private-login-brand small { padding-left: 2px; color: var(--ink-soft); font-size: 9px; }
+.locked-auth.modal-backdrop { position: static; background: transparent; backdrop-filter: none; }
+.locked-auth .auth-modal { width: min(470px,calc(100vw - 28px)); box-shadow: 0 28px 85px rgba(34,36,33,.13); }
+.private-login-loading, .private-access-denied { width: min(470px,calc(100vw - 28px)); padding: 58px 40px; text-align: center; border: 1px solid var(--line); background: var(--paper-light); box-shadow: var(--shadow); }
+.private-login-loading p, .private-access-denied p { color: var(--ink-soft); font-size: 11px; line-height: 1.7; }
+.private-access-denied h1 { margin: 15px 0 7px; font: 34px/1.2 "Songti SC",serif; }
 .status-pill.cancelled, .status-pill.expired, .status-pill.no_show { color: var(--ink-soft); background: rgba(34,36,33,.07); }
 .status-pill.completed { color: #315c3f; background: rgba(49,92,63,.08); }
 
@@ -311,6 +368,18 @@ footer small { text-align: right; }
   .admin-controls select { min-height: 38px; }
   .admin-booking-row { grid-template-columns: 130px 190px minmax(190px, 1fr); }
   .admin-booking-details { grid-column: 2/-1; }
+}
+
+@media (max-width: 760px) {
+  .admin-schedule-editor > header { padding: 22px 17px; align-items: stretch; flex-direction: column; }
+  .admin-schedule-editor h2 { font-size: 28px; }
+  .admin-schedule-date { width: 100%; }
+  .admin-schedule-date label { min-width: 0; flex: 1; }
+  .admin-schedule-grid { min-width: 890px; }
+  .admin-create-modal { padding: 29px 20px; }
+  .admin-create-fields { grid-template-columns: 1fr; }
+  .admin-create-fields label { grid-column: 1/-1; }
+  .private-login-brand { top: 18px; left: 18px; }
 }
 
 @media (max-width: 760px) {
