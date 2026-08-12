@@ -82,6 +82,8 @@ exception when duplicate_object then null; end $$;
 
 create index if not exists bookings_user_start_idx on public.bookings (user_id, start_at desc);
 create index if not exists bookings_court_start_idx on public.bookings (court_id, start_at);
+create index if not exists bookings_held_expiry_idx on public.bookings (hold_expires_at)
+where status = 'held';
 
 -- 公开实时表只含占用信息，不含 user_id，避免实时看板泄露用户身份。
 create table if not exists public.court_slots (
@@ -94,6 +96,7 @@ create table if not exists public.court_slots (
 );
 
 create index if not exists court_slots_date_idx on public.court_slots (start_at, end_at, court_id);
+create index if not exists court_slots_court_id_idx on public.court_slots (court_id);
 
 create or replace function public.set_updated_at()
 returns trigger language plpgsql set search_path = public, pg_temp as $$
@@ -112,7 +115,7 @@ create trigger bookings_set_updated_at before update on public.bookings
 for each row execute function public.set_updated_at();
 
 create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer set search_path = public, pg_temp as $$
+returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   insert into public.profiles (id, display_name, avatar_url)
   values (new.id, coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)), new.raw_user_meta_data->>'avatar_url')
@@ -126,7 +129,7 @@ create trigger on_auth_user_created after insert on auth.users
 for each row execute function public.handle_new_user();
 
 create or replace function public.sync_public_court_slot()
-returns trigger language plpgsql security definer set search_path = public, pg_temp as $$
+returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   if tg_op = 'DELETE' then
     delete from public.court_slots where id = old.id;
@@ -163,7 +166,7 @@ create or replace function public.create_booking(
 returns public.bookings
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = ''
 as $$
 declare
   v_user_id uuid := auth.uid();
@@ -211,7 +214,7 @@ create or replace function public.cancel_booking(p_booking_id uuid)
 returns public.bookings
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = ''
 as $$
 declare v_booking public.bookings;
 begin
@@ -233,24 +236,41 @@ alter table public.bookings enable row level security;
 alter table public.court_slots enable row level security;
 
 drop policy if exists "courts are public" on public.courts;
-create policy "courts are public" on public.courts for select using (true);
+create policy "courts are public" on public.courts for select
+to anon, authenticated
+using (true);
 
 drop policy if exists "public schedule is readable" on public.court_slots;
-create policy "public schedule is readable" on public.court_slots for select using (true);
+create policy "public schedule is readable" on public.court_slots for select
+to anon, authenticated
+using (true);
 
 drop policy if exists "users read own profile" on public.profiles;
-create policy "users read own profile" on public.profiles for select using (auth.uid() = id);
+create policy "users read own profile" on public.profiles for select
+to authenticated
+using ((select auth.uid()) = id);
 drop policy if exists "users update own profile" on public.profiles;
-create policy "users update own profile" on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id);
+create policy "users update own profile" on public.profiles for update
+to authenticated
+using ((select auth.uid()) = id)
+with check ((select auth.uid()) = id);
 
 drop policy if exists "users read own bookings" on public.bookings;
-create policy "users read own bookings" on public.bookings for select using (auth.uid() = user_id);
+create policy "users read own bookings" on public.bookings for select
+to authenticated
+using ((select auth.uid()) = user_id);
 
-revoke insert, update, delete on public.bookings from anon, authenticated;
-revoke insert, update, delete on public.court_slots from anon, authenticated;
+revoke all on public.courts, public.profiles, public.bookings, public.court_slots from anon, authenticated;
+grant usage on schema public to anon, authenticated;
 grant select on public.courts, public.court_slots to anon, authenticated;
 grant select on public.bookings to authenticated;
 grant select, update on public.profiles to authenticated;
+
+revoke execute on function public.set_updated_at() from PUBLIC, anon, authenticated;
+revoke execute on function public.handle_new_user() from PUBLIC, anon, authenticated;
+revoke execute on function public.sync_public_court_slot() from PUBLIC, anon, authenticated;
+revoke execute on function public.create_booking(uuid, timestamp, timestamp, smallint, public.payment_method) from PUBLIC, anon, authenticated;
+revoke execute on function public.cancel_booking(uuid) from PUBLIC, anon, authenticated;
 grant execute on function public.create_booking(uuid, timestamp, timestamp, smallint, public.payment_method) to authenticated;
 grant execute on function public.cancel_booking(uuid) to authenticated;
 
