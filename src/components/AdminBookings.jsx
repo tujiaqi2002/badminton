@@ -11,35 +11,11 @@ import {
   UsersRound,
 } from 'lucide-react'
 import { addDays, COURTS, formatMoney, timeFromDateTime, toDateKey } from '../lib/booking'
-
-const STATUS_LABELS = {
-  held: '待支付',
-  confirmed: '已确认',
-  cancelled: '已取消',
-  completed: '已完成',
-  expired: '已过期',
-  no_show: '未到场',
-}
-
-const PAYMENT_LABELS = {
-  pending: '等待付款',
-  paid: '已付款',
-  pay_at_venue: '到店付款',
-  refunded: '已退款',
-  failed: '付款失败',
-}
+import { useI18n } from '../lib/i18n'
 
 const durationMinutes = (booking) => Math.round(
   (new Date(booking.end_at).getTime() - new Date(booking.start_at).getTime()) / 60_000,
 )
-
-const formatDuration = (minutes) => minutes % 60 === 0
-  ? `${minutes / 60} 小时`
-  : `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分`
-
-const formatDay = (dateKey) => new Intl.DateTimeFormat('zh-CN', {
-  month: 'long', day: 'numeric', weekday: 'long',
-}).format(new Date(`${dateKey}T12:00:00`))
 
 export default function AdminBookings({
   bookings,
@@ -51,6 +27,7 @@ export default function AdminBookings({
   onCancel,
   cancellingId,
 }) {
+  const { courtName, courtTitle, locale, t } = useI18n()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('active')
 
@@ -66,6 +43,7 @@ export default function AdminBookings({
         booking.customer_name,
         booking.customer_email,
         COURTS.find((court) => court.id === booking.court_id)?.name,
+        COURTS.find((court) => court.id === booking.court_id)?.english,
       ].some((value) => value?.toLowerCase().includes(normalizedQuery))
       const matchesStatus = statusFilter === 'all'
         || (statusFilter === 'active' && ['held', 'confirmed'].includes(booking.status))
@@ -84,62 +62,68 @@ export default function AdminBookings({
   const totalHours = filteredBookings.reduce((sum, booking) => sum + durationMinutes(booking), 0) / 60
   const uniqueCustomers = new Set(filteredBookings.map((booking) => booking.customer_email)).size
   const todayCount = filteredBookings.filter((booking) => booking.start_at.startsWith(toDateKey(new Date()))).length
+  const formatDuration = (minutes) => minutes % 60 === 0
+    ? t('duration.hours', { hours: minutes / 60 })
+    : t('duration.hoursMinutes', { hours: Math.floor(minutes / 60), minutes: minutes % 60 })
+  const formatDay = (dateKey) => new Intl.DateTimeFormat(locale, {
+    month: 'long', day: 'numeric', weekday: 'long',
+  }).format(new Date(`${dateKey}T12:00:00`))
 
   return (
     <main className="admin-bookings-page">
       <div className="admin-heading">
         <div>
-          <span className="eyebrow"><ShieldCheck size={13} /> Manager access</span>
-          <h1>预订管理</h1>
-          <p>每位客人、每片场地、每段时间，一目了然。</p>
+          <span className="eyebrow"><ShieldCheck size={13} /> {t('admin.eyebrow')}</span>
+          <h1>{t('admin.title')}</h1>
+          <p>{t('admin.description')}</p>
         </div>
         <button className="outline-button admin-refresh" onClick={onRefresh} disabled={loading}>
-          <RefreshCw size={15} className={loading ? 'spin' : ''} /> 刷新
+          <RefreshCw size={15} className={loading ? 'spin' : ''} /> {t('admin.refresh')}
         </button>
       </div>
 
-      <section className="admin-summary" aria-label="预订概览">
-        <article><span>查询结果</span><strong>{filteredBookings.length}</strong><small>笔预订</small></article>
-        <article><span>总时长</span><strong>{Number.isInteger(totalHours) ? totalHours : totalHours.toFixed(1)}</strong><small>小时</small></article>
-        <article><span>客户</span><strong>{uniqueCustomers}</strong><small>位客人</small></article>
-        <article><span>今天</span><strong>{todayCount}</strong><small>个场次</small></article>
+      <section className="admin-summary" aria-label={t('admin.summaryAria')}>
+        <article><span>{t('admin.results')}</span><strong>{filteredBookings.length}</strong><small>{t('admin.bookingUnit')}</small></article>
+        <article><span>{t('admin.totalDuration')}</span><strong>{Number.isInteger(totalHours) ? totalHours : totalHours.toFixed(1)}</strong><small>{t('admin.hoursUnit')}</small></article>
+        <article><span>{t('admin.customers')}</span><strong>{uniqueCustomers}</strong><small>{t('admin.customerUnit')}</small></article>
+        <article><span>{t('admin.today')}</span><strong>{todayCount}</strong><small>{t('admin.sessionUnit')}</small></article>
       </section>
 
-      <section className="admin-controls" aria-label="筛选预订">
+      <section className="admin-controls" aria-label={t('admin.filterAria')}>
         <div className="admin-presets">
-          <button onClick={() => applyPreset(1)}>今天</button>
-          <button onClick={() => applyPreset(7)}>未来 7 天</button>
-          <button onClick={() => applyPreset(30)}>未来 30 天</button>
+          <button onClick={() => applyPreset(1)}>{t('admin.today')}</button>
+          <button onClick={() => applyPreset(7)}>{t('admin.next7')}</button>
+          <button onClick={() => applyPreset(30)}>{t('admin.next30')}</button>
         </div>
         <label className="admin-date-field">
-          <span>从</span>
+          <span>{t('admin.from')}</span>
           <input type="date" value={startDate} max={endDate} onChange={(event) => onRangeChange({ start: event.target.value, end: endDate })} />
         </label>
         <label className="admin-date-field">
-          <span>到</span>
+          <span>{t('admin.to')}</span>
           <input type="date" value={endDate} min={startDate} onChange={(event) => onRangeChange({ start: startDate, end: event.target.value })} />
         </label>
         <label className="admin-search">
           <Search size={15} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索姓名、邮箱或场地" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('admin.search')} />
         </label>
-        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="预订状态">
-          <option value="active">进行中</option>
-          <option value="all">全部状态</option>
-          <option value="confirmed">已确认</option>
-          <option value="held">待支付</option>
-          <option value="cancelled">已取消</option>
-          <option value="completed">已完成</option>
+        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label={t('admin.statusAria')}>
+          <option value="active">{t('admin.active')}</option>
+          <option value="all">{t('admin.allStatuses')}</option>
+          <option value="confirmed">{t('status.confirmed')}</option>
+          <option value="held">{t('status.held')}</option>
+          <option value="cancelled">{t('status.cancelled')}</option>
+          <option value="completed">{t('status.completed')}</option>
         </select>
       </section>
 
       {loading ? (
-        <div className="board-loading"><RefreshCw className="spin" /> 正在读取球馆预订</div>
+        <div className="board-loading"><RefreshCw className="spin" /> {t('admin.loading')}</div>
       ) : filteredBookings.length === 0 ? (
         <div className="admin-empty">
           <CalendarRange size={30} />
-          <h2>这个范围内没有预订</h2>
-          <p>调整日期、状态或搜索条件后再看看。</p>
+          <h2>{t('admin.emptyTitle')}</h2>
+          <p>{t('admin.emptyText')}</p>
         </div>
       ) : (
         <div className="admin-day-list">
@@ -147,7 +131,7 @@ export default function AdminBookings({
             <section className="admin-day" key={date}>
               <header>
                 <div><strong>{formatDay(date)}</strong><span>{date.replaceAll('-', '.')}</span></div>
-                <span>{dayBookings.length} 个场次</span>
+                <span>{t('admin.sessions', { count: dayBookings.length })}</span>
               </header>
               <div className="admin-booking-list">
                 {dayBookings.map((booking) => {
@@ -163,17 +147,17 @@ export default function AdminBookings({
                       </div>
                       <div className="admin-booking-court">
                         <span className={`admin-court-seal ${court.tone}`}>{court.name}</span>
-                        <div><strong>{court.name}场 · {court.english}</strong><small>场地 {court.name}</small></div>
+                        <div><strong>{courtTitle(court)}</strong><small>{t('admin.court', { court: courtName(court) })}</small></div>
                       </div>
                       <div className="admin-customer">
                         <UserRound size={17} />
                         <div><strong>{booking.customer_name}</strong><span><Mail size={12} />{booking.customer_email}</span></div>
                       </div>
                       <div className="admin-booking-details">
-                        <span className={`status-pill ${booking.status}`}>{STATUS_LABELS[booking.status] || booking.status}</span>
-                        <span><UsersRound size={14} /> {booking.party_size} 人</span>
-                        <span>{PAYMENT_LABELS[booking.payment_status] || booking.payment_status}</span>
-                        <strong>{formatMoney(booking.total_amount || 0)}</strong>
+                        <span className={`status-pill ${booking.status}`}>{t(`status.${booking.status}`)}</span>
+                        <span><UsersRound size={14} /> {t('admin.people', { count: booking.party_size })}</span>
+                        <span>{t(`payment.${booking.payment_status}`)}</span>
+                        <strong>{formatMoney(booking.total_amount || 0, locale)}</strong>
                         {['held', 'confirmed'].includes(booking.status) && (
                           <button
                             className="admin-cancel-booking"
@@ -181,8 +165,8 @@ export default function AdminBookings({
                             disabled={Boolean(cancellingId)}
                           >
                             {cancellingId === booking.id
-                              ? <><RefreshCw size={13} className="spin" /> 取消中</>
-                              : <><Trash2 size={13} /> 取消预订</>}
+                              ? <><RefreshCw size={13} className="spin" /> {t('admin.cancelling')}</>
+                              : <><Trash2 size={13} /> {t('admin.cancel')}</>}
                           </button>
                         )}
                       </div>

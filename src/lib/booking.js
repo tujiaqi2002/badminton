@@ -1,9 +1,9 @@
 export const COURTS = [
-  { id: '10000000-0000-0000-0000-000000000001', name: '风', english: 'Wind', note: '轻盈迅捷', tone: 'wind' },
-  { id: '10000000-0000-0000-0000-000000000002', name: '林', english: 'Forest', note: '沉静专注', tone: 'forest' },
-  { id: '10000000-0000-0000-0000-000000000003', name: '火', english: 'Fire', note: '热烈竞技', tone: 'fire' },
-  { id: '10000000-0000-0000-0000-000000000004', name: '山', english: 'Mountain', note: '稳定从容', tone: 'mountain' },
-  { id: '10000000-0000-0000-0000-000000000005', name: '雷', english: 'Thunder', note: '果决凌厉', tone: 'thunder' },
+  { id: '10000000-0000-0000-0000-000000000001', name: '风', english: 'Wind', note: '轻盈迅捷', noteEn: 'Light and agile', tone: 'wind' },
+  { id: '10000000-0000-0000-0000-000000000002', name: '林', english: 'Forest', note: '沉静专注', noteEn: 'Calm and focused', tone: 'forest' },
+  { id: '10000000-0000-0000-0000-000000000003', name: '火', english: 'Fire', note: '热烈竞技', noteEn: 'Bold and competitive', tone: 'fire' },
+  { id: '10000000-0000-0000-0000-000000000004', name: '山', english: 'Mountain', note: '稳定从容', noteEn: 'Steady and composed', tone: 'mountain' },
+  { id: '10000000-0000-0000-0000-000000000005', name: '雷', english: 'Thunder', note: '果决凌厉', noteEn: 'Fast and decisive', tone: 'thunder' },
 ]
 
 export const SLOTS = Array.from({ length: 15 }, (_, index) => `${String(index + 7).padStart(2, '0')}:00`)
@@ -34,7 +34,7 @@ export const timeFromDateTime = (dateTime) => dateTime.slice(11, 16)
 
 export const overlaps = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && aEnd > bStart
 
-export const formatMoney = (amount) => new Intl.NumberFormat('zh-CN', {
+export const formatMoney = (amount, locale = 'zh-CN') => new Intl.NumberFormat(locale, {
   style: 'currency', currency: 'CAD', maximumFractionDigits: 0,
 }).format(amount)
 
