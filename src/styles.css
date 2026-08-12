@@ -41,6 +41,29 @@ a { color: inherit; text-decoration: none; }
 .desktop-nav button { display: flex; gap: 7px; align-items: center; border: 0; background: transparent; color: var(--ink-soft); padding: 9px 16px; border-radius: 999px; cursor: pointer; font-size: 13px; }
 .desktop-nav button.active { color: var(--ink); background: rgba(255,255,255,.92); box-shadow: 0 4px 15px rgba(34,36,33,.06); }
 .header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.theme-switcher { position: relative; }
+.theme-switcher summary { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.34); color: var(--ink-soft); cursor: pointer; font-size: 10px; font-weight: 700; letter-spacing: .04em; list-style: none; }
+.theme-switcher summary::-webkit-details-marker { display: none; }
+.theme-switcher summary:hover, .theme-switcher[open] summary { color: var(--ink); background: rgba(255,255,255,.78); }
+.theme-menu { width: min(310px, calc(100vw - 28px)); position: absolute; z-index: 80; top: calc(100% + 11px); right: 0; padding: 10px; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: themeMenuIn .18s ease; }
+.theme-menu > header { height: 32px; padding: 0 4px 8px; display: flex; align-items: center; justify-content: space-between; color: var(--ink-soft); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+.theme-menu > header small { opacity: .62; }
+.theme-menu > button { width: 100%; min-height: 66px; padding: 7px; display: grid; grid-template-columns: 64px 1fr 18px; align-items: center; gap: 11px; border: 1px solid transparent; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+.theme-menu > button:hover { background: rgba(255,255,255,.48); border-color: var(--line); }
+.theme-menu > button.selected { background: rgba(255,255,255,.72); border-color: var(--ink); }
+.theme-menu > button > span { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.theme-menu strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.theme-menu small { color: var(--ink-soft); font-size: 9px; }
+.theme-preview { width: 64px; height: 48px; position: relative; overflow: hidden; display: block; border: 1px solid rgba(34,36,33,.16); background: #f3f0e9; }
+.theme-preview::before, .theme-preview::after, .theme-preview span { content: ""; position: absolute; display: block; }
+.theme-preview.classic::before { width: 50px; height: 24px; right: -4px; top: 5px; border-radius: 50%; border-top: 8px solid #252722; transform: rotate(-16deg); opacity: .78; }
+.theme-preview.classic::after { width: 27px; height: 2px; left: 6px; bottom: 9px; background: #c74636; }
+.theme-preview.winged { background: #e4c75f; }
+.theme-preview.winged::before { width: 42px; height: 22px; right: 3px; top: 10px; border-radius: 70% 12% 65% 20%; background: #251e13; transform: rotate(-8deg); }
+.theme-preview.winged::after { width: 26px; height: 18px; right: 23px; top: 5px; border: 3px solid #f5ead2; border-width: 3px 0 0 3px; transform: skew(-18deg) rotate(17deg); }
+.theme-preview.sport { background: #f5c400; }
+.theme-preview.sport::before { inset: 7px 7px 10px 24px; background: #11130f; clip-path: polygon(0 35%, 38% 0, 100% 18%, 72% 38%, 100% 58%, 45% 100%, 5% 75%); }
+.theme-preview.sport::after { width: 44px; height: 2px; right: -4px; bottom: 8px; background: white; transform: rotate(-13deg); }
 .language-switch { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.34); color: var(--ink-soft); cursor: pointer; font-size: 10px; letter-spacing: .04em; }
 .language-switch:hover { color: var(--ink); background: rgba(255,255,255,.78); }
 .account-button { border: 0; background: transparent; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink-soft); }
@@ -265,6 +288,7 @@ footer small { text-align: right; }
 @keyframes slideIn { from { transform: translateX(100%); } }
 @keyframes modalIn { from { opacity: 0; transform: translateY(12px) scale(.98); } }
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } }
+@keyframes themeMenuIn { from { opacity: 0; transform: translateY(-5px) scale(.98); } }
 
 @media (max-width: 1100px) {
   .schedule-table { display: grid; }
@@ -280,10 +304,13 @@ footer small { text-align: right; }
 @media (max-width: 760px) {
   body { padding-bottom: calc(65px + env(safe-area-inset-bottom)); }
   .site-header { height: 64px; padding: 0 18px; }
+  .header-actions { gap: 6px; }
   .desktop-nav, .account-button .account-label, .account-button > svg, .header-login { display: none; }
   .account-button { margin-left: auto; }
   .brand strong { font-size: 13px; }
-  .brand small { font-size: 10px; }
+  .brand small { display: none; }
+  .theme-switcher summary, .language-switch { padding-inline: 8px; }
+  .theme-menu { position: fixed; top: 70px; left: 14px; right: 14px; width: auto; }
   .hero { min-height: 585px; padding: 70px 28px 105px; align-items: flex-start; }
   .hero::before, .hero-art { inset: 0; }
   .hero-art { background-image: linear-gradient(180deg, rgba(243,240,233,.1) 0%, rgba(243,240,233,.8) 70%), url('./assets/tiger-ink-hero.webp'); background-position: 64% center; opacity: .76; }
@@ -361,6 +388,140 @@ footer small { text-align: right; }
   .admin-mobile-nav { grid-template-columns: repeat(4, 1fr); }
   .toast { bottom: 82px; }
   @keyframes slideUp { from { transform: translateY(100%); } }
+}
+
+/* UI 02 · 如虎添翼 */
+:root[data-theme="winged"] {
+  color: #241e14;
+  background: #eee2c3;
+  --paper: #eee2c3;
+  --paper-light: #fbf1d6;
+  --ink: #241e14;
+  --ink-soft: #6d5c40;
+  --line: rgba(49, 38, 21, .17);
+  --red: #b85821;
+  --red-dark: #813915;
+  --shadow: 0 26px 80px rgba(61, 42, 17, .2);
+}
+html[data-theme="winged"] body {
+  background-color: var(--paper);
+  background-image: radial-gradient(circle at 8% 18%, rgba(213,171,62,.13), transparent 30%), linear-gradient(90deg, rgba(77,55,25,.018) 1px, transparent 1px);
+  background-size: auto, 5px 5px;
+}
+html[data-theme="winged"] .hero::before { background: rgba(251,241,214,.22); border-color: rgba(62,43,20,.16); }
+html[data-theme="winged"] .hero-art {
+  background-image: linear-gradient(90deg, rgba(238,226,195,.94) 0%, rgba(238,226,195,.67) 32%, rgba(238,226,195,.1) 61%), url('./assets/tiger-winged-hero.webp');
+  background-position: center;
+  opacity: 1;
+  mix-blend-mode: multiply;
+}
+html[data-theme="winged"] .brand-mark { background: #2a2115; color: #edc84e; border-radius: 3px 50% 50%; transform: rotate(-5deg); }
+html[data-theme="winged"] .brand-mark + span { transform: none; }
+html[data-theme="winged"] .desktop-nav,
+html[data-theme="winged"] .language-switch,
+html[data-theme="winged"] .theme-switcher summary { background: rgba(255,248,227,.42); }
+html[data-theme="winged"] .desktop-nav button.active { background: #fbf1d6; }
+html[data-theme="winged"] .venue-note { color: #2a2115; background: rgba(225,190,69,.92); }
+html[data-theme="winged"] .venue-note small { color: rgba(42,33,21,.62); }
+html[data-theme="winged"] .slot,
+html[data-theme="winged"] .booking-card,
+html[data-theme="winged"] .admin-booking-row,
+html[data-theme="winged"] .mobile-court-card { background: rgba(255,248,229,.38); }
+html[data-theme="winged"] .slot.occupied { background: rgba(45,35,22,.67); }
+html[data-theme="winged"] .mobile-bottom-nav { background: rgba(251,241,214,.94); }
+
+/* UI 03 · 黄黑竞技 */
+:root[data-theme="sport"] {
+  color: #12140f;
+  background: #f5c400;
+  --paper: #f5c400;
+  --paper-light: #ffdf54;
+  --ink: #12140f;
+  --ink-soft: #55470a;
+  --line: rgba(18,20,15,.2);
+  --red: #12140f;
+  --red-dark: #12140f;
+  --shadow: 0 26px 70px rgba(18,20,15,.25);
+}
+html[data-theme="sport"] body {
+  background-color: var(--paper);
+  background-image: linear-gradient(115deg, rgba(255,255,255,.1) 0 18%, transparent 18% 72%, rgba(18,20,15,.035) 72%);
+}
+html[data-theme="sport"] .site-header { border-bottom: 1px solid rgba(18,20,15,.1); }
+html[data-theme="sport"] .brand-mark { border-radius: 6px; background: var(--ink); color: #f5c400; box-shadow: none; font-family: Inter, sans-serif; font-weight: 900; }
+html[data-theme="sport"] .brand small { font-family: Inter, sans-serif; font-weight: 700; letter-spacing: .06em; }
+html[data-theme="sport"] .desktop-nav,
+html[data-theme="sport"] .language-switch,
+html[data-theme="sport"] .theme-switcher summary { border-color: rgba(18,20,15,.24); background: rgba(255,229,105,.38); }
+html[data-theme="sport"] .desktop-nav button.active { color: #f5c400; background: var(--ink); box-shadow: none; }
+html[data-theme="sport"] .hero::before { background: rgba(255,221,69,.18); border-color: rgba(18,20,15,.22); }
+html[data-theme="sport"] .hero-art {
+  background-image: linear-gradient(90deg, rgba(245,196,0,.98) 0%, rgba(245,196,0,.84) 31%, rgba(245,196,0,.08) 61%), url('./assets/tiger-sport-hero.webp');
+  background-position: center;
+  opacity: 1;
+  mix-blend-mode: normal;
+}
+html[data-theme="sport"] .hero h1,
+html[data-theme="sport"] .section-heading h2,
+html[data-theme="sport"] .ritual-section h2,
+html[data-theme="sport"] .page-heading h1,
+html[data-theme="sport"] .empty-page h1,
+html[data-theme="sport"] .admin-heading h1,
+html[data-theme="sport"] .booking-drawer h2,
+html[data-theme="sport"] .auth-modal h2,
+html[data-theme="sport"] .bookings-empty h2,
+html[data-theme="sport"] .admin-empty h2 { font-family: Inter, "PingFang SC", sans-serif; font-weight: 850; letter-spacing: -.065em; }
+html[data-theme="sport"] .hero h1 em { color: var(--ink); }
+html[data-theme="sport"] .hero h1 em::after { height: 5px; background: #087451; opacity: .8; transform: skewX(-22deg); }
+html[data-theme="sport"] .eyebrow { color: var(--ink); }
+html[data-theme="sport"] .primary-button { color: #f8cc16; background: var(--ink); }
+html[data-theme="sport"] .primary-button:hover { color: white; background: #050604; }
+html[data-theme="sport"] .venue-note { color: #f8cc16; background: rgba(18,20,15,.94); }
+html[data-theme="sport"] .venue-note small { color: rgba(255,221,84,.7); }
+html[data-theme="sport"] .date-card strong,
+html[data-theme="sport"] .court-label strong,
+html[data-theme="sport"] .booking-card-title h2,
+html[data-theme="sport"] .admin-day > header strong { font-family: Inter, "PingFang SC", sans-serif; font-weight: 760; }
+html[data-theme="sport"] .schedule-table,
+html[data-theme="sport"] .booking-card,
+html[data-theme="sport"] .admin-booking-row,
+html[data-theme="sport"] .mobile-court-card { background: rgba(255,231,111,.2); }
+html[data-theme="sport"] .court-label,
+html[data-theme="sport"] .slot { background: rgba(255,238,157,.28); }
+html[data-theme="sport"] .slot.available:hover,
+html[data-theme="sport"] .slot.available:focus-visible { color: #f8cc16; background: var(--ink); box-shadow: inset 0 0 0 1px rgba(255,215,38,.38); }
+html[data-theme="sport"] .slot.occupied { color: rgba(255,222,70,.74); background: rgba(18,20,15,.74); }
+html[data-theme="sport"] .date-card.selected small,
+html[data-theme="sport"] .date-card.selected strong,
+html[data-theme="sport"] .availability-summary strong,
+html[data-theme="sport"] .mobile-bottom-nav button.active { color: var(--ink); }
+html[data-theme="sport"] .date-card.selected::after { height: 4px; background: var(--ink); }
+html[data-theme="sport"] .ritual-steps article { border-left-width: 3px; border-left-color: var(--ink); }
+html[data-theme="sport"] .ritual-steps article > span { color: var(--ink); font-family: Inter, sans-serif; font-weight: 900; }
+html[data-theme="sport"] .booking-drawer,
+html[data-theme="sport"] .auth-modal,
+html[data-theme="sport"] .theme-menu { background: #ffdf54; }
+html[data-theme="sport"] .auth-seal,
+html[data-theme="sport"] .summary-seal,
+html[data-theme="sport"] .booking-card-seal,
+html[data-theme="sport"] .admin-court-seal { color: #f8cc16; background: var(--ink); border-radius: 7px; }
+html[data-theme="sport"] .input-with-icon,
+html[data-theme="sport"] .admin-date-field,
+html[data-theme="sport"] .admin-search,
+html[data-theme="sport"] .admin-controls select { background: rgba(255,238,155,.65); }
+html[data-theme="sport"] .mobile-bottom-nav { background: rgba(245,196,0,.94); border-top-color: rgba(18,20,15,.24); }
+html[data-theme="sport"] footer { border-top-width: 3px; }
+
+@media (max-width: 760px) {
+  html[data-theme="winged"] .hero-art {
+    background-image: linear-gradient(180deg, rgba(238,226,195,.08) 0%, rgba(238,226,195,.82) 72%), url('./assets/tiger-winged-hero.webp');
+    background-position: 61% center;
+  }
+  html[data-theme="sport"] .hero-art {
+    background-image: linear-gradient(180deg, rgba(245,196,0,.04) 0%, rgba(245,196,0,.82) 74%), url('./assets/tiger-sport-hero.webp');
+    background-position: 59% center;
+  }
+  html[data-theme="sport"] .hero h1 { font-size: clamp(43px, 13.5vw, 61px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
