@@ -73,6 +73,9 @@ a { color: inherit; text-decoration: none; }
 .theme-preview.colorfocus { background: #f3f0e9; }
 .theme-preview.colorfocus::before { inset: 7px 4px 8px 25px; background: #c87a35; clip-path: polygon(8% 45%, 38% 8%, 48% 30%, 82% 0, 70% 43%, 100% 61%, 55% 67%, 30% 100%, 27% 69%, 0 74%); box-shadow: -10px -4px 0 #444540; }
 .theme-preview.colorfocus::after { width: 40px; height: 2px; left: 5px; bottom: 7px; background: #c74636; }
+.theme-preview.inkplay { background: #eee0c6; }
+.theme-preview.inkplay::before { width: 37px; height: 21px; right: 4px; top: 11px; border-radius: 55% 45% 48% 52%; background: #716354; box-shadow: -17px 12px 0 -8px #547f8b, -10px -9px 0 -8px #607759, 8px 13px 0 -8px #755f80, 13px -8px 0 -8px #9b5348; }
+.theme-preview.inkplay::after { width: 53px; height: 18px; left: 3px; bottom: 2px; border: solid rgba(101,87,70,.52); border-width: 1px 0 0 1px; transform: skewY(-8deg); }
 .language-switch { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.34); color: var(--ink-soft); cursor: pointer; font-size: 10px; letter-spacing: .04em; }
 .language-switch:hover { color: var(--ink); background: rgba(255,255,255,.78); }
 .account-button { border: 0; background: transparent; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink-soft); }
@@ -665,6 +668,92 @@ html[data-theme="colorfocus"] .hero h1 { font-size: clamp(46px, 5.6vw, 78px); }
 html[data-theme="colorfocus"] .hero h1 em { color: var(--red); }
 html[data-theme="colorfocus"] .hero h1 em::after { background: var(--red); }
 
+/* UI 07 · 五色墨场 */
+:root[data-theme="inkplay"] {
+  color: #2d2a25;
+  background: #efe3cc;
+  --paper: #efe3cc;
+  --paper-light: #f7efdf;
+  --ink: #2d2a25;
+  --ink-soft: #746b60;
+  --line: rgba(74,64,52,.16);
+  --red: #a44e43;
+  --red-dark: #7c3c34;
+  --shadow: 0 25px 76px rgba(75,60,42,.17);
+  --wind: #547f8b;
+  --forest: #607759;
+  --fire: #a44e43;
+  --mountain: #92734d;
+  --thunder: #755f80;
+}
+html[data-theme="inkplay"] body {
+  background-color: var(--paper);
+  background-image: radial-gradient(circle at 15% 8%, rgba(255,251,239,.42), transparent 29%), linear-gradient(115deg, rgba(255,255,255,.08), transparent 43%);
+}
+html[data-theme="inkplay"] .brand-mark { color: #efe3cc; background: #403931; box-shadow: inset -6px -5px 0 rgba(255,255,255,.06); }
+html[data-theme="inkplay"] .hero::before { background: rgba(255,249,237,.25); border-color: rgba(74,64,52,.1); }
+html[data-theme="inkplay"] .hero-art {
+  background-image: linear-gradient(90deg, rgba(239,227,204,.99) 0%, rgba(239,227,204,.85) 30%, rgba(239,227,204,.07) 61%), url('./assets/tiger-inkplay-hero.webp');
+  background-position: center;
+  opacity: 1;
+  mix-blend-mode: normal;
+}
+html[data-theme="inkplay"] .hero h1 { font-size: clamp(46px, 5.65vw, 79px); }
+html[data-theme="inkplay"] .hero h1 em { color: #755f80; }
+html[data-theme="inkplay"] .hero h1 em::after { background: linear-gradient(90deg, #547f8b, #607759, #a44e43, #92734d, #755f80); opacity: .2; }
+html[data-theme="inkplay"] .venue-note { color: #efe3cc; background: rgba(64,57,49,.91); }
+html[data-theme="inkplay"] .schedule-table,
+html[data-theme="inkplay"] .booking-card,
+html[data-theme="inkplay"] .admin-booking-row,
+html[data-theme="inkplay"] .mobile-court-card { background: rgba(255,250,239,.24); }
+html[data-theme="inkplay"] .court-label,
+html[data-theme="inkplay"] .slot { background: rgba(255,250,239,.34); }
+html[data-theme="inkplay"] .court-label { position: relative; padding-left: clamp(19px, 1.8vw, 25px); }
+html[data-theme="inkplay"] .court-label::before { content: ""; position: absolute; inset: 12px auto 12px 0; width: 5px; opacity: .88; border-radius: 50%; filter: blur(.2px); }
+html[data-theme="inkplay"] .court-label.wind::before { background: var(--wind); }
+html[data-theme="inkplay"] .court-label.forest::before { background: var(--forest); }
+html[data-theme="inkplay"] .court-label.fire::before { background: var(--fire); }
+html[data-theme="inkplay"] .court-label.mountain::before { background: var(--mountain); }
+html[data-theme="inkplay"] .court-label.thunder::before { background: var(--thunder); box-shadow: 2px 2px 0 rgba(164,131,59,.44); }
+html[data-theme="inkplay"] .court-label.wind,
+html[data-theme="inkplay"] .slot.available.wind { background: linear-gradient(110deg, rgba(84,127,139,.13), rgba(255,250,239,.28) 70%); }
+html[data-theme="inkplay"] .court-label.forest,
+html[data-theme="inkplay"] .slot.available.forest { background: linear-gradient(110deg, rgba(96,119,89,.13), rgba(255,250,239,.28) 70%); }
+html[data-theme="inkplay"] .court-label.fire,
+html[data-theme="inkplay"] .slot.available.fire { background: linear-gradient(110deg, rgba(164,78,67,.12), rgba(255,250,239,.28) 70%); }
+html[data-theme="inkplay"] .court-label.mountain,
+html[data-theme="inkplay"] .slot.available.mountain { background: linear-gradient(110deg, rgba(146,115,77,.14), rgba(255,250,239,.28) 70%); }
+html[data-theme="inkplay"] .court-label.thunder,
+html[data-theme="inkplay"] .slot.available.thunder { background: linear-gradient(110deg, rgba(117,95,128,.13), rgba(164,131,59,.035) 68%, rgba(255,250,239,.28)); }
+html[data-theme="inkplay"] .slot.available.wind:hover,
+html[data-theme="inkplay"] .slot.available.wind:focus-visible { background: var(--wind); }
+html[data-theme="inkplay"] .slot.available.forest:hover,
+html[data-theme="inkplay"] .slot.available.forest:focus-visible { background: var(--forest); }
+html[data-theme="inkplay"] .slot.available.fire:hover,
+html[data-theme="inkplay"] .slot.available.fire:focus-visible { background: var(--fire); }
+html[data-theme="inkplay"] .slot.available.mountain:hover,
+html[data-theme="inkplay"] .slot.available.mountain:focus-visible { background: var(--mountain); }
+html[data-theme="inkplay"] .slot.available.thunder:hover,
+html[data-theme="inkplay"] .slot.available.thunder:focus-visible { background: var(--thunder); }
+html[data-theme="inkplay"] .slot.available:hover,
+html[data-theme="inkplay"] .slot.available:focus-visible { color: #fffaf0; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), inset 0 -14px 24px rgba(52,45,38,.12); }
+html[data-theme="inkplay"] .slot.occupied { color: rgba(255,250,240,.62); background: rgba(74,67,59,.6); }
+html[data-theme="inkplay"] :is(.court-seal,.summary-seal,.booking-card-seal,.admin-court-seal).wind { background: var(--wind); }
+html[data-theme="inkplay"] :is(.court-seal,.summary-seal,.booking-card-seal,.admin-court-seal).forest { background: var(--forest); }
+html[data-theme="inkplay"] :is(.court-seal,.summary-seal,.booking-card-seal,.admin-court-seal).fire { background: var(--fire); }
+html[data-theme="inkplay"] :is(.court-seal,.summary-seal,.booking-card-seal,.admin-court-seal).mountain { background: var(--mountain); }
+html[data-theme="inkplay"] :is(.court-seal,.summary-seal,.booking-card-seal,.admin-court-seal).thunder { background: var(--thunder); box-shadow: inset -5px -4px 0 rgba(164,131,59,.2); }
+html[data-theme="inkplay"] :is(.court-seal,.summary-seal,.booking-card-seal,.admin-court-seal) { color: #fff9ed; border-radius: 48% 52% 47% 53%; }
+html[data-theme="inkplay"] .mobile-court-card.wind { border-top: 3px solid var(--wind); }
+html[data-theme="inkplay"] .mobile-court-card.forest { border-top: 3px solid var(--forest); }
+html[data-theme="inkplay"] .mobile-court-card.fire { border-top: 3px solid var(--fire); }
+html[data-theme="inkplay"] .mobile-court-card.mountain { border-top: 3px solid var(--mountain); }
+html[data-theme="inkplay"] .mobile-court-card.thunder { border-top: 3px solid var(--thunder); }
+html[data-theme="inkplay"] .booking-drawer,
+html[data-theme="inkplay"] .auth-modal,
+html[data-theme="inkplay"] .theme-menu { background: #f7efdf; }
+html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96); border-top-color: rgba(74,64,52,.2); }
+
 @media (max-width: 760px) {
   html[data-theme="winged"] .hero-art {
     background-image: linear-gradient(180deg, rgba(238,226,195,.08) 0%, rgba(238,226,195,.82) 72%), url('./assets/tiger-winged-hero.webp');
@@ -690,6 +779,11 @@ html[data-theme="colorfocus"] .hero h1 em::after { background: var(--red); }
     background-position: 62% center;
   }
   html[data-theme="colorfocus"] .hero h1 { font-size: clamp(43px, 13vw, 59px); }
+  html[data-theme="inkplay"] .hero-art {
+    background-image: linear-gradient(180deg, rgba(239,227,204,.08) 0%, rgba(239,227,204,.86) 74%), url('./assets/tiger-inkplay-hero.webp');
+    background-position: 64% center;
+  }
+  html[data-theme="inkplay"] .hero h1 { font-size: clamp(42px, 12.8vw, 58px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

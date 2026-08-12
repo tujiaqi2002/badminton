@@ -14,7 +14,7 @@ function SlotButton({ court, time, dateKey, schedule, onSelect }) {
   const occupied = isOccupied(schedule, court.id, dateKey, time)
   return (
     <button
-      className={`slot ${occupied ? 'occupied' : 'available'}`}
+      className={`slot ${court.tone} ${occupied ? 'occupied' : 'available'}`}
       disabled={occupied}
       onClick={() => onSelect({ court, time, dateKey })}
       aria-label={t('board.slotAria', {
@@ -78,7 +78,7 @@ export default function BookingBoard({ dateKey, schedule, loading, onSelect }) {
 
           <div className="mobile-schedule">
             {COURTS.map((court) => (
-              <article className="mobile-court-card" key={court.id}>
+              <article className={`mobile-court-card ${court.tone}`} key={court.id}>
                 <div className="mobile-court-heading">
                   <div className={`court-seal ${court.tone}`}>{court.name}</div>
                   <div><h3>{courtTitle(court)}</h3><p>{courtNote(court)}</p></div>
