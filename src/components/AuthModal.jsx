@@ -1,7 +1,7 @@
 import { ArrowRight, Mail, X } from 'lucide-react'
 import { useState } from 'react'
 
-export default function AuthModal({ onClose, onEmail, onGoogle, onDemo, demoMode }) {
+export default function AuthModal({ onClose, onEmail, onGoogle, onDemo, demoMode, googleEnabled }) {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -32,11 +32,15 @@ export default function AuthModal({ onClose, onEmail, onGoogle, onDemo, demoMode
             <button className="primary-button" disabled={busy}>{busy ? '发送中…' : <>发送登录链接 <ArrowRight size={17} /></>}</button>
           </form>
         )}
-        <div className="auth-divider"><span>或</span></div>
-        {demoMode ? (
-          <button className="outline-button wide-button" onClick={onDemo}>进入体验模式</button>
-        ) : (
-          <button className="outline-button wide-button" onClick={onGoogle}>使用 Google 继续</button>
+        {(demoMode || googleEnabled) && (
+          <>
+            <div className="auth-divider"><span>或</span></div>
+            {demoMode ? (
+              <button className="outline-button wide-button" onClick={onDemo}>进入体验模式</button>
+            ) : (
+              <button className="outline-button wide-button" onClick={onGoogle}>使用 Google 继续</button>
+            )}
+          </>
         )}
         <small className="terms">继续即表示你同意《使用条款》和《隐私政策》。</small>
       </div>

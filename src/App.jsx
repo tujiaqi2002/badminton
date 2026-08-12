@@ -7,7 +7,7 @@ import DateStrip from './components/DateStrip'
 import Header from './components/Header'
 import MyBookings from './components/MyBookings'
 import { addMinutes, demoSchedule, overlaps, slotDateTime, toDateKey } from './lib/booking'
-import { isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
+import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
 
 const todayKey = () => toDateKey(new Date())
 
@@ -254,7 +254,7 @@ export default function App() {
       </nav>
 
       <BookingDrawer selection={selection} onClose={() => setSelection(null)} onConfirm={confirmBooking} busy={busy} stripeEnabled={stripeEnabled} invalid={selectionInvalid} />
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onEmail={loginByEmail} onGoogle={loginWithGoogle} onDemo={enterDemo} demoMode={!isSupabaseConfigured} />}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onEmail={loginByEmail} onGoogle={loginWithGoogle} onDemo={enterDemo} demoMode={!isSupabaseConfigured} googleEnabled={googleAuthEnabled} />}
       {toast && <div className={`toast ${toast.tone}`} role="status">{toast.message}</div>}
     </div>
   )

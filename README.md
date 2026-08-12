@@ -32,6 +32,7 @@ pnpm dev
 ```env
 VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+VITE_GOOGLE_AUTH_ENABLED=false
 VITE_STRIPE_ENABLED=false
 ```
 
@@ -44,7 +45,7 @@ VITE_STRIPE_ENABLED=false
 3. 在 Authentication → URL Configuration 设置：
    - Site URL：实际 GitHub Pages 地址
    - Redirect URLs：同一地址加 `/**`
-4. 如使用 Google 登录，在 Authentication → Providers 启用 Google。
+4. 如使用 Google 登录，在 Authentication → Providers 启用 Google，并把 GitHub Actions Variable `VITE_GOOGLE_AUTH_ENABLED` 设为 `true`。
 5. 从 Project Settings → API 复制 Project URL 与浏览器可用的 publishable/anon key。
 6. 在 GitHub 仓库 Settings → Secrets and variables → Actions 添加：
    - `VITE_SUPABASE_URL`

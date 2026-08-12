@@ -18,3 +18,4 @@ export const supabase = isSupabaseConfigured
   : null
 
 export const stripeEnabled = import.meta.env.VITE_STRIPE_ENABLED === 'true'
+export const googleAuthEnabled = import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true'
