@@ -35,7 +35,7 @@ export default function ThemeSwitcher() {
         <span>UI {themeDefinition.number}</span>
       </summary>
       <div className="theme-menu" role="group" aria-label={t('theme.choose')}>
-        <header><span>{t('theme.choose')}</span><small>3 UI</small></header>
+        <header><span>{t('theme.choose')}</span><small>{THEMES.length} UI</small></header>
         {THEMES.map((item) => (
           <button
             type="button"

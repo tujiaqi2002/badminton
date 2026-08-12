@@ -10,6 +10,7 @@ import MyBookings from './components/MyBookings'
 import { addDays, addMinutes, COURTS, demoSchedule, overlaps, slotDateTime, toDateKey } from './lib/booking'
 import { useI18n } from './lib/i18n'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
+import { useTheme } from './lib/theme'
 
 const todayKey = () => toDateKey(new Date())
 const cancellationErrorMessage = (message = '', t) => {
@@ -23,6 +24,8 @@ const cancellationErrorMessage = (message = '', t) => {
 
 export default function App() {
   const { courtName, t } = useI18n()
+  const { themeDefinition } = useTheme()
+  const heroKey = themeDefinition.heroKey || 'hero'
   const [view, setView] = useState('book')
   const [dateKey, setDateKey] = useState(todayKey)
   const [schedule, setSchedule] = useState(() => demoSchedule(todayKey()))
@@ -314,11 +317,11 @@ export default function App() {
           <section className="hero">
             <div className="hero-art" aria-hidden="true" />
             <div className="hero-content">
-              <span className="eyebrow"><Sparkles size={13} /> {t('hero.eyebrow')}</span>
-              <h1>{t('hero.title1')}<br /><em>{t('hero.title2')}</em></h1>
-              <p>{t('hero.description')}</p>
+              <span className="eyebrow"><Sparkles size={13} /> {t(`${heroKey}.eyebrow`)}</span>
+              <h1>{t(`${heroKey}.title1`)}<br /><em>{t(`${heroKey}.title2`)}</em></h1>
+              <p>{t(`${heroKey}.description`)}</p>
               <div className="hero-actions">
-                <a className="primary-button" href="#availability">{t('hero.cta')}</a>
+                <a className="primary-button" href="#availability">{t(`${heroKey}.cta`)}</a>
                 <span><Radio size={15} /> {t('hero.realtime')}</span>
               </div>
             </div>

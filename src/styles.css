@@ -45,7 +45,7 @@ a { color: inherit; text-decoration: none; }
 .theme-switcher summary { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.34); color: var(--ink-soft); cursor: pointer; font-size: 10px; font-weight: 700; letter-spacing: .04em; list-style: none; }
 .theme-switcher summary::-webkit-details-marker { display: none; }
 .theme-switcher summary:hover, .theme-switcher[open] summary { color: var(--ink); background: rgba(255,255,255,.78); }
-.theme-menu { width: min(310px, calc(100vw - 28px)); position: absolute; z-index: 80; top: calc(100% + 11px); right: 0; padding: 10px; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: themeMenuIn .18s ease; }
+.theme-menu { width: min(310px, calc(100vw - 28px)); max-height: calc(100vh - 92px); overflow-y: auto; overscroll-behavior: contain; position: absolute; z-index: 80; top: calc(100% + 11px); right: 0; padding: 10px; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: themeMenuIn .18s ease; }
 .theme-menu > header { height: 32px; padding: 0 4px 8px; display: flex; align-items: center; justify-content: space-between; color: var(--ink-soft); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
 .theme-menu > header small { opacity: .62; }
 .theme-menu > button { width: 100%; min-height: 66px; padding: 7px; display: grid; grid-template-columns: 64px 1fr 18px; align-items: center; gap: 11px; border: 1px solid transparent; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
@@ -64,6 +64,12 @@ a { color: inherit; text-decoration: none; }
 .theme-preview.sport { background: #f5c400; }
 .theme-preview.sport::before { inset: 7px 7px 10px 24px; background: #11130f; clip-path: polygon(0 35%, 38% 0, 100% 18%, 72% 38%, 100% 58%, 45% 100%, 5% 75%); }
 .theme-preview.sport::after { width: 44px; height: 2px; right: -4px; bottom: 8px; background: white; transform: rotate(-13deg); }
+.theme-preview.focus { background: linear-gradient(135deg, #f5f5f2 0 54%, #c8c9c6 54%); }
+.theme-preview.focus::before { inset: 7px 5px 8px 25px; background: #171817; clip-path: polygon(8% 45%, 38% 8%, 48% 30%, 82% 0, 70% 43%, 100% 61%, 55% 67%, 30% 100%, 27% 69%, 0 74%); }
+.theme-preview.focus::after { width: 46px; height: 1px; left: 5px; bottom: 7px; background: #171817; }
+.theme-preview.banner { background: #d8a608; }
+.theme-preview.banner::before { inset: 6px 3px 7px 26px; background: #17130a; clip-path: polygon(2% 45%, 38% 5%, 48% 30%, 83% 0, 70% 43%, 100% 60%, 57% 67%, 30% 100%, 28% 70%, 0 74%); }
+.theme-preview.banner::after { width: 49px; height: 8px; left: 5px; bottom: 5px; border-top: 2px solid rgba(255,244,190,.78); border-bottom: 1px solid rgba(23,19,10,.7); transform: skewX(-28deg); }
 .language-switch { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.34); color: var(--ink-soft); cursor: pointer; font-size: 10px; letter-spacing: .04em; }
 .language-switch:hover { color: var(--ink); background: rgba(255,255,255,.78); }
 .account-button { border: 0; background: transparent; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink-soft); }
@@ -512,6 +518,126 @@ html[data-theme="sport"] .admin-controls select { background: rgba(255,238,155,.
 html[data-theme="sport"] .mobile-bottom-nav { background: rgba(245,196,0,.94); border-top-color: rgba(18,20,15,.24); }
 html[data-theme="sport"] footer { border-top-width: 3px; }
 
+/* UI 04 · 专注超越 */
+:root[data-theme="focus"] {
+  color: #111211;
+  background: #dededb;
+  --paper: #dededb;
+  --paper-light: #f4f4f1;
+  --ink: #111211;
+  --ink-soft: #62635f;
+  --line: rgba(17,18,17,.17);
+  --red: #111211;
+  --red-dark: #050605;
+  --shadow: 0 28px 90px rgba(15,16,15,.19);
+}
+html[data-theme="focus"] body {
+  background-color: var(--paper);
+  background-image: radial-gradient(circle at 88% 8%, rgba(255,255,255,.48), transparent 31%), linear-gradient(120deg, rgba(255,255,255,.11), transparent 44%);
+}
+html[data-theme="focus"] .brand-mark { color: #f3f3f0; background: #111211; border-radius: 2px; box-shadow: none; }
+html[data-theme="focus"] .desktop-nav { border-color: #111211; background: #171817; }
+html[data-theme="focus"] .desktop-nav button { color: #bfc0bc; }
+html[data-theme="focus"] .desktop-nav button.active { color: #111211; background: #f3f3f0; box-shadow: none; }
+html[data-theme="focus"] .language-switch,
+html[data-theme="focus"] .theme-switcher summary { border-color: rgba(17,18,17,.25); background: rgba(255,255,255,.25); }
+html[data-theme="focus"] .theme-menu,
+html[data-theme="focus"] .booking-drawer,
+html[data-theme="focus"] .auth-modal { background: #f4f4f1; }
+html[data-theme="focus"] .hero::before { background: rgba(255,255,255,.22); border-color: rgba(17,18,17,.17); }
+html[data-theme="focus"] .hero-art {
+  background-image: linear-gradient(90deg, rgba(222,222,219,.98) 0%, rgba(222,222,219,.8) 31%, rgba(222,222,219,.08) 62%), url('./assets/tiger-focus-hero.webp');
+  background-position: center;
+  opacity: 1;
+  mix-blend-mode: normal;
+}
+html[data-theme="focus"] .hero h1 { font-size: clamp(46px, 5.6vw, 78px); letter-spacing: -.045em; }
+html[data-theme="focus"] .hero h1 em { color: #111211; }
+html[data-theme="focus"] .hero h1 em::after { height: 1px; right: 0; bottom: -8px; opacity: .7; transform: none; }
+html[data-theme="focus"] .eyebrow { color: #111211; }
+html[data-theme="focus"] .primary-button { color: #f4f4f1; background: #111211; }
+html[data-theme="focus"] .primary-button:hover { background: #383a37; }
+html[data-theme="focus"] .venue-note { color: #f4f4f1; background: rgba(17,18,17,.94); border: 1px solid rgba(255,255,255,.16); }
+html[data-theme="focus"] .schedule-table,
+html[data-theme="focus"] .booking-card,
+html[data-theme="focus"] .admin-booking-row,
+html[data-theme="focus"] .mobile-court-card { background: rgba(255,255,255,.25); }
+html[data-theme="focus"] .court-label,
+html[data-theme="focus"] .slot { background: rgba(255,255,255,.35); }
+html[data-theme="focus"] .slot.available:hover,
+html[data-theme="focus"] .slot.available:focus-visible { color: #f4f4f1; background: #111211; box-shadow: inset 0 0 0 1px rgba(255,255,255,.17); }
+html[data-theme="focus"] .slot.occupied { color: rgba(255,255,255,.66); background: rgba(17,18,17,.63); }
+html[data-theme="focus"] .auth-seal,
+html[data-theme="focus"] .summary-seal,
+html[data-theme="focus"] .booking-card-seal,
+html[data-theme="focus"] .admin-court-seal { color: #f4f4f1; background: #111211; border-radius: 2px; }
+html[data-theme="focus"] .input-with-icon,
+html[data-theme="focus"] .admin-date-field,
+html[data-theme="focus"] .admin-search,
+html[data-theme="focus"] .admin-controls select { background: rgba(255,255,255,.42); }
+html[data-theme="focus"] .mobile-bottom-nav { background: rgba(232,232,228,.95); border-top-color: rgba(17,18,17,.22); }
+html[data-theme="focus"] footer { border-top-width: 2px; }
+
+/* UI 05 · 金羽飞虎 */
+:root[data-theme="banner"] {
+  color: #17130a;
+  background: #d6a20a;
+  --paper: #d6a20a;
+  --paper-light: #f8dc7a;
+  --ink: #17130a;
+  --ink-soft: #66520f;
+  --line: rgba(23,19,10,.2);
+  --red: #17130a;
+  --red-dark: #050402;
+  --shadow: 0 28px 85px rgba(37,27,5,.27);
+}
+html[data-theme="banner"] body {
+  background-color: var(--paper);
+  background-image: radial-gradient(ellipse at 30% 0%, rgba(255,232,135,.38), transparent 35%), linear-gradient(105deg, rgba(255,255,255,.08), transparent 48%, rgba(87,55,0,.07));
+}
+html[data-theme="banner"] .brand-mark { color: #edbd20; background: #17130a; border-radius: 3px 50% 50%; box-shadow: none; transform: rotate(-4deg); }
+html[data-theme="banner"] .desktop-nav,
+html[data-theme="banner"] .language-switch,
+html[data-theme="banner"] .theme-switcher summary { border-color: rgba(23,19,10,.26); background: rgba(255,229,126,.34); }
+html[data-theme="banner"] .desktop-nav button.active { color: #edbd20; background: #17130a; box-shadow: none; }
+html[data-theme="banner"] .hero::before { background: rgba(255,220,94,.13); border-color: rgba(23,19,10,.2); }
+html[data-theme="banner"] .hero-art {
+  background-image: linear-gradient(90deg, rgba(214,162,10,.98) 0%, rgba(214,162,10,.79) 31%, rgba(214,162,10,.05) 62%), url('./assets/tiger-banner-hero.webp');
+  background-position: center;
+  opacity: 1;
+  mix-blend-mode: normal;
+}
+html[data-theme="banner"] .hero h1 { font-size: clamp(47px, 5.9vw, 82px); }
+html[data-theme="banner"] .hero h1 em { color: #17130a; }
+html[data-theme="banner"] .hero h1 em::after { height: 4px; background: #f7da72; opacity: .8; transform: skewX(-28deg); }
+html[data-theme="banner"] .eyebrow { color: #17130a; }
+html[data-theme="banner"] .primary-button { color: #edbd20; background: #17130a; }
+html[data-theme="banner"] .primary-button:hover { color: #f8dc7a; background: #050402; }
+html[data-theme="banner"] .venue-note { color: #edbd20; background: rgba(23,19,10,.94); }
+html[data-theme="banner"] .venue-note small { color: rgba(248,220,122,.7); }
+html[data-theme="banner"] .schedule-table,
+html[data-theme="banner"] .booking-card,
+html[data-theme="banner"] .admin-booking-row,
+html[data-theme="banner"] .mobile-court-card { background: rgba(255,225,123,.2); }
+html[data-theme="banner"] .court-label,
+html[data-theme="banner"] .slot { background: rgba(255,232,145,.3); }
+html[data-theme="banner"] .slot.available:hover,
+html[data-theme="banner"] .slot.available:focus-visible { color: #edbd20; background: #17130a; box-shadow: inset 0 0 0 1px rgba(255,222,94,.28); }
+html[data-theme="banner"] .slot.occupied { color: rgba(255,219,89,.72); background: rgba(23,19,10,.67); }
+html[data-theme="banner"] .booking-drawer,
+html[data-theme="banner"] .auth-modal,
+html[data-theme="banner"] .theme-menu { background: #f8dc7a; }
+html[data-theme="banner"] .auth-seal,
+html[data-theme="banner"] .summary-seal,
+html[data-theme="banner"] .booking-card-seal,
+html[data-theme="banner"] .admin-court-seal { color: #edbd20; background: #17130a; border-radius: 4px 50% 50%; }
+html[data-theme="banner"] .input-with-icon,
+html[data-theme="banner"] .admin-date-field,
+html[data-theme="banner"] .admin-search,
+html[data-theme="banner"] .admin-controls select { background: rgba(255,232,145,.56); }
+html[data-theme="banner"] .mobile-bottom-nav { background: rgba(214,162,10,.95); border-top-color: rgba(23,19,10,.25); }
+html[data-theme="banner"] footer { border-top-width: 3px; }
+
 @media (max-width: 760px) {
   html[data-theme="winged"] .hero-art {
     background-image: linear-gradient(180deg, rgba(238,226,195,.08) 0%, rgba(238,226,195,.82) 72%), url('./assets/tiger-winged-hero.webp');
@@ -522,6 +648,16 @@ html[data-theme="sport"] footer { border-top-width: 3px; }
     background-position: 59% center;
   }
   html[data-theme="sport"] .hero h1 { font-size: clamp(43px, 13.5vw, 61px); }
+  html[data-theme="focus"] .hero-art {
+    background-image: linear-gradient(180deg, rgba(222,222,219,.05) 0%, rgba(222,222,219,.86) 73%), url('./assets/tiger-focus-hero.webp');
+    background-position: 62% center;
+  }
+  html[data-theme="banner"] .hero-art {
+    background-image: linear-gradient(180deg, rgba(214,162,10,.03) 0%, rgba(214,162,10,.84) 74%), url('./assets/tiger-banner-hero.webp');
+    background-position: 61% center;
+  }
+  html[data-theme="focus"] .hero h1,
+  html[data-theme="banner"] .hero h1 { font-size: clamp(43px, 13vw, 59px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
