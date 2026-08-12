@@ -1,5 +1,5 @@
--- Tiger 羽球馆 · Supabase / PostgreSQL schema
--- 在 Supabase SQL Editor 中整段运行。脚本可重复执行。
+-- Tiger ç¾½çƒé¦† Â· Supabase / PostgreSQL schema
+-- åœ¨ Supabase SQL Editor ä¸­æ•´æ®µè¿è¡Œã€‚è„šæœ¬å¯é‡å¤æ‰§è¡Œã€‚
 
 create extension if not exists pgcrypto;
 create extension if not exists btree_gist;
@@ -28,11 +28,11 @@ create table if not exists public.courts (
 
 insert into public.courts (id, name_zh, name_en, description, sort_order)
 values
-  ('10000000-0000-0000-0000-000000000001', '风', 'Wind', '轻盈迅捷', 1),
-  ('10000000-0000-0000-0000-000000000002', '林', 'Forest', '沉静专注', 2),
-  ('10000000-0000-0000-0000-000000000003', '火', 'Fire', '热烈竞技', 3),
-  ('10000000-0000-0000-0000-000000000004', '山', 'Mountain', '稳定从容', 4),
-  ('10000000-0000-0000-0000-000000000005', '雷', 'Thunder', '果决凌厉', 5)
+  ('10000000-0000-0000-0000-000000000001', 'é£Ž', 'Wind', 'è½»ç›ˆè¿…æ·', 1),
+  ('10000000-0000-0000-0000-000000000002', 'æž—', 'Forest', 'æ²‰é™ä¸“æ³¨', 2),
+  ('10000000-0000-0000-0000-000000000003', 'ç«', 'Fire', 'çƒ­çƒˆç«žæŠ€', 3),
+  ('10000000-0000-0000-0000-000000000004', 'å±±', 'Mountain', 'ç¨³å®šä»Žå®¹', 4),
+  ('10000000-0000-0000-0000-000000000005', 'é›·', 'Thunder', 'æžœå†³å‡ŒåŽ‰', 5)
 on conflict (id) do update set
   name_zh = excluded.name_zh,
   name_en = excluded.name_en,
@@ -71,7 +71,7 @@ create table if not exists public.bookings (
   constraint same_booking_day check (start_at::date = end_at::date)
 );
 
--- PostgreSQL 原生时间区间排他约束：同一场地任意重叠时段只能有一条有效订单。
+-- PostgreSQL åŽŸç”Ÿæ—¶é—´åŒºé—´æŽ’ä»–çº¦æŸï¼šåŒä¸€åœºåœ°ä»»æ„é‡å æ—¶æ®µåªèƒ½æœ‰ä¸€æ¡æœ‰æ•ˆè®¢å•ã€‚
 do $$ begin
   alter table public.bookings add constraint bookings_no_time_overlap
   exclude using gist (
@@ -83,7 +83,7 @@ exception when duplicate_object then null; end $$;
 create index if not exists bookings_user_start_idx on public.bookings (user_id, start_at desc);
 create index if not exists bookings_court_start_idx on public.bookings (court_id, start_at);
 
--- 公开实时表只含占用信息，不含 user_id，避免实时看板泄露用户身份。
+-- å…¬å¼€å®žæ—¶è¡¨åªå«å ç”¨ä¿¡æ¯ï¼Œä¸å« user_idï¼Œé¿å…å®žæ—¶çœ‹æ¿æ³„éœ²ç”¨æˆ·èº«ä»½ã€‚
 create table if not exists public.court_slots (
   id uuid primary key references public.bookings(id) on delete cascade,
   court_id uuid not null references public.courts(id),
@@ -180,7 +180,7 @@ begin
   if p_party_size not between 1 and 8 then raise exception 'Party size must be between 1 and 8'; end if;
   if not exists (select 1 from public.courts where id = p_court_id and status = 'open') then raise exception 'Court is unavailable'; end if;
 
-  -- 清理超时的支付锁，触发器会同步释放公开占用表。
+  -- æ¸…ç†è¶…æ—¶çš„æ”¯ä»˜é”ï¼Œè§¦å‘å™¨ä¼šåŒæ­¥é‡Šæ”¾å…¬å¼€å ç”¨è¡¨ã€‚
   update public.bookings
      set status = 'expired'
    where status = 'held' and hold_expires_at <= now();
@@ -220,9 +220,9 @@ begin
    where id = p_booking_id
      and user_id = auth.uid()
      and status in ('held', 'confirmed')
-     and start_at > timezone('America/Toronto', now())
+     and start_at > timezone('America/Toronto', now()) + interval '12 hours'
   returning * into v_booking;
-  if v_booking.id is null then raise exception 'Booking cannot be cancelled'; end if;
+  if v_booking.id is null then raise exception 'Booking cannot be cancelled within 12 hours of start time'; end if;
   return v_booking;
 end;
 $$;
