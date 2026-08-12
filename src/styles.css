@@ -70,6 +70,9 @@ a { color: inherit; text-decoration: none; }
 .theme-preview.banner { background: #d8a608; }
 .theme-preview.banner::before { inset: 6px 3px 7px 26px; background: #17130a; clip-path: polygon(2% 45%, 38% 5%, 48% 30%, 83% 0, 70% 43%, 100% 60%, 57% 67%, 30% 100%, 28% 70%, 0 74%); }
 .theme-preview.banner::after { width: 49px; height: 8px; left: 5px; bottom: 5px; border-top: 2px solid rgba(255,244,190,.78); border-bottom: 1px solid rgba(23,19,10,.7); transform: skewX(-28deg); }
+.theme-preview.colorfocus { background: #f3f0e9; }
+.theme-preview.colorfocus::before { inset: 7px 4px 8px 25px; background: #c87a35; clip-path: polygon(8% 45%, 38% 8%, 48% 30%, 82% 0, 70% 43%, 100% 61%, 55% 67%, 30% 100%, 27% 69%, 0 74%); box-shadow: -10px -4px 0 #444540; }
+.theme-preview.colorfocus::after { width: 40px; height: 2px; left: 5px; bottom: 7px; background: #c74636; }
 .language-switch { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.34); color: var(--ink-soft); cursor: pointer; font-size: 10px; letter-spacing: .04em; }
 .language-switch:hover { color: var(--ink); background: rgba(255,255,255,.78); }
 .account-button { border: 0; background: transparent; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink-soft); }
@@ -638,6 +641,30 @@ html[data-theme="banner"] .admin-controls select { background: rgba(255,232,145,
 html[data-theme="banner"] .mobile-bottom-nav { background: rgba(214,162,10,.95); border-top-color: rgba(23,19,10,.25); }
 html[data-theme="banner"] footer { border-top-width: 3px; }
 
+/* UI 06 · 彩翼专注 */
+:root[data-theme="colorfocus"] {
+  color: #222421;
+  background: #f3f0e9;
+  --paper: #f3f0e9;
+  --paper-light: #faf9f5;
+  --ink: #222421;
+  --ink-soft: #676863;
+  --line: rgba(34,36,33,.13);
+  --red: #c74636;
+  --red-dark: #9f3127;
+  --shadow: 0 24px 80px rgba(26,27,25,.14);
+}
+html[data-theme="colorfocus"] body { background: var(--paper); }
+html[data-theme="colorfocus"] .hero-art {
+  background-image: linear-gradient(90deg, rgba(243,240,233,.99) 0%, rgba(243,240,233,.83) 30%, rgba(243,240,233,.08) 61%), url('./assets/tiger-color-focus-hero.webp');
+  background-position: center;
+  opacity: 1;
+  mix-blend-mode: normal;
+}
+html[data-theme="colorfocus"] .hero h1 { font-size: clamp(46px, 5.6vw, 78px); }
+html[data-theme="colorfocus"] .hero h1 em { color: var(--red); }
+html[data-theme="colorfocus"] .hero h1 em::after { background: var(--red); }
+
 @media (max-width: 760px) {
   html[data-theme="winged"] .hero-art {
     background-image: linear-gradient(180deg, rgba(238,226,195,.08) 0%, rgba(238,226,195,.82) 72%), url('./assets/tiger-winged-hero.webp');
@@ -658,6 +685,11 @@ html[data-theme="banner"] footer { border-top-width: 3px; }
   }
   html[data-theme="focus"] .hero h1,
   html[data-theme="banner"] .hero h1 { font-size: clamp(43px, 13vw, 59px); }
+  html[data-theme="colorfocus"] .hero-art {
+    background-image: linear-gradient(180deg, rgba(243,240,233,.04) 0%, rgba(243,240,233,.86) 74%), url('./assets/tiger-color-focus-hero.webp');
+    background-position: 62% center;
+  }
+  html[data-theme="colorfocus"] .hero h1 { font-size: clamp(43px, 13vw, 59px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
