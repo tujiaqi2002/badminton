@@ -309,15 +309,24 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-day-strip strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
 .admin-schedule-day-strip .week-nav { display: flex; flex-direction: column; gap: 3px; color: var(--ink-soft); }
 .admin-schedule-day-strip .week-nav:hover { color: var(--red); }
-.admin-schedule-inspector { height: 118px; padding: 15px 22px; display: flex; align-items: stretch; gap: 22px; overflow: hidden; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.38); }
+.admin-schedule-inspector { height: 140px; padding: 15px 22px; display: flex; align-items: stretch; gap: 22px; overflow: hidden; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.38); }
 .admin-inspector-title { width: 145px; flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 7px; border-right: 1px solid var(--line); }
 .admin-inspector-title > span:first-child { color: var(--ink-soft); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
 .admin-inspector-title strong { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 20px/1.1 "Songti SC",serif; }
+.admin-inspector-edit { padding: 4px 0; display: inline-flex; align-items: center; gap: 5px; border: 0; border-bottom: 1px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer; font-size: 8px; }
 .admin-schedule-inspector dl { min-width: 0; flex: 1; margin: 0; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px 20px; align-content: center; }
 .admin-schedule-inspector dl > div { min-width: 0; display: grid; gap: 4px; }
 .admin-schedule-inspector dt { color: var(--ink-soft); font-size: 8px; }
 .admin-schedule-inspector dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
 .admin-schedule-inspector .notes { grid-column: 1/-1; }
+.admin-inspector-form { min-width: 0; flex: 1; display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px 12px; align-content: center; }
+.admin-inspector-form label { min-width: 0; display: grid; gap: 4px; }
+.admin-inspector-form label span { color: var(--ink-soft); font-size: 8px; }
+.admin-inspector-form input, .admin-inspector-form textarea { width: 100%; min-height: 31px; padding: 6px 8px; border: 1px solid var(--line); background: rgba(255,255,255,.68); color: var(--ink); font: inherit; outline: 0; resize: none; }
+.admin-inspector-form .notes { grid-column: 1/3; }
+.admin-inspector-form-actions { grid-column: 3; grid-row: 1/3; display: flex; flex-direction: column; justify-content: center; gap: 7px; }
+.admin-inspector-form-actions button { min-width: 82px; padding: 7px 9px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; font-size: 8px; }
+.admin-inspector-form-actions .save { color: white; border-color: var(--ink); background: var(--ink); }
 .admin-inspector-empty { margin: auto; display: grid; gap: 5px; text-align: center; color: var(--ink-soft); }
 .admin-inspector-empty strong { color: var(--ink); font: 17px/1 "Songti SC",serif; }
 .admin-inspector-empty span { font-size: 9px; }
@@ -438,6 +447,9 @@ footer small { text-align: right; }
   .admin-schedule-inspector { height: 174px; padding: 12px 15px; gap: 13px; }
   .admin-inspector-title { width: 105px; }
   .admin-schedule-inspector dl { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 12px; }
+  .admin-inspector-form { grid-template-columns: 1fr 1fr; }
+  .admin-inspector-form .notes { grid-column: 1/-1; }
+  .admin-inspector-form-actions { grid-column: 1/-1; grid-row: auto; flex-direction: row; justify-content: flex-end; }
   .admin-drag-readout { align-items: flex-start; flex-wrap: wrap; }
   .admin-drag-readout > b { order: 3; width: 100%; }
   .admin-drag-readout > small { margin-left: auto; }

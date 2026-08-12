@@ -402,6 +402,36 @@ export default function App() {
     return true
   }
 
+  const adminUpdateBookingDetails = async (booking, details) => {
+    const update = (item) => item.id === booking.id ? {
+      ...item,
+      customer_email: details.email || null,
+      customer_phone: details.phone || null,
+      customer_notes: details.notes || null,
+    } : item
+    if (!isSupabaseConfigured) {
+      setAdminBookings((current) => current.map(update))
+      notify(t('success.adminDetails'))
+      return true
+    }
+    setAdminScheduleBusy(true)
+    const { error } = await supabase.rpc('admin_update_booking_details', {
+      p_booking_id: booking.id,
+      p_customer_email: details.email || null,
+      p_customer_phone: details.phone || null,
+      p_customer_notes: details.notes || null,
+    })
+    setAdminScheduleBusy(false)
+    if (error) {
+      notify(t('errors.adminDetails'), 'error')
+      return false
+    }
+    setAdminBookings((current) => current.map(update))
+    notify(t('success.adminDetails'))
+    await fetchAdminBookings()
+    return true
+  }
+
   const loginByEmail = async (email) => {
     if (!isSupabaseConfigured) return false
     if (!['321756623tu@gmail.com', 'zhangk7@gmail.com'].includes(email.trim().toLowerCase())) {
@@ -517,6 +547,7 @@ export default function App() {
           scheduleBusy={adminScheduleBusy}
           onCreate={adminCreateBooking}
           onReschedule={adminRescheduleBooking}
+          onUpdateDetails={adminUpdateBookingDetails}
         />
       ) : (
         <MyBookings user={user} bookings={bookings} loading={loadingBookings} onLogin={() => setShowAuth(true)} onCancel={cancelBooking} />
