@@ -62,7 +62,9 @@ create table if not exists public.bookings (
   user_id uuid not null references auth.users(id) on delete cascade,
   court_id uuid not null references public.courts(id),
   customer_name text not null,
-  customer_email text not null,
+  customer_email text,
+  customer_phone text,
+  customer_notes text,
   start_at timestamp not null,
   end_at timestamp not null,
   status public.booking_status not null default 'held',
@@ -78,13 +80,15 @@ create table if not exists public.bookings (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint valid_booking_interval check (end_at > start_at),
-  constraint valid_booking_duration check (end_at <= start_at + interval '2 hours'),
+  constraint valid_booking_duration check (end_at <= start_at + interval '4 hours'),
   constraint same_booking_day check (start_at::date = end_at::date)
 );
 
 -- 为已经存在的项目补齐客户快照列；姓名与邮箱来自受信任的 Auth 数据。
 alter table public.bookings add column if not exists customer_name text;
 alter table public.bookings add column if not exists customer_email text;
+alter table public.bookings add column if not exists customer_phone text;
+alter table public.bookings add column if not exists customer_notes text;
 
 update public.bookings as booking
 set
@@ -102,7 +106,6 @@ where booking.user_id = auth_user.id
   and (booking.customer_name is null or booking.customer_email is null);
 
 alter table public.bookings alter column customer_name set not null;
-alter table public.bookings alter column customer_email set not null;
 
 -- PostgreSQL 原生时间区间排他约束：同一场地任意重叠时段只能有一条有效订单。
 do $$
@@ -259,6 +262,8 @@ create or replace function public.create_booking(
   p_court_id uuid,
   p_start_at timestamp,
   p_end_at timestamp,
+  p_customer_phone text,
+  p_customer_notes text default null,
   p_party_size smallint default 2,
   p_payment_method public.payment_method default 'venue'
 )
@@ -280,7 +285,11 @@ begin
     select 1 from public.staff_members as staff
     where staff.user_id = v_user_id and staff.role = 'admin'
   ) then raise exception 'Manager access required'; end if;
+  if nullif(trim(p_customer_phone), '') is null then raise exception 'Customer phone is required'; end if;
+  if length(trim(p_customer_phone)) > 40 then raise exception 'Customer phone is too long'; end if;
+  if length(coalesce(p_customer_notes, '')) > 2000 then raise exception 'Customer notes are too long'; end if;
   if p_end_at <= p_start_at then raise exception 'Invalid time range'; end if;
+  if p_end_at < p_start_at + interval '1 hour' then raise exception 'Minimum booking length is 1 hour'; end if;
   if p_end_at > p_start_at + interval '2 hours' then raise exception 'Maximum booking length is 2 hours'; end if;
   if p_start_at::time < time '07:00' or p_end_at::time > time '22:00' then raise exception 'Booking must be within opening hours'; end if;
   if p_start_at < timezone('America/Toronto', now()) - interval '5 minutes' then raise exception 'Cannot book a past time'; end if;
@@ -313,11 +322,12 @@ begin
 
   begin
     insert into public.bookings (
-      user_id, court_id, customer_name, customer_email,
+      user_id, court_id, customer_name, customer_email, customer_phone, customer_notes,
       start_at, end_at, status, payment_status, payment_method,
       total_amount, party_size, hold_expires_at
     ) values (
       v_user_id, p_court_id, v_customer_name, v_customer_email,
+      trim(p_customer_phone), nullif(trim(p_customer_notes), ''),
       p_start_at, p_end_at,
       case when p_payment_method = 'stripe' then 'held'::public.booking_status else 'confirmed'::public.booking_status end,
       case when p_payment_method = 'stripe' then 'pending'::public.payment_status else 'pay_at_venue'::public.payment_status end,
@@ -337,8 +347,10 @@ create or replace function public.admin_create_booking(
   p_start_at timestamp,
   p_end_at timestamp,
   p_customer_name text,
-  p_customer_email text,
-  p_party_size smallint default 2
+  p_customer_email text default null,
+  p_party_size smallint default 2,
+  p_customer_phone text default null,
+  p_customer_notes text default null
 )
 returns public.bookings
 language plpgsql
@@ -357,9 +369,12 @@ begin
     where staff.user_id = v_actor_id and staff.role = 'admin'
   ) then raise exception 'Manager access required'; end if;
   if nullif(trim(p_customer_name), '') is null then raise exception 'Customer name is required'; end if;
-  if nullif(trim(p_customer_email), '') is null or position('@' in p_customer_email) < 2 then raise exception 'Valid customer email is required'; end if;
+  if nullif(trim(p_customer_email), '') is not null and position('@' in p_customer_email) < 2 then raise exception 'Customer email is invalid'; end if;
+  if length(coalesce(p_customer_phone, '')) > 40 then raise exception 'Customer phone is too long'; end if;
+  if length(coalesce(p_customer_notes, '')) > 2000 then raise exception 'Customer notes are too long'; end if;
   if p_end_at <= p_start_at then raise exception 'Invalid time range'; end if;
-  if p_end_at > p_start_at + interval '2 hours' then raise exception 'Maximum booking length is 2 hours'; end if;
+  if p_end_at < p_start_at + interval '1 hour' then raise exception 'Minimum booking length is 1 hour'; end if;
+  if p_end_at > p_start_at + interval '4 hours' then raise exception 'Maximum booking length is 4 hours'; end if;
   if p_start_at::date <> p_end_at::date then raise exception 'Booking must end on the same day'; end if;
   if p_start_at::time < time '07:00' or p_end_at::time > time '22:00' then raise exception 'Booking must be within opening hours'; end if;
   if p_party_size not between 1 and 8 then raise exception 'Party size must be between 1 and 8'; end if;
@@ -370,10 +385,11 @@ begin
 
   begin
     insert into public.bookings (
-      user_id, court_id, customer_name, customer_email, start_at, end_at,
+      user_id, court_id, customer_name, customer_email, customer_phone, customer_notes, start_at, end_at,
       status, payment_status, payment_method, total_amount, party_size
     ) values (
-      v_actor_id, p_court_id, trim(p_customer_name), lower(trim(p_customer_email)), p_start_at, p_end_at,
+      v_actor_id, p_court_id, trim(p_customer_name), lower(nullif(trim(p_customer_email), '')),
+      nullif(trim(p_customer_phone), ''), nullif(trim(p_customer_notes), ''), p_start_at, p_end_at,
       'confirmed', 'pay_at_venue', 'venue', v_total, p_party_size
     ) returning * into v_booking;
   exception when exclusion_violation then
@@ -414,7 +430,8 @@ begin
     where staff.user_id = v_actor_id and staff.role = 'admin'
   ) then raise exception 'Manager access required'; end if;
   if p_end_at <= p_start_at then raise exception 'Invalid time range'; end if;
-  if p_end_at > p_start_at + interval '2 hours' then raise exception 'Maximum booking length is 2 hours'; end if;
+  if p_end_at < p_start_at + interval '1 hour' then raise exception 'Minimum booking length is 1 hour'; end if;
+  if p_end_at > p_start_at + interval '4 hours' then raise exception 'Maximum booking length is 4 hours'; end if;
   if p_start_at::date <> p_end_at::date then raise exception 'Booking must end on the same day'; end if;
   if p_start_at::time < time '07:00' or p_end_at::time > time '22:00' then raise exception 'Booking must be within opening hours'; end if;
   if not exists (select 1 from public.courts where id = p_court_id and status = 'open') then raise exception 'Court is unavailable'; end if;
@@ -585,15 +602,15 @@ grant select, update on public.profiles to authenticated;
 revoke execute on function public.set_updated_at() from PUBLIC, anon, authenticated;
 revoke execute on function public.handle_new_user() from PUBLIC, anon, authenticated;
 revoke execute on function public.sync_public_court_slot() from PUBLIC, anon, authenticated;
-revoke execute on function public.create_booking(uuid, timestamp, timestamp, smallint, public.payment_method) from PUBLIC, anon, authenticated;
+revoke execute on function public.create_booking(uuid, timestamp, timestamp, text, text, smallint, public.payment_method) from PUBLIC, anon, authenticated;
 revoke execute on function public.cancel_booking(uuid) from PUBLIC, anon, authenticated;
 revoke execute on function public.admin_cancel_booking(uuid) from PUBLIC, anon, authenticated;
-revoke execute on function public.admin_create_booking(uuid, timestamp, timestamp, text, text, smallint) from PUBLIC, anon, authenticated;
+revoke execute on function public.admin_create_booking(uuid, timestamp, timestamp, text, text, smallint, text, text) from PUBLIC, anon, authenticated;
 revoke execute on function public.admin_reschedule_booking(uuid, uuid, timestamp, timestamp) from PUBLIC, anon, authenticated;
-grant execute on function public.create_booking(uuid, timestamp, timestamp, smallint, public.payment_method) to authenticated;
+grant execute on function public.create_booking(uuid, timestamp, timestamp, text, text, smallint, public.payment_method) to authenticated;
 grant execute on function public.cancel_booking(uuid) to authenticated;
 grant execute on function public.admin_cancel_booking(uuid) to authenticated;
-grant execute on function public.admin_create_booking(uuid, timestamp, timestamp, text, text, smallint) to authenticated;
+grant execute on function public.admin_create_booking(uuid, timestamp, timestamp, text, text, smallint, text, text) to authenticated;
 grant execute on function public.admin_reschedule_booking(uuid, uuid, timestamp, timestamp) to authenticated;
 
 alter table public.court_slots replica identity full;

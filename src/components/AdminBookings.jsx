@@ -49,6 +49,8 @@ export default function AdminBookings({
       const matchesQuery = !normalizedQuery || [
         booking.customer_name,
         booking.customer_email,
+        booking.customer_phone,
+        booking.customer_notes,
         COURTS.find((court) => court.id === booking.court_id)?.name,
         COURTS.find((court) => court.id === booking.court_id)?.english,
       ].some((value) => value?.toLowerCase().includes(normalizedQuery))
@@ -67,7 +69,7 @@ export default function AdminBookings({
   }, {}), [filteredBookings])
 
   const totalHours = filteredBookings.reduce((sum, booking) => sum + durationMinutes(booking), 0) / 60
-  const uniqueCustomers = new Set(filteredBookings.map((booking) => booking.customer_email)).size
+  const uniqueCustomers = new Set(filteredBookings.map((booking) => booking.customer_email || booking.customer_phone || booking.customer_name)).size
   const todayCount = filteredBookings.filter((booking) => booking.start_at.startsWith(toDateKey(new Date()))).length
   const formatDuration = (minutes) => minutes % 60 === 0
     ? t('duration.hours', { hours: minutes / 60 })
@@ -184,7 +186,7 @@ export default function AdminBookings({
                       </div>
                       <div className="admin-customer">
                         <UserRound size={17} />
-                        <div><strong>{booking.customer_name}</strong><span><Mail size={12} />{booking.customer_email}</span></div>
+                        <div><strong>{booking.customer_name}</strong><span><Mail size={12} />{booking.customer_email || booking.customer_phone || t('admin.schedule.notProvided')}</span></div>
                       </div>
                       <div className="admin-booking-details">
                         <span className={`status-pill ${booking.status}`}>{t(`status.${booking.status}`)}</span>

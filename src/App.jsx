@@ -131,7 +131,7 @@ export default function App() {
     for (let from = 0; ; from += pageSize) {
       const result = await supabase
         .from('bookings')
-        .select('id, user_id, court_id, customer_name, customer_email, start_at, end_at, status, payment_status, payment_method, total_amount, currency, party_size, created_at')
+        .select('id, user_id, court_id, customer_name, customer_email, customer_phone, customer_notes, start_at, end_at, status, payment_status, payment_method, total_amount, currency, party_size, created_at')
         .gte('start_at', `${adminRange.start}T00:00:00`)
         .lt('start_at', `${endExclusive}T00:00:00`)
         .order('start_at', { ascending: true })
@@ -194,6 +194,8 @@ export default function App() {
       duration: 60,
       partySize: 2,
       paymentMethod: 'venue',
+      phone: '',
+      notes: '',
       set: (change) => setSelection((current) => ({ ...current, ...change })),
     })
   }
@@ -222,6 +224,10 @@ export default function App() {
 
     const startAt = slotDateTime(details.dateKey, details.time)
     const endAt = addMinutes(startAt, details.duration)
+    if (!details.phone?.trim()) {
+      notify(t('drawer.phoneRequired'), 'error')
+      return
+    }
     setBusy(true)
 
     if (!isSupabaseConfigured) {
@@ -234,6 +240,9 @@ export default function App() {
         payment_status: 'pay_at_venue',
         total_amount: details.price,
         party_size: details.partySize,
+        customer_phone: details.phone,
+        customer_notes: details.notes || null,
+        created_at: new Date().toISOString(),
       }
       setSchedule((current) => [...current, booking])
       setBookings((current) => [booking, ...current])
@@ -247,6 +256,8 @@ export default function App() {
       p_court_id: details.court.id,
       p_start_at: startAt,
       p_end_at: endAt,
+      p_customer_phone: details.phone,
+      p_customer_notes: details.notes || null,
       p_party_size: details.partySize,
       p_payment_method: details.paymentMethod,
     })
@@ -328,9 +339,11 @@ export default function App() {
     if (!isSupabaseConfigured) {
       const booking = {
         id: `local-admin-${Date.now()}`, user_id: 'demo-user', court_id: details.court.id,
-        customer_name: details.name, customer_email: details.email, start_at: startAt, end_at: endAt,
+        customer_name: details.name, customer_email: details.email || null, customer_phone: details.phone || null,
+        customer_notes: details.notes || null, start_at: startAt, end_at: endAt,
         status: 'confirmed', payment_status: 'pay_at_venue', payment_method: 'venue',
         total_amount: 28 * details.duration / 60, party_size: details.partySize,
+        created_at: new Date().toISOString(),
       }
       setAdminBookings((current) => [...current, booking].sort((a, b) => a.start_at.localeCompare(b.start_at)))
       setSchedule((current) => [...current, booking])
@@ -343,7 +356,9 @@ export default function App() {
       p_start_at: startAt,
       p_end_at: endAt,
       p_customer_name: details.name,
-      p_customer_email: details.email,
+      p_customer_email: details.email || null,
+      p_customer_phone: details.phone || null,
+      p_customer_notes: details.notes || null,
       p_party_size: details.partySize,
     })
     setAdminScheduleBusy(false)
@@ -414,8 +429,10 @@ export default function App() {
     setAdminBookings([{
       id: 'local-admin-preview', user_id: 'demo-user', court_id: COURTS[1].id,
       customer_name: 'Anna', customer_email: 'anna@example.com',
+      customer_phone: '416-555-0188', customer_notes: 'Please have two rental racquets ready.',
       start_at: slotDateTime(todayKey(), '10:00'), end_at: slotDateTime(todayKey(), '11:30'),
       status: 'confirmed', payment_status: 'pay_at_venue', payment_method: 'venue', total_amount: 42, party_size: 2,
+      created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     }])
     setShowAuth(false)
     notify(t('success.demoMode'))
