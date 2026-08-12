@@ -5,11 +5,11 @@ export default function MyBookings({ user, bookings, loading, onLogin, onCancel 
   if (!user) {
     return (
       <main className="empty-page">
-        <div className="empty-ink">äºˆ</div>
-        <span className="eyebrow">ä¸ªäººç©ºé—´</span>
-        <h1>ç™»å½•åŽæŸ¥çœ‹ä½ çš„æ¯ä¸€æ¬¡æŒ¥æ‹</h1>
-        <p>ç®¡ç†å³å°†å¼€å§‹çš„åœºæ¬¡ã€å–æ¶ˆé¢„è®¢å¹¶æŸ¥çœ‹åŽ†å²è®°å½•ã€‚</p>
-        <button className="primary-button" onClick={onLogin}>ç™»å½• / æ³¨å†Œ</button>
+        <div className="empty-ink">予</div>
+        <span className="eyebrow">个人空间</span>
+        <h1>登录后查看你的每一次挥拍</h1>
+        <p>管理即将开始的场次、取消预订并查看历史记录。</p>
+        <button className="primary-button" onClick={onLogin}>登录 / 注册</button>
       </main>
     )
   }
@@ -18,11 +18,11 @@ export default function MyBookings({ user, bookings, loading, onLogin, onCancel 
     <main className="my-bookings-page">
       <div className="page-heading">
         <span className="eyebrow">My bookings</span>
-        <h1>æˆ‘çš„é¢„è®¢</h1>
-        <p>æ‰€æœ‰åœºæ¬¡éƒ½åœ¨è¿™é‡Œï¼Œæ¸…æ¥šè€Œä»Žå®¹ã€‚</p>
+        <h1>我的预订</h1>
+        <p>所有场次都在这里，清楚而从容。</p>
       </div>
-      {loading ? <div className="board-loading">æ­£åœ¨åŠ è½½é¢„è®¢â€¦</div> : bookings.length === 0 ? (
-        <div className="bookings-empty"><CalendarX2 size={30} /><h2>æš‚æ—¶æ²¡æœ‰é¢„è®¢</h2><p>é€‰æ‹©ä¸€ä¸ªç©ºé—²æ—¶æ®µï¼Œå¼€å§‹ä½ çš„ä¸‹ä¸€åœºçƒã€‚</p></div>
+      {loading ? <div className="board-loading">正在加载预订…</div> : bookings.length === 0 ? (
+        <div className="bookings-empty"><CalendarX2 size={30} /><h2>暂时没有预订</h2><p>选择一个空闲时段，开始你的下一场球。</p></div>
       ) : (
         <div className="booking-list">
           {bookings.map((booking) => {
@@ -33,13 +33,13 @@ export default function MyBookings({ user, bookings, loading, onLogin, onCancel 
               <article className="booking-card" key={booking.id}>
                 <div className={`booking-card-seal ${court.tone}`}>{court.name}</div>
                 <div className="booking-card-main">
-                  <div className="booking-card-title"><div><small>{booking.start_at.slice(0, 10).replaceAll('-', '.')}</small><h2>{court.name} Â· {court.english}</h2></div><span className={`status-pill ${booking.status}`}>{booking.status === 'confirmed' ? 'å·²ç¡®è®¤' : booking.status === 'held' ? 'å¾…æ”¯ä»˜' : 'å·²å–æ¶ˆ'}</span></div>
+                  <div className="booking-card-title"><div><small>{booking.start_at.slice(0, 10).replaceAll('-', '.')}</small><h2>{court.name} · {court.english}</h2></div><span className={`status-pill ${booking.status}`}>{booking.status === 'confirmed' ? '已确认' : booking.status === 'held' ? '待支付' : '已取消'}</span></div>
                   <div className="booking-meta">
-                    <span><Clock3 size={15} />{timeFromDateTime(booking.start_at)}â€”{timeFromDateTime(booking.end_at)}</span>
-                    <span><MapPin size={15} />Tiger ç¾½çƒé¦†</span>
+                    <span><Clock3 size={15} />{timeFromDateTime(booking.start_at)}—{timeFromDateTime(booking.end_at)}</span>
+                    <span><MapPin size={15} />Tiger 羽球馆</span>
                     <span><ReceiptText size={15} />{formatMoney(booking.total_amount || 0)}</span>
                   </div>
-                  {canCancel && <button className="text-button danger" onClick={() => onCancel(booking)}>å–æ¶ˆé¢„è®¢</button>}
+                  {canCancel && <button className="text-button danger" onClick={() => onCancel(booking)}>取消预订</button>}
                 </div>
               </article>
             )
