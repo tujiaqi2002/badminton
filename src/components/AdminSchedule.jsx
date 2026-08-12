@@ -13,10 +13,11 @@ const durationMinutes = (booking) => Math.round(
 )
 
 const timeFromMinutes = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+const ADMIN_DURATIONS = Array.from({ length: 7 }, (_, index) => 60 + index * 30)
 
 function NewBookingModal({ draft, busy, onClose, onSubmit }) {
   const { courtTitle, t } = useI18n()
-  const [form, setForm] = useState({ name: '', email: '', duration: 60, partySize: 2 })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '', duration: 60, partySize: 2 })
 
   const submit = (event) => {
     event.preventDefault()
@@ -31,10 +32,12 @@ function NewBookingModal({ draft, busy, onClose, onSubmit }) {
         <h2>{t('admin.schedule.addTitle')}</h2>
         <p>{draft.dateKey.replaceAll('-', '.')} · {courtTitle(draft.court)} · {draft.time}</p>
         <div className="admin-create-fields">
-          <label><span>{t('admin.schedule.customerName')}</span><input required value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label>
-          <label><span>{t('admin.schedule.customerEmail')}</span><input required type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} /></label>
-          <label><span>{t('admin.schedule.duration')}</span><select value={form.duration} onChange={(event) => setForm((current) => ({ ...current, duration: Number(event.target.value) }))}><option value="60">60 min</option><option value="90">90 min</option><option value="120">120 min</option></select></label>
+          <label className="wide"><span>{t('admin.schedule.customerName')}</span><input required value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label>
+          <label><span>{t('admin.schedule.customerEmailOptional')}</span><input type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} /></label>
+          <label><span>{t('admin.schedule.customerPhoneOptional')}</span><input type="tel" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+          <label><span>{t('admin.schedule.duration')}</span><select value={form.duration} onChange={(event) => setForm((current) => ({ ...current, duration: Number(event.target.value) }))}>{ADMIN_DURATIONS.map((minutes) => <option value={minutes} key={minutes} disabled={Number(draft.time.slice(0, 2)) * 60 + Number(draft.time.slice(3)) + minutes > 22 * 60}>{minutes / 60} h</option>)}</select></label>
           <label><span>{t('admin.schedule.partySize')}</span><input type="number" min="1" max="8" value={form.partySize} onChange={(event) => setForm((current) => ({ ...current, partySize: Number(event.target.value) }))} /></label>
+          <label className="wide"><span>{t('admin.schedule.customerNotesOptional')}</span><textarea maxLength="2000" rows="3" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} /></label>
         </div>
         <button className="primary-button" disabled={busy}>{busy ? t('admin.schedule.saving') : t('admin.schedule.create')}</button>
       </form>
@@ -64,6 +67,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   const dayLabel = new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'long', day: 'numeric' })
     .format(new Date(`${dateKey}T12:00:00`))
   const draggedBooking = bookings.find((booking) => booking.id === draggedId)
+  const activeSelection = selectedBooking && (bookings.find((booking) => booking.id === selectedBooking.id) || selectedBooking)
   const quickDays = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const date = addDays(new Date(`${dateKey}T12:00:00`), index)
     return {
@@ -77,7 +81,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
     setDateKey(next)
     onDateChange(next)
   }
-  const moveDay = (amount) => selectDate(toDateKey(addDays(new Date(`${dateKey}T12:00:00`), amount)))
+  const moveWeek = (amount) => selectDate(toDateKey(addDays(new Date(`${dateKey}T12:00:00`), amount * 7)))
 
   const finishDrag = () => {
     setDraggedId(null)
@@ -90,6 +94,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   useEffect(() => {
     if (!pointerDrag) return undefined
     const move = (event) => {
+      if (!pointerMoved.current && Math.hypot(event.clientX - pointerDrag.startX, event.clientY - pointerDrag.startY) < 5) return
       pointerMoved.current = true
       const element = document.elementFromPoint(event.clientX, event.clientY)
       const pointInside = (selector) => {
@@ -130,6 +135,11 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       setDragPreview(nextTarget)
     }
     const up = async (event) => {
+      if (!pointerMoved.current) {
+        pointerTarget.current = null
+        finishDrag()
+        return
+      }
       const element = document.elementFromPoint(event.clientX, event.clientY)
       const cancelNode = document.querySelector('.admin-schedule-cancel-drop')
       const cancelRect = cancelNode?.getBoundingClientRect()
@@ -152,7 +162,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
         onCancel(booking)
         return
       }
-      const target = dragPreview || (pointerTarget.current?.type === 'lane' ? pointerTarget.current.target : null)
+      const target = pointerTarget.current?.type === 'lane' ? pointerTarget.current.target : null
       const booking = pointerDrag.booking
       pointerTarget.current = null
       finishDrag()
@@ -164,11 +174,11 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
     }
-  }, [dateKey, dragPreview, onCancel, onDateChange, onReschedule, pointerDrag])
+  }, [dateKey, onCancel, onDateChange, onReschedule, pointerDrag])
 
   const chooseSlot = async (court, time) => {
-    if (selectedBooking) {
-      const saved = await onReschedule(selectedBooking, court, time, durationMinutes(selectedBooking), dateKey)
+    if (activeSelection) {
+      const saved = await onReschedule(activeSelection, court, time, durationMinutes(activeSelection), dateKey)
       if (saved) setSelectedBooking(null)
       return
     }
@@ -176,7 +186,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   }
 
   const chooseTransferDay = (next, bookingId = draggedId) => {
-    const booking = bookings.find((item) => item.id === bookingId) || selectedBooking
+    const booking = bookings.find((item) => item.id === bookingId) || activeSelection
     if (booking) setSelectedBooking(booking)
     setDraggedId(null)
     selectDate(next)
@@ -191,13 +201,12 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           <p>{t('admin.schedule.description')}</p>
         </div>
         <div className="admin-schedule-date">
-          <button onClick={() => moveDay(-1)} aria-label={t('admin.schedule.previous')}><ChevronLeft size={18} /></button>
           <label><strong>{dayLabel}</strong><input type="date" value={dateKey} onChange={(event) => selectDate(event.target.value)} /></label>
-          <button onClick={() => moveDay(1)} aria-label={t('admin.schedule.next')}><ChevronRight size={18} /></button>
         </div>
       </header>
 
       <div className="admin-schedule-day-strip" aria-label={t('admin.schedule.quickDays')}>
+        <button className="week-nav" onClick={() => moveWeek(-1)} aria-label={t('admin.schedule.previousWeek')}><ChevronLeft size={18} /><small>{t('admin.schedule.previousWeekShort')}</small></button>
         {quickDays.map((day, index) => (
           <button
             className={`${index === 0 ? 'active' : ''} ${dragDay === day.key ? 'drop-target' : ''}`}
@@ -209,7 +218,28 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
             <strong>{day.day}</strong>
           </button>
         ))}
+        <button className="week-nav" onClick={() => moveWeek(1)} aria-label={t('admin.schedule.nextWeek')}><ChevronRight size={18} /><small>{t('admin.schedule.nextWeekShort')}</small></button>
       </div>
+      <section className={`admin-schedule-inspector ${activeSelection ? 'has-booking' : ''}`} aria-live="polite">
+        {activeSelection ? (
+          <>
+            <div className="admin-inspector-title">
+              <span>{t('admin.schedule.bookingDetails')}</span>
+              <strong>{activeSelection.customer_name}</strong>
+              <span className={`status-pill ${activeSelection.status}`}>{t(`status.${activeSelection.status}`)}</span>
+            </div>
+            <dl>
+              <div><dt>{t('admin.schedule.courtTime')}</dt><dd>{courtTitle(COURTS.find((court) => court.id === activeSelection.court_id) || COURTS[0])} · {activeSelection.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(activeSelection.start_at)}–{timeFromDateTime(activeSelection.end_at)}</dd></div>
+              <div><dt>{t('admin.schedule.bookedAt')}</dt><dd>{activeSelection.created_at ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activeSelection.created_at)) : t('admin.schedule.notRecorded')}</dd></div>
+              <div><dt>{t('admin.schedule.contact')}</dt><dd>{activeSelection.customer_email || t('admin.schedule.notProvided')} · {activeSelection.customer_phone || t('admin.schedule.notProvided')}</dd></div>
+              <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd>{t('admin.people', { count: activeSelection.party_size })} · {t(`payment.${activeSelection.payment_status}`)}</dd></div>
+              <div className="notes"><dt>{t('admin.schedule.customerNotes')}</dt><dd>{activeSelection.customer_notes || t('admin.schedule.noNotes')}</dd></div>
+            </dl>
+          </>
+        ) : (
+          <div className="admin-inspector-empty"><strong>{t('admin.schedule.noSelectionTitle')}</strong><span>{t('admin.schedule.noSelectionText')}</span></div>
+        )}
+      </section>
       <div
         className={`admin-schedule-cancel-drop ${draggedId ? 'active' : ''} ${cancelArmed ? 'armed' : ''}`}
         aria-label={t('admin.schedule.cancelDrop')}
@@ -217,24 +247,25 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
         <Trash2 size={17} />
         <div><strong>{cancelArmed ? t('admin.schedule.cancelRelease') : t('admin.schedule.cancelDrop')}</strong><span>{t('admin.schedule.cancelProtection')}</span></div>
       </div>
-      {selectedBooking && (
-        <div className="admin-schedule-transfer" role="status">
-          <GripVertical size={14} />
-          <strong>{selectedBooking.customer_name}</strong>
-          <span>{t('admin.schedule.transferReady')}</span>
-          <button onClick={() => setSelectedBooking(null)}>{t('admin.schedule.clearSelection')}</button>
-        </div>
-      )}
-      {draggedBooking && dragPreview ? (
-        <div className="admin-drag-readout" role="status" aria-live="polite">
-          <span>{t('admin.schedule.preview')}</span>
-          <strong>{draggedBooking.customer_name}</strong>
-          <b>{dateKey.replaceAll('-', '.')} · {courtTitle(dragPreview.court)} · {dragPreview.time}–{dragPreview.endTime}</b>
-          <small>{t('admin.schedule.releaseToMove')}</small>
-        </div>
-      ) : (
-        <div className="admin-schedule-hint"><GripVertical size={14} /> {selectedBooking ? t('admin.schedule.pickDestination') : t('admin.schedule.hint')}<span><CalendarPlus size={14} /> {t('admin.schedule.addHint')}</span></div>
-      )}
+      <div className={`admin-schedule-context ${draggedBooking && dragPreview ? 'dragging' : activeSelection ? 'selected' : ''}`}>
+        {draggedBooking && dragPreview ? (
+          <div className="admin-drag-readout" role="status" aria-live="polite">
+            <span>{t('admin.schedule.preview')}</span>
+            <strong>{draggedBooking.customer_name}</strong>
+            <b>{dateKey.replaceAll('-', '.')} · {courtTitle(dragPreview.court)} · {dragPreview.time}–{dragPreview.endTime}</b>
+            <small>{t('admin.schedule.releaseToMove')}</small>
+          </div>
+        ) : activeSelection ? (
+          <div className="admin-schedule-selection" role="status">
+            <GripVertical size={14} />
+            <strong>{activeSelection.customer_name}</strong>
+            <span>{t('admin.schedule.pickDestination')}</span>
+            <button onMouseDown={(event) => event.preventDefault()} onClick={() => setSelectedBooking(null)}><X size={13} /> {t('admin.schedule.clearSelection')}</button>
+          </div>
+        ) : (
+          <div className="admin-schedule-hint"><GripVertical size={14} /> {t('admin.schedule.hint')}<span><CalendarPlus size={14} /> {t('admin.schedule.addHint')}</span></div>
+        )}
+      </div>
       <div className="admin-schedule-scroll">
         <div className="admin-schedule-grid">
           <div className="admin-schedule-corner"><Clock3 size={14} /></div>
@@ -276,10 +307,11 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                     draggable={false}
                     role="button"
                     tabIndex="0"
-                    aria-pressed={selectedBooking?.id === booking.id}
+                    aria-pressed={activeSelection?.id === booking.id}
                     onClick={(event) => {
                       event.stopPropagation()
                       if (pointerMoved.current) { pointerMoved.current = false; return }
+                      event.currentTarget.blur()
                       setSelectedBooking((current) => current?.id === booking.id ? null : booking)
                     }}
                     onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedBooking((current) => current?.id === booking.id ? null : booking) } }}
@@ -291,7 +323,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                       pointerTarget.current = null
                       setDraggedId(booking.id)
                       setSelectedBooking(null)
-                      setPointerDrag({ booking, grabOffset })
+                      setPointerDrag({ booking, grabOffset, startX: event.clientX, startY: event.clientY })
                     }}
                     style={{ '--start': offset / 30, '--span': minutes / 30 }}
                     key={booking.id}

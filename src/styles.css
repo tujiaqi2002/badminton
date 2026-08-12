@@ -176,6 +176,10 @@ a { color: inherit; text-decoration: none; }
 .booking-summary-card strong { font-size: 12px; }
 .drawer-field { padding: 18px 0; border-bottom: 1px solid var(--line); }
 .drawer-field > label, .party-row label { display: block; margin-bottom: 12px; font-size: 11px; font-weight: 700; }
+.drawer-contact-fields { display: grid; gap: 8px; }
+.drawer-contact-fields label:not(:first-child) { margin-top: 7px; }
+.drawer-contact-fields input, .drawer-contact-fields textarea { width: 100%; padding: 11px 12px; border: 1px solid var(--line); background: rgba(255,255,255,.62); color: var(--ink); font: inherit; outline: 0; resize: vertical; }
+.drawer-contact-fields input:focus, .drawer-contact-fields textarea:focus { border-color: var(--ink); box-shadow: 0 0 0 2px rgba(34,36,33,.06); }
 .segmented-control { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .segmented-control button { height: 40px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 11px; }
 .segmented-control button.selected { border-color: var(--ink); background: var(--ink); color: white; }
@@ -293,22 +297,30 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-editor h2 { margin: 8px 0 7px; font: 32px/1.1 "Songti SC", serif; }
 .admin-schedule-editor header p { max-width: 590px; margin: 0; color: var(--ink-soft); font-size: 10px; line-height: 1.7; }
 .admin-schedule-date { display: flex; align-items: stretch; border: 1px solid var(--line); background: rgba(255,255,255,.52); }
-.admin-schedule-date button { width: 42px; border: 0; background: transparent; color: var(--ink-soft); cursor: pointer; }
-.admin-schedule-date button:hover { color: var(--red); }
-.admin-schedule-date label { min-width: 185px; padding: 10px 12px; display: grid; text-align: center; border-inline: 1px solid var(--line); }
+.admin-schedule-date label { min-width: 215px; padding: 10px 12px; display: grid; text-align: center; }
 .admin-schedule-date strong { font: 15px/1.2 "Songti SC", serif; }
 .admin-schedule-date input { margin-top: 5px; border: 0; background: transparent; color: var(--ink-soft); font-size: 9px; text-align: center; }
-.admin-schedule-day-strip { padding: 12px 18px; display: grid; grid-template-columns: repeat(7,1fr); gap: 7px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.2); }
+.admin-schedule-day-strip { padding: 12px 18px; display: grid; grid-template-columns: 62px repeat(7,1fr) 62px; gap: 7px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.2); }
 .admin-schedule-day-strip button { min-width: 0; min-height: 54px; padding: 8px 5px; display: grid; place-items: center; gap: 4px; border: 1px solid var(--line); background: rgba(255,255,255,.42); color: var(--ink); cursor: pointer; }
 .admin-schedule-day-strip button:hover, .admin-schedule-day-strip button:focus-visible { border-color: var(--red); outline: 0; }
 .admin-schedule-day-strip button.drop-target { color: white; border-color: var(--red); background: var(--red); box-shadow: 0 0 0 3px rgba(199,70,54,.15); transform: translateY(-2px); }
 .admin-schedule-day-strip button.active { color: white; border-color: var(--ink); background: var(--ink); }
 .admin-schedule-day-strip small { color: inherit; opacity: .7; font-size: 8px; }
 .admin-schedule-day-strip strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
-.admin-schedule-transfer { min-height: 46px; padding: 9px 20px; display: flex; align-items: center; gap: 8px; color: white; background: var(--red-dark); font-size: 9px; }
-.admin-schedule-transfer strong { font-size: 11px; }
-.admin-schedule-transfer span { opacity: .75; }
-.admin-schedule-transfer button { margin-left: auto; padding: 6px 9px; border: 1px solid rgba(255,255,255,.35); background: transparent; color: white; cursor: pointer; font-size: 8px; }
+.admin-schedule-day-strip .week-nav { display: flex; flex-direction: column; gap: 3px; color: var(--ink-soft); }
+.admin-schedule-day-strip .week-nav:hover { color: var(--red); }
+.admin-schedule-inspector { height: 118px; padding: 15px 22px; display: flex; align-items: stretch; gap: 22px; overflow: hidden; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.38); }
+.admin-inspector-title { width: 145px; flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 7px; border-right: 1px solid var(--line); }
+.admin-inspector-title > span:first-child { color: var(--ink-soft); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
+.admin-inspector-title strong { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 20px/1.1 "Songti SC",serif; }
+.admin-schedule-inspector dl { min-width: 0; flex: 1; margin: 0; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px 20px; align-content: center; }
+.admin-schedule-inspector dl > div { min-width: 0; display: grid; gap: 4px; }
+.admin-schedule-inspector dt { color: var(--ink-soft); font-size: 8px; }
+.admin-schedule-inspector dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+.admin-schedule-inspector .notes { grid-column: 1/-1; }
+.admin-inspector-empty { margin: auto; display: grid; gap: 5px; text-align: center; color: var(--ink-soft); }
+.admin-inspector-empty strong { color: var(--ink); font: 17px/1 "Songti SC",serif; }
+.admin-inspector-empty span { font-size: 9px; }
 .admin-schedule-cancel-drop { min-height: 58px; height: 58px; padding: 8px 22px; display: flex; align-items: center; justify-content: center; gap: 9px; overflow: hidden; color: var(--ink-soft); background: rgba(199,70,54,.035); border-bottom: 1px solid var(--line); opacity: .58; transition: opacity .18s ease, color .18s ease, background .18s ease, box-shadow .18s ease; }
 .admin-schedule-cancel-drop.active { opacity: 1; box-shadow: inset 0 0 0 1px rgba(199,70,54,.14); }
 .admin-schedule-cancel-drop.armed { color: white; background: var(--red-dark); }
@@ -316,12 +328,17 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-cancel-drop div { display: grid; gap: 3px; }
 .admin-schedule-cancel-drop strong { font-size: 10px; }
 .admin-schedule-cancel-drop span { opacity: .72; font-size: 8px; }
-.admin-drag-readout { min-height: 48px; padding: 8px 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,.25); color: white; background: var(--ink); box-shadow: 0 6px 20px rgba(34,36,33,.13); }
+.admin-schedule-context { height: 48px; overflow: hidden; border-bottom: 1px solid var(--line); }
+.admin-drag-readout { height: 48px; padding: 8px 20px; display: flex; align-items: center; gap: 10px; color: white; background: var(--ink); box-shadow: 0 6px 20px rgba(34,36,33,.13); }
 .admin-drag-readout > span { opacity: .58; font-size: 8px; text-transform: uppercase; letter-spacing: .13em; }
 .admin-drag-readout > strong { font-size: 10px; }
 .admin-drag-readout > b { padding: 7px 10px; color: var(--ink); background: white; font-size: 10px; }
 .admin-drag-readout > small { margin-left: auto; opacity: .72; font-size: 8px; }
-.admin-schedule-hint { min-height: 42px; padding: 0 22px; display: flex; align-items: center; gap: 7px; border-bottom: 1px solid var(--line); color: var(--ink-soft); font-size: 9px; }
+.admin-schedule-selection { height: 48px; padding: 0 22px; display: flex; align-items: center; gap: 8px; color: var(--ink); background: rgba(199,70,54,.055); font-size: 9px; }
+.admin-schedule-selection strong { font-size: 11px; }
+.admin-schedule-selection span { color: var(--ink-soft); }
+.admin-schedule-selection button { margin-left: auto; padding: 6px 9px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: rgba(255,255,255,.55); color: var(--ink); cursor: pointer; font-size: 8px; }
+.admin-schedule-hint { height: 48px; padding: 0 22px; display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 9px; }
 .admin-schedule-hint span { margin-left: auto; display: flex; align-items: center; gap: 7px; }
 .admin-schedule-scroll { overflow-x: auto; }
 .admin-schedule-grid { --slot-height: 26px; min-width: 960px; display: grid; grid-template-columns: 72px repeat(5, minmax(160px,1fr)); }
@@ -358,9 +375,9 @@ a { color: inherit; text-decoration: none; }
 .admin-create-modal > p { margin: 0 0 23px; color: var(--ink-soft); font-size: 10px; }
 .admin-create-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
 .admin-create-fields label { display: grid; gap: 6px; }
-.admin-create-fields label:nth-child(-n+2) { grid-column: 1/-1; }
+.admin-create-fields label.wide { grid-column: 1/-1; }
 .admin-create-fields span { color: var(--ink-soft); font-size: 9px; }
-.admin-create-fields input, .admin-create-fields select { min-height: 42px; padding: 0 11px; border: 1px solid var(--line); background: rgba(255,255,255,.72); color: var(--ink); outline: 0; }
+.admin-create-fields input, .admin-create-fields select, .admin-create-fields textarea { min-height: 42px; padding: 9px 11px; border: 1px solid var(--line); background: rgba(255,255,255,.72); color: var(--ink); outline: 0; resize: vertical; }
 .admin-create-modal > .primary-button { width: 100%; margin-top: 18px; }
 .admin-reschedule-modal { position: relative; width: min(560px,calc(100vw - 28px)); padding: 34px; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: modalIn .22s ease; }
 .admin-reschedule-modal h2 { margin: 9px 0 8px; font: 31px/1.1 "Songti SC",serif; }
@@ -417,9 +434,10 @@ footer small { text-align: right; }
   .admin-schedule-editor h2 { font-size: 28px; }
   .admin-schedule-date { width: 100%; }
   .admin-schedule-date label { min-width: 0; flex: 1; }
-  .admin-schedule-day-strip { overflow-x: auto; grid-template-columns: repeat(7,112px); padding-inline: 12px; }
-  .admin-schedule-transfer { align-items: flex-start; flex-wrap: wrap; }
-  .admin-schedule-transfer button { margin-left: auto; }
+  .admin-schedule-day-strip { overflow-x: auto; grid-template-columns: 58px repeat(7,112px) 58px; padding-inline: 12px; }
+  .admin-schedule-inspector { height: 174px; padding: 12px 15px; gap: 13px; }
+  .admin-inspector-title { width: 105px; }
+  .admin-schedule-inspector dl { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 12px; }
   .admin-drag-readout { align-items: flex-start; flex-wrap: wrap; }
   .admin-drag-readout > b { order: 3; width: 100%; }
   .admin-drag-readout > small { margin-left: auto; }

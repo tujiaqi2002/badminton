@@ -8,7 +8,7 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
   const { courtNote, courtTitle, locale, t } = useI18n()
   if (!selection) return null
 
-  const { court, time, dateKey, duration, partySize, paymentMethod } = selection
+  const { court, time, dateKey, duration, partySize, paymentMethod, phone = '', notes = '' } = selection
   const set = selection.set
   const price = priceFor(time, duration)
   const endMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) + duration
@@ -49,6 +49,13 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
           </div>
         </div>
 
+        <div className="drawer-field drawer-contact-fields">
+          <label htmlFor="booking-phone">{t('drawer.phone')}</label>
+          <input id="booking-phone" required type="tel" maxLength="40" value={phone} onChange={(event) => set({ phone: event.target.value })} placeholder={t('drawer.phonePlaceholder')} />
+          <label htmlFor="booking-notes">{t('drawer.notesOptional')}</label>
+          <textarea id="booking-notes" maxLength="2000" rows="3" value={notes} onChange={(event) => set({ notes: event.target.value })} placeholder={t('drawer.notesPlaceholder')} />
+        </div>
+
         <div className="drawer-field">
           <label>{t('drawer.payment')}</label>
           <button className={`payment-option ${paymentMethod === 'venue' ? 'selected' : ''}`} onClick={() => set({ paymentMethod: 'venue' })}>
@@ -62,8 +69,8 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
         <div className="price-row"><span>{t('drawer.fee')}</span><strong>{formatMoney(price, locale)}</strong></div>
         <p className="booking-policy"><Clock3 size={15} /> {t('drawer.policy')}</p>
 
-        <button className="primary-button confirm-button" disabled={busy || invalid} onClick={() => onConfirm({ ...selection, price })}>
-          {busy ? t('drawer.locking') : invalid ? t('drawer.invalid') : t('drawer.confirm', { price: formatMoney(price, locale) })}
+        <button className="primary-button confirm-button" disabled={busy || invalid || !phone.trim()} onClick={() => onConfirm({ ...selection, phone: phone.trim(), notes: notes.trim(), price })}>
+          {busy ? t('drawer.locking') : invalid ? t('drawer.invalid') : !phone.trim() ? t('drawer.phoneRequired') : t('drawer.confirm', { price: formatMoney(price, locale) })}
         </button>
       </aside>
     </div>
