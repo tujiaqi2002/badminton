@@ -1,8 +1,7 @@
 {
-  "name": "Tiger 羽球馆",
+  "name": "Tiger Badminton · 羽球馆",
   "short_name": "Tiger",
-  "description": "五片羽毛球场地的实时预订与管理",
-  "lang": "zh-CN",
+  "description": "Bilingual live booking for five badminton courts · 五片羽毛球场地实时预订",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

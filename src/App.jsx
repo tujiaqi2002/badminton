@@ -8,19 +8,21 @@ import DateStrip from './components/DateStrip'
 import Header from './components/Header'
 import MyBookings from './components/MyBookings'
 import { addDays, addMinutes, COURTS, demoSchedule, overlaps, slotDateTime, toDateKey } from './lib/booking'
+import { useI18n } from './lib/i18n'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
 
 const todayKey = () => toDateKey(new Date())
-const cancellationErrorMessage = (message = '') => {
-  if (message.includes('within 12 hours')) return '开场前 12 小时内不能取消预订'
-  if (message.includes('does not belong to you')) return '找不到该预订，或它不属于当前账号'
-  if (message.includes('no longer active')) return '该预订已经取消或结束'
-  if (message.includes('Manager access required')) return '当前账号没有馆长权限'
-  if (message.includes('Booking not found')) return '找不到这笔预订，请刷新后重试'
-  return '取消失败，请稍后重试'
+const cancellationErrorMessage = (message = '', t) => {
+  if (message.includes('within 12 hours')) return t('errors.cancelWindow')
+  if (message.includes('does not belong to you')) return t('errors.notOwner')
+  if (message.includes('no longer active')) return t('errors.inactive')
+  if (message.includes('Manager access required')) return t('errors.managerRequired')
+  if (message.includes('Booking not found')) return t('errors.bookingNotFound')
+  return t('errors.cancel')
 }
 
 export default function App() {
+  const { courtName, t } = useI18n()
   const [view, setView] = useState('book')
   const [dateKey, setDateKey] = useState(todayKey)
   const [schedule, setSchedule] = useState(() => demoSchedule(todayKey()))
@@ -63,9 +65,9 @@ export default function App() {
       .in('status', ['held', 'confirmed'])
       .order('start_at')
     setLoadingSchedule(false)
-    if (error) notify('场地状态同步失败，请稍后重试', 'error')
+    if (error) notify(t('errors.schedule'), 'error')
     else setSchedule(data || [])
-  }, [dateKey, notify])
+  }, [dateKey, notify, t])
 
   const fetchBookings = useCallback(async () => {
     if (!user) return setBookings([])
@@ -77,9 +79,9 @@ export default function App() {
       .eq('user_id', user.id)
       .order('start_at', { ascending: false })
     setLoadingBookings(false)
-    if (error) notify('无法读取个人预订', 'error')
+    if (error) notify(t('errors.myBookings'), 'error')
     else setBookings(data || [])
-  }, [user, notify])
+  }, [user, notify, t])
 
   const fetchAdminAccess = useCallback(async () => {
     if (!user || !isSupabaseConfigured) {
@@ -93,11 +95,11 @@ export default function App() {
       .maybeSingle()
     if (error) {
       setIsAdmin(false)
-      notify('无法验证馆长权限，请稍后重试', 'error')
+      notify(t('errors.adminAccess'), 'error')
       return
     }
     setIsAdmin(data?.role === 'admin')
-  }, [user, notify])
+  }, [user, notify, t])
 
   const fetchAdminBookings = useCallback(async () => {
     if (!user || !isAdmin || !isSupabaseConfigured) return setAdminBookings([])
@@ -125,9 +127,9 @@ export default function App() {
     }
 
     setLoadingAdminBookings(false)
-    if (error) notify('无法读取球馆预订', 'error')
+    if (error) notify(t('errors.adminBookings'), 'error')
     else setAdminBookings(data)
-  }, [adminRange, isAdmin, user, notify])
+  }, [adminRange, isAdmin, user, notify, t])
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -179,7 +181,7 @@ export default function App() {
       return
     }
     if (selectionInvalid) {
-      notify(selectionOutsideHours ? '所选时长超过营业时间 22:00' : '所选时长与已有预订重叠，请选择较短时长或其他时间', 'error')
+      notify(t(selectionOutsideHours ? 'errors.outsideHours' : 'errors.overlap'), 'error')
       return
     }
 
@@ -202,7 +204,7 @@ export default function App() {
       setBookings((current) => [booking, ...current])
       setBusy(false)
       setSelection(null)
-      notify('体验预订已确认，场地状态已实时更新')
+      notify(t('success.demoBooking'))
       return
     }
 
@@ -216,7 +218,7 @@ export default function App() {
 
     if (error) {
       setBusy(false)
-      notify(error.message.includes('already booked') ? '刚刚被其他球友订走了，请选择其他时段' : '预订失败，请稍后再试', 'error')
+      notify(t(error.message.includes('already booked') ? 'errors.slotTaken' : 'errors.booking'), 'error')
       await fetchSchedule()
       return
     }
@@ -226,7 +228,7 @@ export default function App() {
       const { data: checkout, error: checkoutError } = await supabase.functions.invoke('create-checkout', { body: { bookingId } })
       if (checkoutError || !checkout?.url) {
         setBusy(false)
-        notify('支付页面创建失败，场地将于 10 分钟后自动释放', 'error')
+        notify(t('errors.checkout'), 'error')
         return
       }
       window.location.assign(checkout.url)
@@ -235,56 +237,64 @@ export default function App() {
 
     setBusy(false)
     setSelection(null)
-    notify('预订成功，期待与你在 Tiger 相见')
+    notify(t('success.booking'))
     await Promise.all([fetchSchedule(), fetchBookings()])
   }
 
   const cancelBooking = async (booking) => {
-    if (!window.confirm('确定取消这个场次吗？')) return
+    if (!window.confirm(t('confirm.cancel'))) return
     if (!isSupabaseConfigured) {
       setBookings((current) => current.map((item) => item.id === booking.id ? { ...item, status: 'cancelled' } : item))
       setSchedule((current) => current.filter((item) => item.id !== booking.id))
-      notify('预订已取消')
+      notify(t('success.cancel'))
       return
     }
     const { error } = await supabase.rpc('cancel_booking', { p_booking_id: booking.id })
-    if (error) notify(cancellationErrorMessage(error.message), 'error')
-    else { notify('预订已取消'); await Promise.all([fetchSchedule(), fetchBookings()]) }
+    if (error) notify(cancellationErrorMessage(error.message, t), 'error')
+    else { notify(t('success.cancel')); await Promise.all([fetchSchedule(), fetchBookings()]) }
   }
 
   const adminCancelBooking = async (booking) => {
     const court = booking.court_id && COURTS.find((item) => item.id === booking.court_id)
-    const bookingLabel = `${booking.start_at.slice(0, 10)} ${court?.name || ''}场 ${booking.start_at.slice(11, 16)}—${booking.end_at.slice(11, 16)}`
-    if (!window.confirm(`确定以馆长身份取消 ${booking.customer_name} 的预订吗？\n${bookingLabel}`)) return
+    const bookingLabel = t('confirm.courtLabel', {
+      date: booking.start_at.slice(0, 10),
+      court: court ? courtName(court) : '',
+      start: booking.start_at.slice(11, 16),
+      end: booking.end_at.slice(11, 16),
+    })
+    if (!window.confirm(t('confirm.adminCancel', { name: booking.customer_name, label: bookingLabel }))) return
 
     setAdminCancellingId(booking.id)
     const { error } = await supabase.rpc('admin_cancel_booking', { p_booking_id: booking.id })
     setAdminCancellingId(null)
     if (error) {
-      notify(cancellationErrorMessage(error.message), 'error')
+      notify(cancellationErrorMessage(error.message, t), 'error')
       return
     }
 
-    notify('客户预订已由馆长取消')
+    notify(t('success.adminCancel'))
     await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchBookings()])
   }
 
   const loginByEmail = async (email) => {
     if (!isSupabaseConfigured) return false
     const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href.split('#')[0] } })
-    if (error) { notify(error.message, 'error'); return false }
+    if (error) {
+      notify(t(error.message.toLowerCase().includes('rate limit') ? 'errors.emailRateLimit' : 'errors.auth'), 'error')
+      return false
+    }
     return true
   }
 
   const loginWithGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href.split('#')[0] } })
-    if (error) notify(error.message, 'error')
+    if (error) notify(t('errors.auth'), 'error')
   }
 
   const enterDemo = () => {
     setUser({ id: 'demo-user', email: 'demo@tiger.local' })
     setShowAuth(false)
-    notify('已进入体验模式，现在可以完成一笔预订')
+    notify(t('success.demoMode'))
   }
 
   const signOut = async () => {
@@ -304,31 +314,31 @@ export default function App() {
           <section className="hero">
             <div className="hero-art" aria-hidden="true" />
             <div className="hero-content">
-              <span className="eyebrow"><Sparkles size={13} /> Tiger badminton club</span>
-              <h1>留一片场地，<br /><em>与风交手。</em></h1>
-              <p>五片场地，实时可见。选好时间，下一场好球从容开始。</p>
+              <span className="eyebrow"><Sparkles size={13} /> {t('hero.eyebrow')}</span>
+              <h1>{t('hero.title1')}<br /><em>{t('hero.title2')}</em></h1>
+              <p>{t('hero.description')}</p>
               <div className="hero-actions">
-                <a className="primary-button" href="#availability">查看空闲场地</a>
-                <span><Radio size={15} /> 实时同步</span>
+                <a className="primary-button" href="#availability">{t('hero.cta')}</a>
+                <span><Radio size={15} /> {t('hero.realtime')}</span>
               </div>
             </div>
-            <div className="venue-note"><MapPin size={16} /><span><strong>Tiger 羽球馆</strong><small>每天 07:00—22:00</small></span></div>
+            <div className="venue-note"><MapPin size={16} /><span><strong>{t('venue.name')}</strong><small>{t('venue.hours')}</small></span></div>
           </section>
 
           <section className="booking-container">
             {!isSupabaseConfigured && (
-              <div className="demo-banner"><span>体验环境</span> 当前展示模拟实时数据；连接 Supabase 后将自动切换为真实预订。</div>
+              <div className="demo-banner"><span>{t('demo.label')}</span> {t('demo.description')}</div>
             )}
             <DateStrip selected={dateKey} onSelect={setDateKey} />
             <BookingBoard dateKey={dateKey} schedule={schedule} loading={loadingSchedule} onSelect={openSelection} />
           </section>
 
           <section className="ritual-section">
-            <div><span className="eyebrow">Simple by design</span><h2>三步，开场</h2></div>
+            <div><span className="eyebrow">Simple by design</span><h2>{t('ritual.title')}</h2></div>
             <div className="ritual-steps">
-              <article><span>一</span><h3>看空闲</h3><p>场地状态实时同步，不必打电话确认。</p></article>
-              <article><span>二</span><h3>选时间</h3><p>点击空白时段，按需要选择 60—120 分钟。</p></article>
-              <article><span>三</span><h3>去挥拍</h3><p>到店付款或安全在线支付，准时到场即可。</p></article>
+              <article><span>{t('ritual.oneNumber')}</span><h3>{t('ritual.oneTitle')}</h3><p>{t('ritual.oneText')}</p></article>
+              <article><span>{t('ritual.twoNumber')}</span><h3>{t('ritual.twoTitle')}</h3><p>{t('ritual.twoText')}</p></article>
+              <article><span>{t('ritual.threeNumber')}</span><h3>{t('ritual.threeTitle')}</h3><p>{t('ritual.threeText')}</p></article>
             </div>
           </section>
         </main>
@@ -347,13 +357,13 @@ export default function App() {
         <MyBookings user={user} bookings={bookings} loading={loadingBookings} onLogin={() => setShowAuth(true)} onCancel={cancelBooking} />
       )}
 
-      <footer><div className="footer-brand">TIGER <span>羽球馆</span></div><p>风林火山雷 · 五场一心</p><small>© {new Date().getFullYear()} Tiger Badminton Club</small></footer>
+      <footer><div className="footer-brand">TIGER <span>{t('footer.subtitle')}</span></div><p>{t('footer.motto')}</p><small>© {new Date().getFullYear()} Tiger Badminton Club</small></footer>
 
-      <nav className={`mobile-bottom-nav ${isAdmin ? 'admin-mobile-nav' : ''}`} aria-label="移动端导航">
-        <button className={view === 'book' ? 'active' : ''} onClick={() => setView('book')}><CalendarDays size={20} /><span>场地</span></button>
-        <button className={view === 'mine' ? 'active' : ''} onClick={() => setView('mine')}><CircleUserRound size={20} /><span>我的</span></button>
-        {isAdmin && <button className={view === 'admin' ? 'active' : ''} onClick={() => setView('admin')}><ShieldCheck size={20} /><span>管理</span></button>}
-        <button onClick={() => view === 'book' && document.getElementById('availability')?.scrollIntoView({ behavior: 'smooth' })}><Clock3 size={20} /><span>时段</span></button>
+      <nav className={`mobile-bottom-nav ${isAdmin ? 'admin-mobile-nav' : ''}`} aria-label={t('nav.mobile')}>
+        <button className={view === 'book' ? 'active' : ''} onClick={() => setView('book')}><CalendarDays size={20} /><span>{t('nav.courts')}</span></button>
+        <button className={view === 'mine' ? 'active' : ''} onClick={() => setView('mine')}><CircleUserRound size={20} /><span>{t('nav.myShort')}</span></button>
+        {isAdmin && <button className={view === 'admin' ? 'active' : ''} onClick={() => setView('admin')}><ShieldCheck size={20} /><span>{t('nav.adminShort')}</span></button>}
+        <button onClick={() => view === 'book' && document.getElementById('availability')?.scrollIntoView({ behavior: 'smooth' })}><Clock3 size={20} /><span>{t('nav.slots')}</span></button>
       </nav>
 
       <BookingDrawer selection={selection} onClose={() => setSelection(null)} onConfirm={confirmBooking} busy={busy} stripeEnabled={stripeEnabled} invalid={selectionInvalid} />

@@ -40,6 +40,9 @@ a { color: inherit; text-decoration: none; }
 .desktop-nav { display: flex; align-items: center; gap: 2px; background: rgba(255,255,255,.34); border: 1px solid rgba(34,36,33,.08); padding: 4px; border-radius: 999px; }
 .desktop-nav button { display: flex; gap: 7px; align-items: center; border: 0; background: transparent; color: var(--ink-soft); padding: 9px 16px; border-radius: 999px; cursor: pointer; font-size: 13px; }
 .desktop-nav button.active { color: var(--ink); background: rgba(255,255,255,.92); box-shadow: 0 4px 15px rgba(34,36,33,.06); }
+.header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.language-switch { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.34); color: var(--ink-soft); cursor: pointer; font-size: 10px; letter-spacing: .04em; }
+.language-switch:hover { color: var(--ink); background: rgba(255,255,255,.78); }
 .account-button { border: 0; background: transparent; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink-soft); }
 .avatar { width: 29px; height: 29px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: white; font-size: 12px; }
 .account-label { max-width: 110px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
