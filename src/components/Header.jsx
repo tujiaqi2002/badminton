@@ -1,6 +1,6 @@
-import { CalendarDays, LogOut, UserRound } from 'lucide-react'
+import { CalendarDays, LogOut, ShieldCheck, UserRound } from 'lucide-react'
 
-export default function Header({ user, view, onViewChange, onAuth, onSignOut }) {
+export default function Header({ user, isAdmin, view, onViewChange, onAuth, onSignOut }) {
   return (
     <header className="site-header">
       <button className="brand" onClick={() => onViewChange('book')} aria-label="返回预约首页">
@@ -15,6 +15,11 @@ export default function Header({ user, view, onViewChange, onAuth, onSignOut }) 
         <button className={view === 'mine' ? 'active' : ''} onClick={() => onViewChange('mine')}>
           <UserRound size={17} /> 我的预订
         </button>
+        {isAdmin && (
+          <button className={view === 'admin' ? 'active' : ''} onClick={() => onViewChange('admin')}>
+            <ShieldCheck size={17} /> 预订管理
+          </button>
+        )}
       </nav>
 
       {user ? (
