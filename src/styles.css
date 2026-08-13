@@ -409,7 +409,7 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-lane.previewing { background: rgba(199,70,54,.035); }
 .admin-schedule-slot { width: 100%; cursor: crosshair; }
 .admin-schedule-slot:hover, .admin-schedule-slot:focus-visible { background: rgba(199,70,54,.08); outline: 0; }
-.admin-schedule-slot.phone-focus:not(:disabled) { position: relative; z-index: 1; background: rgba(199,70,54,.06); outline: 2px dashed var(--red); outline-offset: -3px; animation: phoneSlotPulse 1.8s ease-in-out 2; }
+.admin-schedule-slot.phone-focus:not(:disabled) { background: rgba(199,70,54,.075); }
 .admin-schedule-slot:disabled { cursor: not-allowed; opacity: .32; }
 .admin-schedule-booking { position: absolute; z-index: 2; top: calc(var(--start) * var(--slot-height) + 2px); left: 5px; right: 5px; min-height: calc(var(--span) * var(--slot-height) - 4px); padding: 7px 8px 7px 5px; display: flex; align-items: start; gap: 5px; border: 1px solid rgba(255,255,255,.3); background: var(--ink); color: white; box-shadow: 0 7px 17px rgba(34,36,33,.17); cursor: grab; overflow: hidden; }
 .admin-schedule-booking:active { cursor: grabbing; }
@@ -440,7 +440,6 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-lane.fire .admin-schedule-booking { background: #a44e43; }
 .admin-schedule-lane.mountain .admin-schedule-booking { background: #92734d; }
 .admin-schedule-lane.thunder .admin-schedule-booking { background: #755f80; }
-@keyframes phoneSlotPulse { 0%,100% { background: rgba(199,70,54,.045); } 50% { background: rgba(199,70,54,.15); } }
 .admin-create-modal { position: relative; width: min(490px,calc(100vw - 28px)); padding: 34px; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: modalIn .22s ease; }
 .admin-create-modal h2 { margin: 9px 0 8px; font: 31px/1.1 "Songti SC",serif; }
 .admin-create-modal > p { margin: 0 0 23px; color: var(--ink-soft); font-size: 10px; }
