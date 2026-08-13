@@ -441,7 +441,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           </div>
           {COURTS.map((court) => (
             <div
-              className={`admin-schedule-lane ${court.tone} ${dateKey === nowAtVenue.dateKey ? 'today' : ''} ${dragPreview?.court.id === court.id ? 'previewing' : ''}`}
+              className={`admin-schedule-lane ${court.tone} ${dragPreview?.court.id === court.id ? 'previewing' : ''}`}
               data-court-id={court.id}
               key={court.id}
             >
