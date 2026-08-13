@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Pencil, Repeat2, Save, Trash2, X } from 'lucide-react'
+import { AlertTriangle, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Pencil, PhoneCall, Repeat2, Save, Trash2, X } from 'lucide-react'
 import { addDays, COURTS, endTimeFromDateTime, mondayOfWeek, timeFromDateTime, toDateKey } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
@@ -53,7 +53,7 @@ function NewBookingModal({ draft, busy, onClose, onSubmit }) {
   )
 }
 
-export default function AdminSchedule({ bookings, initialDate, busy, onCreate, onReschedule, onRescheduleGroup, onCancel, onUpdateDetails, onDateChange, focusTime }) {
+export default function AdminSchedule({ bookings, initialDate, busy, onCreate, onReschedule, onRescheduleGroup, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus }) {
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
   const [weekStart, setWeekStart] = useState(() => mondayOfWeek(initialDate))
@@ -238,16 +238,14 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
     }
   }, [bookings, dateKey, onCancel, onDateChange, onReschedule, onRescheduleGroup, pointerDrag])
 
-  const chooseSlot = async (court, time) => {
+  const chooseSlot = (court, time) => {
     const startMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3))
     if (startMinutes + 60 > 24 * 60) return
     if (activeSelection) {
-      const result = activeGroup.length > 1
-        ? await onRescheduleGroup(activeSelection, time, durationMinutes(activeSelection), dateKey, court)
-        : await onReschedule(activeSelection, court, time, durationMinutes(activeSelection), dateKey)
-      if (result?.saved) setSelectedBooking(null)
+      setSelectedBooking(null)
       return
     }
+    onClearFocus?.()
     setDraft({ court, courts: [court], dateKey, time })
   }
 
@@ -266,7 +264,8 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       const currentIndex = Number(slot.dataset.index)
       setRangeDraft((current) => ({ ...current, currentIndex }))
     }
-    const up = () => {
+    const up = (event) => {
+      if (event.pointerId !== rangeDraft.pointerId) return
       const startIndex = Math.min(rangeDraft.startIndex, rangeDraft.currentIndex)
       const endIndex = Math.max(rangeDraft.startIndex, rangeDraft.currentIndex) + 1
       const span = endIndex - startIndex
@@ -276,7 +275,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       setRangeDraft(null)
     }
     window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up, { once: true })
+    window.addEventListener('pointerup', up)
     return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
   }, [dateKey, rangeDraft])
 
@@ -305,7 +304,17 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   }, [onReschedule, onRescheduleGroup, resizeDrag])
 
   return (
-    <section ref={editorRef} className="admin-schedule-editor" aria-label={t('admin.schedule.aria')}>
+    <section
+      ref={editorRef}
+      className="admin-schedule-editor"
+      aria-label={t('admin.schedule.aria')}
+      onContextMenu={(event) => {
+        if (!rangeDraft && !activeSelection) return
+        event.preventDefault()
+        setRangeDraft(null)
+        setSelectedBooking(null)
+      }}
+    >
       <header>
         <div>
           <span className="eyebrow"><GripVertical size={13} /> {t('admin.schedule.eyebrow')}</span>
@@ -352,7 +361,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           <div className="admin-inspector-empty"><strong>{t('admin.schedule.noSelectionTitle')}</strong><span>{t('admin.schedule.noSelectionText')}</span></div>
         )}
       </section>
-      <div className={`admin-schedule-context ${draggedBooking && dragPreview ? 'dragging' : activeSelection ? 'selected' : ''}`}>
+      <div className={`admin-schedule-context ${draggedBooking && dragPreview ? 'dragging' : activeSelection ? 'selected' : focusTime ? 'phone-focus' : ''}`}>
         {draggedBooking && dragPreview ? (
           <div className="admin-drag-readout" role="status" aria-live="polite">
             <span>{t('admin.schedule.preview')}</span>
@@ -366,6 +375,13 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
             <strong>{activeSelection.customer_name}</strong>
             <span>{t('admin.schedule.pickDestination')}</span>
             <button onMouseDown={(event) => event.preventDefault()} onClick={() => setSelectedBooking(null)}><X size={13} /> {t('admin.schedule.clearSelection')}</button>
+          </div>
+        ) : focusTime ? (
+          <div className="admin-phone-focus-guide" role="status" aria-live="polite">
+            <PhoneCall size={15} />
+            <strong>{t('admin.schedule.phoneFocusTitle')}</strong>
+            <span>{t('admin.schedule.phoneFocusText', { date: dateKey.replaceAll('-', '.'), time: focusTime })}</span>
+            <button onClick={onClearFocus}><X size={13} /> {t('admin.schedule.clearPhoneFocus')}</button>
           </div>
         ) : (
           <div className="admin-schedule-hint"><GripVertical size={14} /> {t('admin.schedule.hint')}<span><CalendarPlus size={14} /> {t('admin.schedule.addHint')}</span></div>
@@ -394,7 +410,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           <div className="admin-schedule-corner"><Clock3 size={14} /></div>
           {COURTS.map((court) => <div className={`admin-schedule-court ${court.tone}`} key={court.id}><span>{court.name}</span><strong>{courtTitle(court)}</strong></div>)}
           <div className="admin-schedule-times">
-            {HALF_HOURS.map((time, index) => <div className={index % 2 ? 'half' : ''} data-schedule-time={time} key={time}>{index % 2 === 0 ? time : ''}</div>)}
+            {HALF_HOURS.map((time, index) => <div className={`${index % 2 ? 'half' : ''} ${focusTime === time ? 'phone-focus' : ''}`} data-schedule-time={time} key={time}>{index % 2 === 0 ? time : ''}</div>)}
           </div>
           {COURTS.map((court) => (
             <div
@@ -404,16 +420,17 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
             >
               {HALF_HOURS.map((time, index) => (
                 <button
-                  className="admin-schedule-slot"
+                  className={`admin-schedule-slot ${focusTime === time ? 'phone-focus' : ''}`}
                   key={time}
                   disabled={time === '23:30'}
                   data-court-id={court.id}
                   data-index={index}
                   onClick={() => { if (!rangeDraft && time !== '23:30') chooseSlot(court, time) }}
                   onPointerDown={(event) => {
-                    if (busy || activeSelection) return
+                    if (event.button !== 0 || busy || activeSelection) return
                     event.preventDefault()
-                    setRangeDraft({ dragging: true, court, startIndex: index, currentIndex: index })
+                    onClearFocus?.()
+                    setRangeDraft({ dragging: true, court, startIndex: index, currentIndex: index, pointerId: event.pointerId })
                   }}
                   aria-label={t('admin.schedule.emptySlot', { court: courtTitle(court), time })}
                 />
@@ -449,7 +466,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                     }}
                     onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedBooking((current) => current?.id === booking.id ? null : booking) } }}
                     onPointerDown={(event) => {
-                      if (busy) return
+                      if (event.button !== 0 || busy) return
                       event.currentTarget.setPointerCapture?.(event.pointerId)
                       const grabOffset = event.clientY - event.currentTarget.getBoundingClientRect().top
                       pointerMoved.current = false
@@ -464,7 +481,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                   >
                     <GripVertical size={14} />
                     <div><strong>{booking.customer_name}{groupSize > 1 ? ` · ${groupSize}×` : ''}</strong><span>{timeFromDateTime(booking.start_at)}–{resizeDrag?.booking.id === booking.id ? timeFromMinutes(startMinutes + minutes) : endTimeFromDateTime(booking.start_at, booking.end_at)}</span></div>
-                    <button className="admin-resize-handle" aria-label={t('admin.schedule.resize')} title={t('admin.schedule.resize')} onPointerDown={(event) => { event.stopPropagation(); event.preventDefault(); setResizeDrag({ booking, startY: event.clientY, initialDuration: durationMinutes(booking), duration: durationMinutes(booking), groupSize }) }} />
+                    <button className="admin-resize-handle" aria-label={t('admin.schedule.resize')} title={t('admin.schedule.resize')} onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); event.preventDefault(); setResizeDrag({ booking, startY: event.clientY, initialDuration: durationMinutes(booking), duration: durationMinutes(booking), groupSize }) }} />
                   </article>
                 )
               })}

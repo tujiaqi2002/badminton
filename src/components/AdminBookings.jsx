@@ -37,6 +37,7 @@ export default function AdminBookings({
   undoDepth,
   onUpdateDetails,
   focusTarget,
+  onClearFocus,
 }) {
   const { courtName, courtTitle, locale, t } = useI18n()
   const [query, setQuery] = useState('')
@@ -51,6 +52,11 @@ export default function AdminBookings({
     setFocusTime(focusTarget.time)
     window.setTimeout(() => document.querySelector('.admin-schedule-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
   }, [focusTarget])
+
+  const clearScheduleFocus = () => {
+    setFocusTime(null)
+    onClearFocus?.()
+  }
 
   useEffect(() => {
     const undo = (event) => {
@@ -131,8 +137,10 @@ export default function AdminBookings({
         onUpdateDetails={onUpdateDetails}
         onCancel={onCancel}
         focusTime={focusTime}
+        onClearFocus={clearScheduleFocus}
         onDateChange={(date) => {
           setScheduleDate(date)
+          if (focusTarget && date !== focusTarget.date) clearScheduleFocus()
           if (date < startDate || date > endDate) {
             const weekStart = mondayOfWeek(date)
             onRangeChange({ start: weekStart, end: toDateKey(addDays(new Date(`${weekStart}T12:00:00`), 6)) })

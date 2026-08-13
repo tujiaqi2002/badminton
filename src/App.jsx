@@ -698,6 +698,7 @@ export default function App() {
           undoDepth={adminUndoDepth}
           onUpdateDetails={adminUpdateBookingDetails}
           focusTarget={adminFocus}
+          onClearFocus={() => setAdminFocus(null)}
         />
       ) : view === 'capacity' && isAdmin ? (
         <AdminCapacity
