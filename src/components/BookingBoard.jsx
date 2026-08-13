@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react'
 import { LoaderCircle, Radio } from 'lucide-react'
-import { COURTS, SLOTS, overlaps, slotDateTime } from '../lib/booking'
+import { COURTS, SLOTS, isPastSlot, overlaps, slotDateTime } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
 function isOccupied(schedule, courtId, dateKey, time) {
@@ -9,32 +10,38 @@ function isOccupied(schedule, courtId, dateKey, time) {
   return schedule.some((item) => item.court_id === courtId && overlaps(start, end, item.start_at, item.end_at))
 }
 
-function SlotButton({ court, time, dateKey, schedule, onSelect }) {
+function SlotButton({ court, time, dateKey, schedule, onSelect, now }) {
   const { courtName, t } = useI18n()
   const occupied = isOccupied(schedule, court.id, dateKey, time)
+  const past = isPastSlot(dateKey, time, now)
+  const state = past ? 'past' : occupied ? 'booked' : 'available'
   return (
     <button
-      className={`slot ${court.tone} ${occupied ? 'occupied' : 'available'}`}
-      disabled={occupied}
+      className={`slot ${court.tone} ${past ? 'past' : occupied ? 'occupied' : 'available'}`}
+      disabled={occupied || past}
       onClick={() => onSelect({ court, time, dateKey })}
       aria-label={t('board.slotAria', {
         court: courtName(court),
         time,
-        status: t(occupied ? 'board.booked' : 'board.available'),
+        status: t(`board.${state}`),
       })}
     >
       <span className="mobile-time">{time}</span>
-      <span className="slot-state">{t(occupied ? 'board.bookedShort' : 'board.availableShort')}</span>
+      <span className="slot-state">{t(past ? 'board.pastShort' : occupied ? 'board.bookedShort' : 'board.availableShort')}</span>
     </button>
   )
 }
 
 export default function BookingBoard({ dateKey, schedule, loading, onSelect }) {
   const { courtName, courtNote, courtTitle, language, t } = useI18n()
-  const availableCount = COURTS.length * SLOTS.length - COURTS.reduce(
-    (count, court) => count + SLOTS.filter((time) => isOccupied(schedule, court.id, dateKey, time)).length,
-    0,
-  )
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const availableCount = COURTS.reduce((count, court) => count + SLOTS.filter((time) => (
+    !isOccupied(schedule, court.id, dateKey, time) && !isPastSlot(dateKey, time, now)
+  )).length, 0)
 
   return (
     <section className="board-section" id="availability">
@@ -69,7 +76,7 @@ export default function BookingBoard({ dateKey, schedule, loading, onSelect }) {
                     <span>{language === 'zh' ? court.english : court.name}</span>
                   </div>
                   {SLOTS.map((time) => (
-                    <SlotButton key={time} court={court} time={time} dateKey={dateKey} schedule={schedule} onSelect={onSelect} />
+                    <SlotButton key={time} court={court} time={time} dateKey={dateKey} schedule={schedule} onSelect={onSelect} now={now} />
                   ))}
                 </div>
               ))}
@@ -85,7 +92,7 @@ export default function BookingBoard({ dateKey, schedule, loading, onSelect }) {
                 </div>
                 <div className="mobile-slot-grid">
                   {SLOTS.map((time) => (
-                    <SlotButton key={time} court={court} time={time} dateKey={dateKey} schedule={schedule} onSelect={onSelect} />
+                    <SlotButton key={time} court={court} time={time} dateKey={dateKey} schedule={schedule} onSelect={onSelect} now={now} />
                   ))}
                 </div>
               </article>

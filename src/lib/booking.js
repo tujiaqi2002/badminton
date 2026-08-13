@@ -23,6 +23,29 @@ export const addDays = (date, amount) => {
 
 export const slotDateTime = (dateKey, time) => `${dateKey}T${time}:00`
 
+export const venueNow = (date = new Date()) => {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
+  const dateKey = `${parts.year}-${parts.month}-${parts.day}`
+  const time = `${parts.hour}:${parts.minute}`
+  return {
+    dateKey,
+    time,
+    minutes: Number(parts.hour) * 60 + Number(parts.minute),
+    dateTime: `${dateKey}T${time}:${parts.second}`,
+  }
+}
+
+export const isPastSlot = (dateKey, time, date = new Date()) => slotDateTime(dateKey, time) <= venueNow(date).dateTime
+
 export const addMinutes = (dateTime, minutes) => {
   const date = new Date(dateTime)
   date.setMinutes(date.getMinutes() + minutes)

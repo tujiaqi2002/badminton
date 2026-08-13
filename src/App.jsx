@@ -8,12 +8,12 @@ import BookingDrawer from './components/BookingDrawer'
 import DateStrip from './components/DateStrip'
 import Header from './components/Header'
 import MyBookings from './components/MyBookings'
-import { addDays, addMinutes, COURTS, demoSchedule, mondayOfWeek, overlaps, slotDateTime, toDateKey } from './lib/booking'
+import { addDays, addMinutes, COURTS, demoSchedule, isPastSlot, mondayOfWeek, overlaps, slotDateTime, toDateKey, venueNow } from './lib/booking'
 import { useI18n } from './lib/i18n'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
 
-const todayKey = () => toDateKey(new Date())
+const todayKey = () => venueNow().dateKey
 const cancellationErrorMessage = (message = '', t) => {
   if (message.includes('within 12 hours')) return t('errors.cancelWindow')
   if (message.includes('does not belong to you')) return t('errors.notOwner')
@@ -202,6 +202,10 @@ export default function App() {
   }, [fetchSchedule, isAdmin])
 
   const openSelection = (slot) => {
+    if (isPastSlot(slot.dateKey, slot.time)) {
+      notify(t('errors.pastTime'), 'error')
+      return
+    }
     setSelection({
       ...slot,
       courts: [slot.court],
@@ -228,7 +232,8 @@ export default function App() {
     selectedInterval.start.slice(11, 16) < '10:00'
     || new Date(selectedInterval.end).getTime() > new Date(`${selection.dateKey}T24:00:00`).getTime()
   )
-  const selectionInvalid = Boolean(selectionConflicts || selectionOutsideHours)
+  const selectionPast = selection && isPastSlot(selection.dateKey, selection.time)
+  const selectionInvalid = Boolean(selectionConflicts || selectionOutsideHours || selectionPast)
 
   const confirmBooking = async (details) => {
     if (!user) {
@@ -236,7 +241,7 @@ export default function App() {
       return
     }
     if (selectionInvalid) {
-      notify(t(selectionOutsideHours ? 'errors.outsideHours' : 'errors.overlap'), 'error')
+      notify(t(selectionPast ? 'errors.pastTime' : selectionOutsideHours ? 'errors.outsideHours' : 'errors.overlap'), 'error')
       return
     }
 
@@ -250,14 +255,15 @@ export default function App() {
 
     if (!isSupabaseConfigured) {
       const groupId = `local-group-${Date.now()}`
-      const created = (details.courts || [details.court]).map((court, index) => ({
+      const selectedCourts = details.courts || [details.court]
+      const created = selectedCourts.map((court, index) => ({
         id: `local-${Date.now()}-${index}`, booking_group_id: groupId,
         court_id: court.id,
         start_at: startAt,
         end_at: endAt,
         status: 'confirmed',
         payment_status: 'pay_at_venue',
-        total_amount: details.price,
+        total_amount: details.price / selectedCourts.length,
         party_size: details.partySize,
         customer_phone: details.phone,
         customer_notes: details.notes || null,
@@ -354,6 +360,10 @@ export default function App() {
   const adminCreateBooking = async (details) => {
     const startAt = slotDateTime(details.dateKey, details.time)
     const endAt = addMinutes(startAt, details.duration)
+    if (isPastSlot(details.dateKey, details.time)) {
+      notify(t('errors.pastTime'), 'error')
+      return false
+    }
     if (new Date(endAt).getTime() > new Date(`${details.dateKey}T24:00:00`).getTime()) {
       notify(t('errors.outsideHours'), 'error')
       return false
@@ -438,6 +448,10 @@ export default function App() {
   const adminRescheduleBooking = async (booking, court, time, duration, targetDate) => {
     const startAt = slotDateTime(targetDate, time)
     const endAt = addMinutes(startAt, duration)
+    if (isPastSlot(targetDate, time)) {
+      notify(t('errors.pastTime'), 'error')
+      return false
+    }
     if (new Date(endAt).getTime() > new Date(`${targetDate}T24:00:00`).getTime()) {
       notify(t('errors.outsideHours'), 'error')
       return false
@@ -478,6 +492,10 @@ export default function App() {
   const adminRescheduleBookingGroup = async (booking, time, duration, targetDate, anchorCourt = null) => {
     const startAt = slotDateTime(targetDate, time)
     const endAt = addMinutes(startAt, duration)
+    if (isPastSlot(targetDate, time)) {
+      notify(t('errors.pastTime'), 'error')
+      return false
+    }
     if (new Date(endAt).getTime() > new Date(`${targetDate}T24:00:00`).getTime()) {
       notify(t('errors.outsideHours'), 'error')
       return false
@@ -549,11 +567,14 @@ export default function App() {
   }
 
   const adminUpdateBookingDetails = async (booking, details) => {
-    const update = (item) => item.id === booking.id ? {
+    const groupId = booking.booking_group_id || booking.id
+    const update = (item) => (item.booking_group_id || item.id) === groupId ? {
       ...item,
+      customer_name: details.name.trim(),
       customer_email: details.email || null,
       customer_phone: details.phone || null,
       customer_notes: details.notes || null,
+      payment_status: details.paymentStatus,
     } : item
     if (!isSupabaseConfigured) {
       setAdminBookings((current) => current.map(update))
@@ -563,13 +584,15 @@ export default function App() {
     setAdminScheduleBusy(true)
     const { error } = await supabase.rpc('admin_update_booking_details', {
       p_booking_id: booking.id,
+      p_customer_name: details.name.trim(),
       p_customer_email: details.email || null,
       p_customer_phone: details.phone || null,
       p_customer_notes: details.notes || null,
+      p_payment_status: details.paymentStatus,
     })
     setAdminScheduleBusy(false)
     if (error) {
-      notify(t('errors.adminDetails'), 'error')
+      notify(t(error.message.includes('name') ? 'errors.customerName' : 'errors.adminDetails'), 'error')
       return false
     }
     setAdminBookings((current) => current.map(update))

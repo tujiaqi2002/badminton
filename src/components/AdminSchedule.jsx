@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Pencil, PhoneCall, Repeat2, Save, Trash2, X } from 'lucide-react'
-import { addDays, COURTS, endTimeFromDateTime, mondayOfWeek, timeFromDateTime, toDateKey } from '../lib/booking'
+import { addDays, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
 const OPEN_MINUTES = 10 * 60
@@ -65,9 +65,10 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   const [selectedBooking, setSelectedBooking] = useState(null)
   const [draft, setDraft] = useState(null)
   const [editingDetails, setEditingDetails] = useState(false)
-  const [detailsForm, setDetailsForm] = useState({ email: '', phone: '', notes: '' })
+  const [detailsForm, setDetailsForm] = useState({ name: '', email: '', phone: '', notes: '', paymentStatus: 'pay_at_venue' })
   const [rangeDraft, setRangeDraft] = useState(null)
   const [resizeDrag, setResizeDrag] = useState(null)
+  const [now, setNow] = useState(() => new Date())
   const pointerMoved = useRef(false)
   const pointerTarget = useRef(null)
   const editorRef = useRef(null)
@@ -94,6 +95,11 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   const draggedBooking = bookings.find((booking) => booking.id === draggedId)
   const activeSelection = selectedBooking && (bookings.find((booking) => booking.id === selectedBooking.id) || selectedBooking)
   const activeGroup = activeSelection ? bookings.filter((booking) => (booking.booking_group_id || booking.id) === (activeSelection.booking_group_id || activeSelection.id) && ['held', 'confirmed'].includes(booking.status)) : []
+  const groupPrice = activeGroup.reduce((sum, booking) => sum + Number(booking.total_amount || 0), 0)
+  const nowAtVenue = venueNow(now)
+  const currentLineOffset = dateKey === nowAtVenue.dateKey && nowAtVenue.minutes >= OPEN_MINUTES && nowAtVenue.minutes <= 24 * 60
+    ? (nowAtVenue.minutes - OPEN_MINUTES) / 30
+    : null
   const quickDays = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const date = addDays(new Date(`${weekStart}T12:00:00`), index)
     return {
@@ -109,12 +115,19 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       return
     }
     setDetailsForm({
+      name: activeSelection.customer_name || '',
       email: activeSelection.customer_email || '',
       phone: activeSelection.customer_phone || '',
       notes: activeSelection.customer_notes || '',
+      paymentStatus: activeSelection.payment_status || 'pay_at_venue',
     })
     setEditingDetails(false)
   }, [activeSelection])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (!activeSelection) return undefined
@@ -157,7 +170,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
         return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom ? node : null
       }
       const dayButton = element?.closest('[data-transfer-date]')
-      if (dayButton) {
+      if (dayButton && !dayButton.disabled) {
         pointerTarget.current = { type: 'day', date: dayButton.dataset.transferDate }
         setDragDay(dayButton.dataset.transferDate)
         setCancelArmed(false)
@@ -184,6 +197,11 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       const index = Math.max(0, Math.min(maxIndex, Math.round((event.clientY - rect.top - pointerDrag.grabOffset) / slotHeight)))
       const startMinutes = OPEN_MINUTES + index * 30
       const nextTarget = { court, index, time: timeFromMinutes(startMinutes), endTime: timeFromMinutes(startMinutes + duration), span: duration / 30 }
+      if (isPastSlot(dateKey, nextTarget.time, now)) {
+        pointerTarget.current = null
+        setDragPreview(null)
+        return
+      }
       pointerTarget.current = { type: 'lane', target: nextTarget }
       setDragPreview(nextTarget)
     }
@@ -198,7 +216,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       const cancelRect = cancelNode?.getBoundingClientRect()
       const insideCancel = cancelRect && event.clientX >= cancelRect.left && event.clientX <= cancelRect.right && event.clientY >= cancelRect.top && event.clientY <= cancelRect.bottom
       const dayButton = element?.closest('[data-transfer-date]')
-      if (dayButton || pointerTarget.current?.type === 'day') {
+      if ((dayButton && !dayButton.disabled) || pointerTarget.current?.type === 'day') {
         const booking = pointerDrag.booking
         const nextDate = dayButton?.dataset.transferDate || pointerTarget.current.date
         pointerTarget.current = null
@@ -236,11 +254,11 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
     }
-  }, [bookings, dateKey, onCancel, onDateChange, onReschedule, onRescheduleGroup, pointerDrag])
+  }, [bookings, dateKey, now, onCancel, onDateChange, onReschedule, onRescheduleGroup, pointerDrag])
 
   const chooseSlot = (court, time) => {
     const startMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3))
-    if (startMinutes + 60 > 24 * 60) return
+    if (startMinutes + 60 > 24 * 60 || isPastSlot(dateKey, time, now)) return
     if (activeSelection) {
       setSelectedBooking(null)
       return
@@ -260,7 +278,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
     if (!rangeDraft?.dragging) return undefined
     const move = (event) => {
       const slot = document.elementFromPoint(event.clientX, event.clientY)?.closest('.admin-schedule-slot')
-      if (!slot || slot.dataset.courtId !== rangeDraft.court.id) return
+      if (!slot || slot.disabled || slot.dataset.courtId !== rangeDraft.court.id) return
       const currentIndex = Number(slot.dataset.index)
       setRangeDraft((current) => ({ ...current, currentIndex }))
     }
@@ -271,13 +289,14 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       const span = endIndex - startIndex
       const duration = Math.max(60, Math.min(240, span * 30))
       const startMinutes = OPEN_MINUTES + startIndex * 30
-      if (startMinutes + duration <= 24 * 60) setDraft({ court: rangeDraft.court, courts: [rangeDraft.court], dateKey, time: timeFromMinutes(startMinutes), duration })
+      const startTime = timeFromMinutes(startMinutes)
+      if (startMinutes + duration <= 24 * 60 && !isPastSlot(dateKey, startTime, now)) setDraft({ court: rangeDraft.court, courts: [rangeDraft.court], dateKey, time: startTime, duration })
       setRangeDraft(null)
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
     return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
-  }, [dateKey, rangeDraft])
+  }, [dateKey, now, rangeDraft])
 
   useEffect(() => {
     if (!resizeDrag) return undefined
@@ -322,7 +341,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           <p>{t('admin.schedule.description')}</p>
         </div>
         <div className="admin-schedule-date">
-          <label><strong>{dayLabel}</strong><input type="date" value={dateKey} onChange={(event) => selectDate(event.target.value)} /></label>
+          <label><strong>{dayLabel}</strong><input type="date" min={nowAtVenue.dateKey} value={dateKey} onChange={(event) => selectDate(event.target.value)} /></label>
         </div>
       </header>
 
@@ -341,8 +360,10 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                 const saved = await onUpdateDetails(activeSelection, detailsForm)
                 if (saved) setEditingDetails(false)
               }}>
+                <label><span>{t('admin.schedule.customerName')}</span><input required maxLength="120" value={detailsForm.name} onChange={(event) => setDetailsForm((current) => ({ ...current, name: event.target.value }))} /></label>
                 <label><span>{t('admin.schedule.customerEmailOptional')}</span><input type="email" maxLength="320" value={detailsForm.email} onChange={(event) => setDetailsForm((current) => ({ ...current, email: event.target.value }))} /></label>
                 <label><span>{t('admin.schedule.customerPhoneOptional')}</span><input type="tel" maxLength="40" value={detailsForm.phone} onChange={(event) => setDetailsForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+                <label className="admin-payment-toggle"><input type="checkbox" checked={detailsForm.paymentStatus === 'paid'} onChange={(event) => setDetailsForm((current) => ({ ...current, paymentStatus: event.target.checked ? 'paid' : (activeSelection.payment_method === 'stripe' ? 'pending' : 'pay_at_venue') }))} /><span>{t('admin.schedule.markPaid')}</span></label>
                 <label className="notes"><span>{t('admin.schedule.customerNotesOptional')}</span><textarea maxLength="2000" rows="2" value={detailsForm.notes} onChange={(event) => setDetailsForm((current) => ({ ...current, notes: event.target.value }))} /></label>
                 <div className="admin-inspector-form-actions"><button type="button" onClick={() => setEditingDetails(false)}>{t('admin.schedule.discardDetails')}</button><button className="save" disabled={busy}><Save size={12} /> {busy ? t('admin.schedule.saving') : t('admin.schedule.saveDetails')}</button></div>
               </form>
@@ -351,7 +372,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                 <div><dt>{t('admin.schedule.courtTime')}</dt><dd>{activeGroup.map((booking) => courtTitle(COURTS.find((court) => court.id === booking.court_id) || COURTS[0])).join(' + ')} · {activeSelection.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(activeSelection.start_at)}–{endTimeFromDateTime(activeSelection.start_at, activeSelection.end_at)}</dd></div>
                 <div><dt>{t('admin.schedule.bookedAt')}</dt><dd>{activeSelection.created_at ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activeSelection.created_at)) : t('admin.schedule.notRecorded')}</dd></div>
                 <div><dt>{t('admin.schedule.contact')}</dt><dd>{activeSelection.customer_email || t('admin.schedule.notProvided')} · {activeSelection.customer_phone || t('admin.schedule.notProvided')}</dd></div>
-                <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd>{t('admin.people', { count: activeSelection.party_size })} · {t(`payment.${activeSelection.payment_status}`)}</dd></div>
+                <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd>{t('admin.people', { count: activeSelection.party_size })} · <span className={`admin-payment-status ${activeSelection.payment_status === 'paid' ? 'paid' : 'unpaid'}`}>{t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.paymentUnpaid')}</span> · {t(`payment.${activeSelection.payment_status}`)} · {formatMoney(groupPrice, locale)}</dd></div>
                 {activeSelection.recurrence_series_id && <div><dt>{t('admin.schedule.recurrence')}</dt><dd>{t('admin.schedule.recurrenceWeek', { count: activeSelection.recurrence_week })}</dd></div>}
                 <div className="notes"><dt>{t('admin.schedule.customerNotes')}</dt><dd>{activeSelection.customer_notes || t('admin.schedule.noNotes')}</dd></div>
               </dl>
@@ -394,8 +415,9 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
             {quickDays.map((day) => (
               <button
                 className={`${dateKey === day.key ? 'active' : ''} ${dragDay === day.key ? 'drop-target' : ''}`}
-                data-transfer-date={day.key}
+                data-transfer-date={day.key >= nowAtVenue.dateKey ? day.key : undefined}
                 key={day.key}
+                disabled={day.key < nowAtVenue.dateKey}
                 onClick={() => chooseTransferDay(day.key, null)}
               >
                 <small>{dateKey === day.key ? t('admin.schedule.selectedDay') : day.weekday}</small>
@@ -407,6 +429,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
         </aside>
         <div className="admin-schedule-scroll">
           <div className="admin-schedule-grid">
+          {currentLineOffset !== null && <div className="admin-now-line" style={{ '--now-top': `${64 + currentLineOffset * 26}px` }} aria-label={t('admin.schedule.nowLine', { time: nowAtVenue.time })}><span>{t('admin.schedule.now')} {nowAtVenue.time}</span></div>}
           <div className="admin-schedule-corner"><Clock3 size={14} /></div>
           {COURTS.map((court) => <div className={`admin-schedule-court ${court.tone}`} key={court.id}><span>{court.name}</span><strong>{courtTitle(court)}</strong></div>)}
           <div className="admin-schedule-times">
@@ -418,11 +441,13 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
               data-court-id={court.id}
               key={court.id}
             >
-              {HALF_HOURS.map((time, index) => (
+              {HALF_HOURS.map((time, index) => {
+                const past = isPastSlot(dateKey, time, now)
+                return (
                 <button
-                  className={`admin-schedule-slot ${focusTime === time ? 'phone-focus' : ''}`}
+                  className={`admin-schedule-slot ${past ? 'past' : ''} ${focusTime === time ? 'phone-focus' : ''}`}
                   key={time}
-                  disabled={time === '23:30'}
+                  disabled={time === '23:30' || past}
                   data-court-id={court.id}
                   data-index={index}
                   onClick={() => { if (!rangeDraft && time !== '23:30') chooseSlot(court, time) }}
@@ -434,7 +459,8 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                   }}
                   aria-label={t('admin.schedule.emptySlot', { court: courtTitle(court), time })}
                 />
-              ))}
+                )
+              })}
               {rangeDraft?.court.id === court.id && <div className={`admin-range-preview ${rangeDraft.startIndex === rangeDraft.currentIndex ? 'compact' : ''}`} style={{ '--start': Math.min(rangeDraft.startIndex, rangeDraft.currentIndex), '--span': Math.abs(rangeDraft.currentIndex - rangeDraft.startIndex) + 1 }}><strong>{timeFromMinutes(OPEN_MINUTES + Math.min(rangeDraft.startIndex, rangeDraft.currentIndex) * 30)}–{timeFromMinutes(OPEN_MINUTES + (Math.max(rangeDraft.startIndex, rangeDraft.currentIndex) + 1) * 30)}</strong><span>{t('admin.schedule.releaseToCreate')}</span></div>}
               {draggedBooking && dragPreview?.court.id === court.id && (
                 <div
@@ -451,6 +477,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                 const offset = startMinutes - OPEN_MINUTES
                 const groupSize = dayBookings.filter((item) => (item.booking_group_id || item.id) === (booking.booking_group_id || booking.id)).length
                 const minutes = resizeDrag?.booking.id === booking.id ? resizeDrag.duration : durationMinutes(booking)
+                const bookingPast = isPastSlot(booking.start_at.slice(0, 10), timeFromDateTime(booking.start_at), now)
                 return (
                   <article
                     className={`admin-schedule-booking ${draggedId === booking.id ? 'dragging' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
@@ -480,8 +507,8 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                     title={t('admin.schedule.dragTitle', { name: booking.customer_name })}
                   >
                     <GripVertical size={14} />
-                    <div><strong>{booking.customer_name}{groupSize > 1 ? ` · ${groupSize}×` : ''}</strong><span>{timeFromDateTime(booking.start_at)}–{resizeDrag?.booking.id === booking.id ? timeFromMinutes(startMinutes + minutes) : endTimeFromDateTime(booking.start_at, booking.end_at)}</span></div>
-                    <button className="admin-resize-handle" aria-label={t('admin.schedule.resize')} title={t('admin.schedule.resize')} onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); event.preventDefault(); setResizeDrag({ booking, startY: event.clientY, initialDuration: durationMinutes(booking), duration: durationMinutes(booking), groupSize }) }} />
+                    <div><strong>{booking.customer_name}{groupSize > 1 ? ` · ${groupSize}×` : ''}</strong><span>{timeFromDateTime(booking.start_at)}–{resizeDrag?.booking.id === booking.id ? timeFromMinutes(startMinutes + minutes) : endTimeFromDateTime(booking.start_at, booking.end_at)}</span><small className={`admin-booking-payment ${booking.payment_status === 'paid' ? 'paid' : 'unpaid'}`}>{t(booking.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.paymentUnpaid')}</small></div>
+                    {!bookingPast && <button className="admin-resize-handle" aria-label={t('admin.schedule.resize')} title={t('admin.schedule.resize')} onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); event.preventDefault(); setResizeDrag({ booking, startY: event.clientY, initialDuration: durationMinutes(booking), duration: durationMinutes(booking), groupSize }) }} />}
                   </article>
                 )
               })}
