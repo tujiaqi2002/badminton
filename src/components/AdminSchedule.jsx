@@ -162,6 +162,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
     const move = (event) => {
       if (!pointerMoved.current && Math.hypot(event.clientX - pointerDrag.startX, event.clientY - pointerDrag.startY) < 5) return
       pointerMoved.current = true
+      setDraggedId(pointerDrag.booking.id)
       const element = document.elementFromPoint(event.clientX, event.clientY)
       const pointInside = (selector) => {
         const node = document.querySelector(selector)
@@ -187,7 +188,11 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       }
       setCancelArmed(false)
       const lane = element?.closest('.admin-schedule-lane')
-      if (!lane) return
+      if (!lane) {
+        pointerTarget.current = null
+        setDragPreview(null)
+        return
+      }
       const court = COURTS.find((item) => item.id === lane.dataset.courtId)
       if (!court) return
       const rect = lane.getBoundingClientRect()
@@ -198,8 +203,8 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       const startMinutes = OPEN_MINUTES + index * 30
       const nextTarget = { court, index, time: timeFromMinutes(startMinutes), endTime: timeFromMinutes(startMinutes + duration), span: duration / 30 }
       if (isPastSlot(dateKey, nextTarget.time, now)) {
-        pointerTarget.current = null
-        setDragPreview(null)
+        pointerTarget.current = { type: 'invalid' }
+        setDragPreview({ ...nextTarget, invalid: true })
         return
       }
       pointerTarget.current = { type: 'lane', target: nextTarget }
@@ -382,13 +387,13 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           <div className="admin-inspector-empty"><strong>{t('admin.schedule.noSelectionTitle')}</strong><span>{t('admin.schedule.noSelectionText')}</span></div>
         )}
       </section>
-      <div className={`admin-schedule-context ${draggedBooking && dragPreview ? 'dragging' : activeSelection ? 'selected' : focusTime ? 'phone-focus' : ''}`}>
+      <div className={`admin-schedule-context ${draggedBooking && dragPreview ? `dragging ${dragPreview.invalid ? 'invalid' : ''}` : activeSelection ? 'selected' : focusTime ? 'phone-focus' : ''}`}>
         {draggedBooking && dragPreview ? (
           <div className="admin-drag-readout" role="status" aria-live="polite">
             <span>{t('admin.schedule.preview')}</span>
             <strong>{draggedBooking.customer_name}</strong>
             <b>{dateKey.replaceAll('-', '.')} · {courtTitle(dragPreview.court)} · {dragPreview.time}–{dragPreview.endTime}</b>
-            <small>{t('admin.schedule.releaseToMove')}</small>
+            <small>{t(dragPreview.invalid ? 'admin.schedule.pastDropBlocked' : 'admin.schedule.releaseToMove')}</small>
           </div>
         ) : activeSelection ? (
           <div className="admin-schedule-selection" role="status">
@@ -463,12 +468,12 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
               {rangeDraft?.court.id === court.id && <div className={`admin-range-preview ${rangeDraft.startIndex === rangeDraft.currentIndex ? 'compact' : ''}`} style={{ '--start': Math.min(rangeDraft.startIndex, rangeDraft.currentIndex), '--span': Math.abs(rangeDraft.currentIndex - rangeDraft.startIndex) + 1 }}><strong>{timeFromMinutes(OPEN_MINUTES + Math.min(rangeDraft.startIndex, rangeDraft.currentIndex) * 30)}–{timeFromMinutes(OPEN_MINUTES + (Math.max(rangeDraft.startIndex, rangeDraft.currentIndex) + 1) * 30)}</strong><span>{t('admin.schedule.releaseToCreate')}</span></div>}
               {draggedBooking && dragPreview?.court.id === court.id && (
                 <div
-                  className="admin-schedule-drop-preview"
+                  className={`admin-schedule-drop-preview ${dragPreview.invalid ? 'invalid' : ''}`}
                   style={{ '--start': dragPreview.index, '--span': dragPreview.span }}
                   aria-hidden="true"
                 >
                   <strong>{dragPreview.time}–{dragPreview.endTime}</strong>
-                  <span>{t('admin.schedule.dropHere')}</span>
+                  <span>{t(dragPreview.invalid ? 'admin.schedule.pastDropBlockedShort' : 'admin.schedule.dropHere')}</span>
                 </div>
               )}
               {dayBookings.filter((booking) => booking.court_id === court.id).map((booking) => {
@@ -479,7 +484,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                 const bookingPast = isPastSlot(booking.start_at.slice(0, 10), timeFromDateTime(booking.start_at), now)
                 return (
                   <article
-                    className={`admin-schedule-booking ${draggedId === booking.id ? 'dragging' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
+                    className={`admin-schedule-booking ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
                     draggable={false}
                     role="button"
                     tabIndex="0"
@@ -497,7 +502,6 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                       const grabOffset = event.clientY - event.currentTarget.getBoundingClientRect().top
                       pointerMoved.current = false
                       pointerTarget.current = null
-                      setDraggedId(booking.id)
                       setSelectedBooking(null)
                       setPointerDrag({ booking, grabOffset, startX: event.clientX, startY: event.clientY })
                     }}
