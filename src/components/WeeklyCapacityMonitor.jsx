@@ -29,7 +29,7 @@ export default function WeeklyCapacityMonitor({ bookings, weekDate, onWeekChange
   return (
     <section className="capacity-monitor" aria-label={t('admin.capacity.aria')}>
       <header>
-        <div><span className="eyebrow"><Gauge size={13} /> {t('admin.capacity.eyebrow')}</span><h2>{t('admin.capacity.title')}</h2><p><PhoneCall size={14} /> {t('admin.capacity.description')}</p></div>
+        <div><span className="eyebrow"><Gauge size={13} /> {t('admin.capacity.eyebrow')}</span><p><PhoneCall size={14} /> {t('admin.capacity.description')}</p></div>
         <div className="capacity-legend"><span><i className="open" />{t('admin.capacity.open')}</span><span><i className="tight" />{t('admin.capacity.tight')}</span><span><i className="full" />{t('admin.capacity.full')}</span></div>
       </header>
       <div className="capacity-grid-wrap">
