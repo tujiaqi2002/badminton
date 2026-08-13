@@ -26,9 +26,11 @@ export default function AdminRescheduleModal({ booking, busy, onClose, onSubmit,
     const time = String(values.get('time'))
     const duration = Number(values.get('duration'))
     const court = COURTS.find((item) => item.id === values.get('courtId')) || targetCourt
-    const saved = await onSubmit(booking, court, time, duration, date)
-    if (saved) {
+    const result = await onSubmit(booking, court, time, duration, date)
+    if (result?.saved) {
       onMoved(date, booking.id)
+      onClose()
+    } else if (result?.unchanged) {
       onClose()
     }
   }

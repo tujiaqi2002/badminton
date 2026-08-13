@@ -90,6 +90,8 @@ alter table public.bookings add column if not exists customer_email text;
 alter table public.bookings add column if not exists customer_phone text;
 alter table public.bookings add column if not exists customer_notes text;
 alter table public.bookings add column if not exists booking_group_id uuid;
+alter table public.bookings add column if not exists recurrence_series_id uuid;
+alter table public.bookings add column if not exists recurrence_week smallint;
 update public.bookings set booking_group_id = id where booking_group_id is null;
 alter table public.bookings alter column booking_group_id set default gen_random_uuid();
 alter table public.bookings alter column booking_group_id set not null;
@@ -134,6 +136,7 @@ create index if not exists bookings_user_start_idx on public.bookings (user_id, 
 create index if not exists bookings_court_start_idx on public.bookings (court_id, start_at);
 create index if not exists bookings_admin_start_idx on public.bookings (start_at desc, id);
 create index if not exists bookings_group_idx on public.bookings (booking_group_id, start_at);
+create index if not exists bookings_recurrence_series_idx on public.bookings (recurrence_series_id, recurrence_week) where recurrence_series_id is not null;
 create index if not exists bookings_held_expiry_idx on public.bookings (hold_expires_at)
 where status = 'held';
 
@@ -672,8 +675,9 @@ grant execute on function public.admin_create_booking(uuid, timestamp, timestamp
 grant execute on function public.admin_reschedule_booking(uuid, uuid, timestamp, timestamp) to authenticated;
 grant execute on function public.admin_update_booking_details(uuid, text, text, text) to authenticated;
 
--- Multi-court booking, group rescheduling, resize and undo functions are maintained in
--- supabase/migrations/20260812202340_multi_court_schedule_v2.sql. They intentionally
+-- Multi-court booking, recurring booking, group rescheduling, resize and undo functions are maintained in
+-- supabase/migrations/20260812202340_multi_court_schedule_v2.sql and
+-- supabase/migrations/20260813034246_weekly_booking_and_undo_history.sql. They intentionally
 -- remain transaction-based so a multi-court request succeeds or fails as one unit.
 -- Contiguous multi-court lane shifting is maintained in
 -- supabase/migrations/20260812203328_shift_multi_court_group.sql and its adjacent

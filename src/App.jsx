@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, CircleUserRound, Clock3, MapPin, Radio, ShieldCheck, Sparkles } from 'lucide-react'
 import AdminBookings from './components/AdminBookings'
 import AuthModal from './components/AuthModal'
@@ -7,7 +7,7 @@ import BookingDrawer from './components/BookingDrawer'
 import DateStrip from './components/DateStrip'
 import Header from './components/Header'
 import MyBookings from './components/MyBookings'
-import { addDays, addMinutes, COURTS, demoSchedule, overlaps, slotDateTime, toDateKey } from './lib/booking'
+import { addDays, addMinutes, COURTS, demoSchedule, mondayOfWeek, overlaps, slotDateTime, toDateKey } from './lib/booking'
 import { useI18n } from './lib/i18n'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
@@ -31,10 +31,10 @@ export default function App() {
   const [schedule, setSchedule] = useState(() => demoSchedule(todayKey()))
   const [bookings, setBookings] = useState([])
   const [adminBookings, setAdminBookings] = useState([])
-  const [adminRange, setAdminRange] = useState(() => ({
-    start: todayKey(),
-    end: toDateKey(addDays(new Date(), 6)),
-  }))
+  const [adminRange, setAdminRange] = useState(() => {
+    const start = mondayOfWeek(todayKey())
+    return { start, end: toDateKey(addDays(new Date(`${start}T12:00:00`), 6)) }
+  })
   const [user, setUser] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [authReady, setAuthReady] = useState(false)
@@ -46,12 +46,19 @@ export default function App() {
   const [loadingAdminBookings, setLoadingAdminBookings] = useState(false)
   const [adminCancellingId, setAdminCancellingId] = useState(null)
   const [adminScheduleBusy, setAdminScheduleBusy] = useState(false)
+  const [adminUndoDepth, setAdminUndoDepth] = useState(0)
+  const adminDemoHistory = useRef([])
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState(null)
 
   const notify = useCallback((message, tone = 'success') => {
     setToast({ message, tone })
     window.setTimeout(() => setToast(null), 3600)
+  }, [])
+
+  const rememberAdminAction = useCallback((snapshot = null) => {
+    if (snapshot) adminDemoHistory.current = [...adminDemoHistory.current, snapshot].slice(-5)
+    setAdminUndoDepth((current) => Math.min(5, current + 1))
   }, [])
 
   const fetchSchedule = useCallback(async () => {
@@ -123,7 +130,11 @@ export default function App() {
     if (!user || !isAdmin) return setAdminBookings([])
     if (!isSupabaseConfigured) return
     setLoadingAdminBookings(true)
-    const endExclusive = toDateKey(addDays(new Date(`${adminRange.end}T12:00:00`), 1))
+    const monitorStart = mondayOfWeek(adminRange.start)
+    const monitorEnd = toDateKey(addDays(new Date(`${monitorStart}T12:00:00`), 6))
+    const queryStart = monitorStart < adminRange.start ? monitorStart : adminRange.start
+    const queryEnd = monitorEnd > adminRange.end ? monitorEnd : adminRange.end
+    const endExclusive = toDateKey(addDays(new Date(`${queryEnd}T12:00:00`), 1))
     const pageSize = 1000
     const data = []
     let error = null
@@ -131,8 +142,8 @@ export default function App() {
     for (let from = 0; ; from += pageSize) {
       const result = await supabase
         .from('bookings')
-        .select('id, booking_group_id, user_id, court_id, customer_name, customer_email, customer_phone, customer_notes, start_at, end_at, status, payment_status, payment_method, total_amount, currency, party_size, created_at')
-        .gte('start_at', `${adminRange.start}T00:00:00`)
+        .select('id, booking_group_id, recurrence_series_id, recurrence_week, user_id, court_id, customer_name, customer_email, customer_phone, customer_notes, start_at, end_at, status, payment_status, payment_method, total_amount, currency, party_size, created_at')
+        .gte('start_at', `${queryStart}T00:00:00`)
         .lt('start_at', `${endExclusive}T00:00:00`)
         .order('start_at', { ascending: true })
         .order('id', { ascending: true })
@@ -318,6 +329,7 @@ export default function App() {
     if (!window.confirm(t('confirm.adminCancel', { name: booking.customer_name, label: bookingLabel }))) return
 
     if (!isSupabaseConfigured) {
+      rememberAdminAction({ adminBookings, schedule })
       setAdminBookings((current) => current.map((item) => item.id === booking.id ? { ...item, status: 'cancelled' } : item))
       setSchedule((current) => current.filter((item) => item.id !== booking.id))
       notify(t('success.adminCancel'))
@@ -333,6 +345,7 @@ export default function App() {
     }
 
     notify(t('success.adminCancel'))
+    rememberAdminAction()
     await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchBookings()])
   }
 
@@ -344,22 +357,42 @@ export default function App() {
       return false
     }
     if (!isSupabaseConfigured) {
-      const groupId = `local-admin-group-${Date.now()}`
-      const created = (details.courts || [details.court]).map((court, index) => ({
-        id: `local-admin-${Date.now()}-${index}`, booking_group_id: groupId, user_id: 'demo-user', court_id: court.id,
-        customer_name: details.name, customer_email: details.email || null, customer_phone: details.phone || null,
-        customer_notes: details.notes || null, start_at: startAt, end_at: endAt,
-        status: 'confirmed', payment_status: 'pay_at_venue', payment_method: 'venue',
-        total_amount: 28 * details.duration / 60, party_size: details.partySize,
-        created_at: new Date().toISOString(),
-      }))
+      const weekCount = details.recurring ? Number(details.weekCount || 2) : 1
+      const conflicts = []
+      for (let week = 0; week < weekCount; week += 1) {
+        const occurrenceStart = addMinutes(startAt, week * 7 * 24 * 60)
+        const occurrenceEnd = addMinutes(endAt, week * 7 * 24 * 60)
+        const unavailable = (details.courts || [details.court]).filter((court) => adminBookings.some((item) => (
+          item.court_id === court.id && ['held', 'confirmed'].includes(item.status)
+          && overlaps(occurrenceStart, occurrenceEnd, item.start_at, item.end_at)
+        )))
+        if (unavailable.length) conflicts.push({ startAt: occurrenceStart, courtIds: unavailable.map((court) => court.id) })
+      }
+      if (conflicts.length) return { conflicts }
+      const seriesId = details.recurring ? `local-series-${Date.now()}` : null
+      const created = Array.from({ length: weekCount }, (_, week) => {
+        const groupId = `local-admin-group-${Date.now()}-${week}`
+        const occurrenceStart = addMinutes(startAt, week * 7 * 24 * 60)
+        const occurrenceEnd = addMinutes(endAt, week * 7 * 24 * 60)
+        return (details.courts || [details.court]).map((court, index) => ({
+          id: `local-admin-${Date.now()}-${week}-${index}`, booking_group_id: groupId,
+          recurrence_series_id: seriesId, recurrence_week: details.recurring ? week + 1 : null,
+          user_id: 'demo-user', court_id: court.id,
+          customer_name: details.name, customer_email: details.email || null, customer_phone: details.phone || null,
+          customer_notes: details.notes || null, start_at: occurrenceStart, end_at: occurrenceEnd,
+          status: 'confirmed', payment_status: 'pay_at_venue', payment_method: 'venue',
+          total_amount: 28 * details.duration / 60, party_size: details.partySize,
+          created_at: new Date().toISOString(),
+        }))
+      }).flat()
+      rememberAdminAction({ adminBookings, schedule })
       setAdminBookings((current) => [...current, ...created].sort((a, b) => a.start_at.localeCompare(b.start_at)))
       setSchedule((current) => [...current, ...created])
-      notify(t('success.adminCreate'))
-      return true
+      notify(t(details.recurring ? 'success.adminRecurringCreate' : 'success.adminCreate', { count: weekCount }))
+      return { saved: true }
     }
     setAdminScheduleBusy(true)
-    const { error } = await supabase.rpc('admin_create_multi_booking', {
+    const basePayload = {
       p_court_ids: (details.courts || [details.court]).map((court) => court.id),
       p_start_at: startAt,
       p_end_at: endAt,
@@ -368,15 +401,36 @@ export default function App() {
       p_customer_phone: details.phone || null,
       p_customer_notes: details.notes || null,
       p_party_size: details.partySize,
-    })
+    }
+    if (details.recurring) {
+      const preview = await supabase.rpc('admin_preview_weekly_booking', {
+        p_court_ids: basePayload.p_court_ids,
+        p_start_at: startAt,
+        p_end_at: endAt,
+        p_week_count: Number(details.weekCount),
+      })
+      if (preview.error) {
+        setAdminScheduleBusy(false)
+        notify(t('errors.adminCreate'), 'error')
+        return false
+      }
+      if (preview.data?.length) {
+        setAdminScheduleBusy(false)
+        return { conflicts: preview.data.map((item) => ({ startAt: item.occurrence_start_at, courtIds: item.unavailable_court_ids })) }
+      }
+    }
+    const { data: createdRows, error } = await supabase.rpc(details.recurring ? 'admin_create_weekly_booking' : 'admin_create_multi_booking', details.recurring
+      ? { ...basePayload, p_week_count: Number(details.weekCount) }
+      : basePayload)
     setAdminScheduleBusy(false)
     if (error) {
       notify(t(error.message.includes('already booked') ? 'errors.slotTaken' : 'errors.adminCreate'), 'error')
-      return false
+      return error.message.includes('unavailable') ? { conflicts: [{ startAt, courtIds: basePayload.p_court_ids }] } : false
     }
-    notify(t('success.adminCreate'))
+    if ((createdRows?.length || 0) > 0) rememberAdminAction()
+    notify(t(details.recurring ? 'success.adminRecurringCreate' : 'success.adminCreate', { count: details.weekCount }))
     await Promise.all([fetchAdminBookings(), fetchSchedule()])
-    return true
+    return { saved: true }
   }
 
   const adminRescheduleBooking = async (booking, court, time, duration, targetDate) => {
@@ -386,7 +440,9 @@ export default function App() {
       notify(t('errors.outsideHours'), 'error')
       return false
     }
+    if (booking.court_id === court.id && booking.start_at === startAt && booking.end_at === endAt) return { unchanged: true }
     if (!isSupabaseConfigured) {
+      rememberAdminAction({ adminBookings, schedule })
       const update = (item) => item.id === booking.id ? {
         ...item,
         __previous: { court_id: item.court_id, start_at: item.start_at, end_at: item.end_at },
@@ -397,7 +453,7 @@ export default function App() {
       setAdminBookings((current) => current.map(update).sort((a, b) => a.start_at.localeCompare(b.start_at)))
       setSchedule((current) => current.map(update))
       notify(t('success.adminReschedule', { name: booking.customer_name }))
-      return true
+      return { saved: true }
     }
     setAdminScheduleBusy(true)
     const { error } = await supabase.rpc('admin_reschedule_booking', {
@@ -412,8 +468,9 @@ export default function App() {
       return false
     }
     notify(t('success.adminReschedule', { name: booking.customer_name }))
+    rememberAdminAction()
     await Promise.all([fetchAdminBookings(), fetchSchedule()])
-    return true
+    return { saved: true }
   }
 
   const adminRescheduleBookingGroup = async (booking, time, duration, targetDate, anchorCourt = null) => {
@@ -424,6 +481,8 @@ export default function App() {
       return false
     }
     const groupId = booking.booking_group_id || booking.id
+    const sourceCourt = COURTS.find((court) => court.id === booking.court_id)
+    if (booking.start_at === startAt && booking.end_at === endAt && (!anchorCourt || anchorCourt.id === sourceCourt?.id)) return { unchanged: true }
     if (!isSupabaseConfigured) {
       const groupRows = adminBookings.filter((item) => (item.booking_group_id || item.id) === groupId)
       const sourceIndex = COURTS.findIndex((court) => court.id === booking.court_id)
@@ -436,6 +495,7 @@ export default function App() {
         notify(t('errors.adminReschedule'), 'error')
         return false
       }
+      rememberAdminAction({ adminBookings, schedule })
       const update = (item) => {
         if ((item.booking_group_id || item.id) !== groupId) return item
         const index = COURTS.findIndex((court) => court.id === item.court_id) + offset
@@ -450,7 +510,7 @@ export default function App() {
       setAdminBookings((current) => current.map(update).sort((a, b) => a.start_at.localeCompare(b.start_at)))
       setSchedule((current) => current.map(update))
       notify(t('success.adminReschedule', { name: booking.customer_name }))
-      return true
+      return { saved: true }
     }
     setAdminScheduleBusy(true)
     const rpc = anchorCourt ? 'admin_move_booking_group' : 'admin_reschedule_booking_group'
@@ -460,27 +520,27 @@ export default function App() {
     setAdminScheduleBusy(false)
     if (error) { notify(t(error.message.includes('already booked') ? 'errors.slotTaken' : 'errors.adminReschedule'), 'error'); return false }
     notify(t('success.adminReschedule', { name: booking.customer_name }))
+    rememberAdminAction()
     await Promise.all([fetchAdminBookings(), fetchSchedule()])
-    return true
+    return { saved: true }
   }
 
-  const adminUndoBookingChange = async (booking) => {
+  const adminUndoBookingChange = async () => {
+    if (adminUndoDepth < 1) return false
     if (!isSupabaseConfigured) {
-      const currentBooking = adminBookings.find((item) => item.id === booking.id) || booking
-      const groupId = currentBooking.booking_group_id || currentBooking.id
-      const update = (item) => {
-        if ((item.booking_group_id || item.id) !== groupId || !item.__previous) return item
-        return { ...item, ...item.__previous, __previous: null }
-      }
-      setAdminBookings((current) => current.map(update).sort((a, b) => a.start_at.localeCompare(b.start_at)))
-      setSchedule((current) => current.map(update))
+      const snapshot = adminDemoHistory.current.pop()
+      if (!snapshot) return false
+      setAdminBookings(snapshot.adminBookings)
+      setSchedule(snapshot.schedule)
+      setAdminUndoDepth(adminDemoHistory.current.length)
       notify(t('success.adminUndo'))
       return true
     }
     setAdminScheduleBusy(true)
-    const { error } = await supabase.rpc('admin_undo_booking_change', { p_booking_id: booking.id })
+    const { error } = await supabase.rpc('admin_undo_last_booking_action')
     setAdminScheduleBusy(false)
     if (error) { notify(t('errors.adminUndo'), 'error'); return false }
+    setAdminUndoDepth((current) => Math.max(0, current - 1))
     notify(t('success.adminUndo'))
     await Promise.all([fetchAdminBookings(), fetchSchedule()])
     return true
@@ -633,6 +693,7 @@ export default function App() {
           onReschedule={adminRescheduleBooking}
           onRescheduleGroup={adminRescheduleBookingGroup}
           onUndo={adminUndoBookingChange}
+          undoDepth={adminUndoDepth}
           onUpdateDetails={adminUpdateBookingDetails}
         />
       ) : (

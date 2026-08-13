@@ -258,6 +258,38 @@ a { color: inherit; text-decoration: none; }
 .admin-date-field input, .admin-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 10px; }
 .admin-search svg { flex: 0 0 auto; color: var(--ink-soft); }
 .admin-controls select { min-width: 0; padding: 0 10px; border: 1px solid var(--line); outline: 0; background: rgba(255,255,255,.72); color: var(--ink); font-size: 10px; }
+.admin-undo-keyboard { min-height: 42px; padding: 8px 12px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; color: var(--ink-soft); font-size: 9px; }
+.admin-undo-keyboard kbd { min-width: 28px; padding: 4px 7px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: rgba(255,255,255,.68); color: var(--ink); font: 9px/1 system-ui,sans-serif; text-align: center; }
+.admin-undo-keyboard strong { margin-left: 5px; color: var(--ink); font-weight: 600; }
+.admin-undo-keyboard small { margin-left: 7px; }
+.capacity-monitor { margin: 8px 0 30px; border: 1px solid var(--line); background: rgba(255,255,255,.28); box-shadow: 0 18px 48px rgba(40,38,32,.045); }
+.capacity-monitor > header { min-height: 112px; padding: 22px 26px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--line); }
+.capacity-monitor h2 { margin: 7px 0 5px; font: 27px/1.1 "Songti SC",serif; }
+.capacity-monitor header p { margin: 0; display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 9px; }
+.capacity-legend { display: flex; gap: 13px; color: var(--ink-soft); font-size: 8px; white-space: nowrap; }
+.capacity-legend span { display: flex; align-items: center; gap: 5px; }
+.capacity-legend i { width: 8px; height: 8px; border-radius: 50%; }
+.capacity-legend i.open { background: #6e876a; }
+.capacity-legend i.tight { background: #b58b43; }
+.capacity-legend i.full { background: var(--red); }
+.capacity-grid-wrap { overflow-x: auto; }
+.capacity-grid { min-width: 840px; padding: 12px; display: grid; grid-template-columns: 62px repeat(var(--capacity-days),minmax(96px,1fr)) 42px; gap: 5px; }
+.capacity-week-nav, .capacity-day { min-height: 54px; display: grid; place-items: center; border: 1px solid var(--line); background: rgba(255,255,255,.45); }
+.capacity-week-nav { color: var(--ink-soft); cursor: pointer; }
+.capacity-week-nav:hover { color: var(--red); border-color: var(--red); }
+.capacity-day { gap: 3px; }
+.capacity-day small { color: var(--ink-soft); font-size: 8px; }
+.capacity-day strong { font: 12px/1 "Songti SC",serif; }
+.capacity-row { grid-column: 1/-1; display: grid; grid-template-columns: 62px repeat(var(--capacity-days),minmax(96px,1fr)) 42px; gap: 5px; }
+.capacity-row::after { content: ''; }
+.capacity-row > strong { min-height: 38px; display: grid; place-items: center; color: var(--ink-soft); font-size: 8px; }
+.capacity-row button { min-height: 38px; padding: 5px 8px; display: flex; align-items: baseline; justify-content: center; gap: 4px; border: 1px solid transparent; cursor: pointer; transition: transform .15s ease, border-color .15s ease; }
+.capacity-row button:hover, .capacity-row button:focus-visible { transform: translateY(-1px); border-color: var(--ink); outline: 0; }
+.capacity-row button.open { color: #315c3f; background: rgba(77,118,74,.12); }
+.capacity-row button.tight { color: #7b5724; background: rgba(181,139,67,.17); }
+.capacity-row button.full { color: white; background: rgba(165,49,39,.8); }
+.capacity-row button b { font: 15px/1 "Songti SC",serif; }
+.capacity-row button span { font-size: 7px; }
 .admin-empty { min-height: 310px; margin-top: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--line); color: var(--ink-soft); }
 .admin-empty h2 { margin: 18px 0 5px; color: var(--ink); font: 25px/1.2 "Songti SC", serif; }
 .admin-empty p { font-size: 11px; }
@@ -408,6 +440,15 @@ a { color: inherit; text-decoration: none; }
 .admin-create-fields span { color: var(--ink-soft); font-size: 9px; }
 .admin-create-fields input, .admin-create-fields select, .admin-create-fields textarea { min-height: 42px; padding: 9px 11px; border: 1px solid var(--line); background: rgba(255,255,255,.72); color: var(--ink); outline: 0; resize: vertical; }
 .admin-create-modal > .primary-button { width: 100%; margin-top: 18px; }
+.admin-recurring-toggle { min-height: 46px; padding: 11px 12px; display: flex !important; grid-template-columns: auto 1fr; align-items: center; border: 1px solid var(--line); background: rgba(199,70,54,.035); cursor: pointer; }
+.admin-recurring-toggle input { width: 16px; min-height: 16px; padding: 0; accent-color: var(--red); }
+.admin-recurring-toggle span { display: flex; align-items: center; gap: 7px; color: var(--ink); }
+.admin-week-count { padding: 11px 12px; border-left: 2px solid var(--red); background: rgba(255,255,255,.42); }
+.admin-recurring-conflicts { margin-top: 14px; padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px; color: var(--red-dark); border: 1px solid rgba(165,49,39,.25); background: rgba(165,49,39,.065); }
+.admin-recurring-conflicts div { min-width: 0; display: grid; gap: 4px; }
+.admin-recurring-conflicts strong { font-size: 10px; }
+.admin-recurring-conflicts span, .admin-recurring-conflicts li { font-size: 8px; line-height: 1.45; }
+.admin-recurring-conflicts ul { max-height: 92px; margin: 4px 0 0; padding-left: 16px; overflow-y: auto; }
 .admin-reschedule-modal { position: relative; width: min(560px,calc(100vw - 28px)); padding: 34px; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: modalIn .22s ease; }
 .admin-reschedule-modal h2 { margin: 9px 0 8px; font: 31px/1.1 "Songti SC",serif; }
 .admin-reschedule-modal > p { margin: 0 0 18px; color: var(--ink-soft); font-size: 10px; }
@@ -488,6 +529,9 @@ footer small { text-align: right; }
   .admin-create-modal, .admin-reschedule-modal { padding: 29px 20px; }
   .admin-create-fields, .admin-reschedule-fields { grid-template-columns: 1fr; }
   .admin-create-fields label { grid-column: 1/-1; }
+  .admin-undo-keyboard { justify-content: flex-start; overflow: hidden; }
+  .capacity-monitor > header { padding: 19px 17px; align-items: flex-start; flex-direction: column; gap: 13px; }
+  .capacity-legend { flex-wrap: wrap; }
   .private-login-brand { top: 18px; left: 18px; }
 }
 
