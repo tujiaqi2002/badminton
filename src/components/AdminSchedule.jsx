@@ -486,6 +486,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                   <article
                     className={`admin-schedule-booking ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
                     draggable={false}
+                    onDragStart={(event) => event.preventDefault()}
                     role="button"
                     tabIndex="0"
                     aria-pressed={activeSelection?.id === booking.id}
@@ -498,6 +499,8 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                     onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedBooking((current) => current?.id === booking.id ? null : booking) } }}
                     onPointerDown={(event) => {
                       if (event.button !== 0 || busy) return
+                      event.preventDefault()
+                      window.getSelection()?.removeAllRanges()
                       event.currentTarget.setPointerCapture?.(event.pointerId)
                       const grabOffset = event.clientY - event.currentTarget.getBoundingClientRect().top
                       pointerMoved.current = false
