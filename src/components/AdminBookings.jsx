@@ -11,7 +11,7 @@ import {
   UserRound,
   UsersRound,
 } from 'lucide-react'
-import { addDays, COURTS, formatMoney, mondayOfWeek, timeFromDateTime, toDateKey } from '../lib/booking'
+import { addDays, COURTS, formatMoney, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 import AdminSchedule from './AdminSchedule'
 import AdminRescheduleModal from './AdminRescheduleModal'
@@ -44,7 +44,10 @@ export default function AdminBookings({
   const [statusFilter, setStatusFilter] = useState('active')
   const [editingBooking, setEditingBooking] = useState(null)
   const [focusTime, setFocusTime] = useState(null)
-  const [scheduleDate, setScheduleDate] = useState(startDate)
+  // The report range starts on Monday, but the live editor should open on today.
+  // Keeping these as separate concepts also lets managers browse historical weeks
+  // without changing the editor's initial landing date back to a past Monday.
+  const [scheduleDate, setScheduleDate] = useState(() => venueNow().dateKey)
 
   useEffect(() => {
     if (!focusTarget) return

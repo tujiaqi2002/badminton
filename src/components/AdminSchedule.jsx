@@ -341,7 +341,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           <p>{t('admin.schedule.description')}</p>
         </div>
         <div className="admin-schedule-date">
-          <label><strong>{dayLabel}</strong><input type="date" min={nowAtVenue.dateKey} value={dateKey} onChange={(event) => selectDate(event.target.value)} /></label>
+          <label><strong>{dayLabel}</strong><input type="date" value={dateKey} onChange={(event) => selectDate(event.target.value)} /></label>
         </div>
       </header>
 
@@ -414,10 +414,9 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
             <button className="week-nav" onClick={() => moveWeek(-1)} aria-label={t('admin.schedule.previousWeek')}><ChevronLeft size={18} /><small>{t('admin.schedule.previousWeekShort')}</small></button>
             {quickDays.map((day) => (
               <button
-                className={`${dateKey === day.key ? 'active' : ''} ${dragDay === day.key ? 'drop-target' : ''}`}
+                className={`${dateKey === day.key ? 'active' : ''} ${day.key < nowAtVenue.dateKey ? 'past' : ''} ${dragDay === day.key ? 'drop-target' : ''}`}
                 data-transfer-date={day.key >= nowAtVenue.dateKey ? day.key : undefined}
                 key={day.key}
-                disabled={day.key < nowAtVenue.dateKey}
                 onClick={() => chooseTransferDay(day.key, null)}
               >
                 <small>{dateKey === day.key ? t('admin.schedule.selectedDay') : day.weekday}</small>
