@@ -424,7 +424,6 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-slot.phone-focus:not(:disabled) { background: rgba(199,70,54,.075); }
 .admin-schedule-slot:disabled { cursor: not-allowed; opacity: .32; }
 .admin-schedule-slot.past { background: rgba(34,36,33,.06); opacity: 1; }
-.admin-schedule-lane.today .admin-schedule-slot.past { background: transparent; }
 .admin-schedule-booking { position: absolute; z-index: 2; top: calc(var(--start) * var(--slot-height) + 2px); left: 5px; right: 5px; min-height: calc(var(--span) * var(--slot-height) - 4px); padding: 7px 8px 7px 5px; display: flex; align-items: start; gap: 5px; border: 1px solid rgba(255,255,255,.3); background: var(--ink); color: white; box-shadow: 0 7px 17px rgba(34,36,33,.17); cursor: grab; overflow: hidden; }
 .admin-schedule-booking:active { cursor: grabbing; }
 .admin-schedule-booking.dragging { z-index: 5; outline: 2px solid rgba(255,255,255,.9); box-shadow: 0 0 0 3px rgba(34,36,33,.2), 0 10px 24px rgba(34,36,33,.24); }
