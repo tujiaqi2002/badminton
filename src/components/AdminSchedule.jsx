@@ -70,6 +70,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   const [resizeDrag, setResizeDrag] = useState(null)
   const pointerMoved = useRef(false)
   const pointerTarget = useRef(null)
+  const editorRef = useRef(null)
 
   useEffect(() => {
     setDateKey(initialDate)
@@ -113,6 +114,15 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       notes: activeSelection.customer_notes || '',
     })
     setEditingDetails(false)
+  }, [activeSelection])
+
+  useEffect(() => {
+    if (!activeSelection) return undefined
+    const clearSelectionOutside = (event) => {
+      if (!editorRef.current?.contains(event.target)) setSelectedBooking(null)
+    }
+    document.addEventListener('pointerdown', clearSelectionOutside)
+    return () => document.removeEventListener('pointerdown', clearSelectionOutside)
   }, [activeSelection])
 
   const selectDate = (next) => {
@@ -295,7 +305,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   }, [onReschedule, onRescheduleGroup, resizeDrag])
 
   return (
-    <section className="admin-schedule-editor" aria-label={t('admin.schedule.aria')}>
+    <section ref={editorRef} className="admin-schedule-editor" aria-label={t('admin.schedule.aria')}>
       <header>
         <div>
           <span className="eyebrow"><GripVertical size={13} /> {t('admin.schedule.eyebrow')}</span>

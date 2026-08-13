@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, CircleUserRound, Clock3, MapPin, Radio, ShieldCheck, Sparkles } from 'lucide-react'
+import { CalendarDays, CircleUserRound, Clock3, Gauge, MapPin, Radio, ShieldCheck, Sparkles } from 'lucide-react'
+import AdminCapacity from './components/AdminCapacity'
 import AdminBookings from './components/AdminBookings'
 import AuthModal from './components/AuthModal'
 import BookingBoard from './components/BookingBoard'
@@ -47,6 +48,7 @@ export default function App() {
   const [adminCancellingId, setAdminCancellingId] = useState(null)
   const [adminScheduleBusy, setAdminScheduleBusy] = useState(false)
   const [adminUndoDepth, setAdminUndoDepth] = useState(0)
+  const [adminFocus, setAdminFocus] = useState(null)
   const adminDemoHistory = useRef([])
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState(null)
@@ -187,8 +189,8 @@ export default function App() {
   useEffect(() => { fetchSchedule() }, [fetchSchedule])
   useEffect(() => { if (view === 'mine') fetchBookings() }, [view, fetchBookings])
   useEffect(() => { fetchAdminAccess() }, [fetchAdminAccess])
-  useEffect(() => { if (view === 'admin') fetchAdminBookings() }, [view, fetchAdminBookings])
-  useEffect(() => { if (view === 'admin' && !isAdmin) setView('mine') }, [view, isAdmin])
+  useEffect(() => { if (view === 'admin' || view === 'capacity') fetchAdminBookings() }, [view, fetchAdminBookings])
+  useEffect(() => { if ((view === 'admin' || view === 'capacity') && !isAdmin) setView('mine') }, [view, isAdmin])
 
   useEffect(() => {
     if (!isSupabaseConfigured || !isAdmin) return
@@ -695,6 +697,19 @@ export default function App() {
           onUndo={adminUndoBookingChange}
           undoDepth={adminUndoDepth}
           onUpdateDetails={adminUpdateBookingDetails}
+          focusTarget={adminFocus}
+        />
+      ) : view === 'capacity' && isAdmin ? (
+        <AdminCapacity
+          bookings={adminBookings}
+          startDate={adminRange.start}
+          onRangeChange={setAdminRange}
+          onInspect={(date, time) => {
+            const weekStart = mondayOfWeek(date)
+            setAdminRange({ start: weekStart, end: toDateKey(addDays(new Date(`${weekStart}T12:00:00`), 6)) })
+            setAdminFocus({ date, time, key: Date.now() })
+            setView('admin')
+          }}
         />
       ) : (
         <MyBookings user={user} bookings={bookings} loading={loadingBookings} onLogin={() => setShowAuth(true)} onCancel={cancelBooking} />
@@ -706,6 +721,7 @@ export default function App() {
         <button className={view === 'book' ? 'active' : ''} onClick={() => setView('book')}><CalendarDays size={20} /><span>{t('nav.courts')}</span></button>
         <button className={view === 'mine' ? 'active' : ''} onClick={() => setView('mine')}><CircleUserRound size={20} /><span>{t('nav.myShort')}</span></button>
         {isAdmin && <button className={view === 'admin' ? 'active' : ''} onClick={() => setView('admin')}><ShieldCheck size={20} /><span>{t('nav.adminShort')}</span></button>}
+        {isAdmin && <button className={view === 'capacity' ? 'active' : ''} onClick={() => setView('capacity')}><Gauge size={20} /><span>{t('nav.capacityShort')}</span></button>}
         <button onClick={() => view === 'book' && document.getElementById('availability')?.scrollIntoView({ behavior: 'smooth' })}><Clock3 size={20} /><span>{t('nav.slots')}</span></button>
       </nav>
 

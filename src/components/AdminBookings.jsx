@@ -15,7 +15,6 @@ import { addDays, COURTS, formatMoney, mondayOfWeek, timeFromDateTime, toDateKey
 import { useI18n } from '../lib/i18n'
 import AdminSchedule from './AdminSchedule'
 import AdminRescheduleModal from './AdminRescheduleModal'
-import WeeklyCapacityMonitor from './WeeklyCapacityMonitor'
 
 const durationMinutes = (booking) => Math.round(
   (new Date(booking.end_at).getTime() - new Date(booking.start_at).getTime()) / 60_000,
@@ -37,6 +36,7 @@ export default function AdminBookings({
   onUndo,
   undoDepth,
   onUpdateDetails,
+  focusTarget,
 }) {
   const { courtName, courtTitle, locale, t } = useI18n()
   const [query, setQuery] = useState('')
@@ -44,6 +44,13 @@ export default function AdminBookings({
   const [editingBooking, setEditingBooking] = useState(null)
   const [focusTime, setFocusTime] = useState(null)
   const [scheduleDate, setScheduleDate] = useState(startDate)
+
+  useEffect(() => {
+    if (!focusTarget) return
+    setScheduleDate(focusTarget.date)
+    setFocusTime(focusTarget.time)
+    window.setTimeout(() => document.querySelector('.admin-schedule-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+  }, [focusTarget])
 
   useEffect(() => {
     const undo = (event) => {
@@ -112,6 +119,27 @@ export default function AdminBookings({
         </button>
       </div>
 
+      <div className="admin-undo-keyboard" aria-live="polite"><kbd>Ctrl</kbd><span>+</span><kbd>Z</kbd><strong>{t('admin.schedule.undoKeyboard')}</strong><small>{t('admin.schedule.undoAvailable', { count: undoDepth })}</small></div>
+
+      <AdminSchedule
+        bookings={bookings}
+        initialDate={scheduleDate}
+        busy={scheduleBusy}
+        onCreate={onCreate}
+        onReschedule={onReschedule}
+        onRescheduleGroup={onRescheduleGroup}
+        onUpdateDetails={onUpdateDetails}
+        onCancel={onCancel}
+        focusTime={focusTime}
+        onDateChange={(date) => {
+          setScheduleDate(date)
+          if (date < startDate || date > endDate) {
+            const weekStart = mondayOfWeek(date)
+            onRangeChange({ start: weekStart, end: toDateKey(addDays(new Date(`${weekStart}T12:00:00`), 6)) })
+          }
+        }}
+      />
+
       <section className="admin-summary" aria-label={t('admin.summaryAria')}>
         <article><span>{t('admin.results')}</span><strong>{filteredBookings.length}</strong><small>{t('admin.bookingUnit')}</small></article>
         <article><span>{t('admin.totalDuration')}</span><strong>{Number.isInteger(totalHours) ? totalHours : totalHours.toFixed(1)}</strong><small>{t('admin.hoursUnit')}</small></article>
@@ -146,45 +174,6 @@ export default function AdminBookings({
           <option value="completed">{t('status.completed')}</option>
         </select>
       </section>
-
-      <div className="admin-undo-keyboard" aria-live="polite"><kbd>Ctrl</kbd><span>+</span><kbd>Z</kbd><strong>{t('admin.schedule.undoKeyboard')}</strong><small>{t('admin.schedule.undoAvailable', { count: undoDepth })}</small></div>
-
-      <WeeklyCapacityMonitor
-        bookings={bookings}
-        weekDate={startDate}
-        onWeekChange={(date) => {
-          setScheduleDate(date)
-          onRangeChange({ start: date, end: toDateKey(addDays(new Date(`${date}T12:00:00`), 6)) })
-        }}
-        onInspect={(date, time) => {
-          setScheduleDate(date)
-          setFocusTime(time)
-          if (date < startDate || date > endDate) {
-            const weekStart = mondayOfWeek(date)
-            onRangeChange({ start: weekStart, end: toDateKey(addDays(new Date(`${weekStart}T12:00:00`), 6)) })
-          }
-          window.setTimeout(() => document.querySelector('.admin-schedule-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
-        }}
-      />
-
-      <AdminSchedule
-        bookings={bookings}
-        initialDate={scheduleDate}
-        busy={scheduleBusy}
-        onCreate={onCreate}
-        onReschedule={onReschedule}
-        onRescheduleGroup={onRescheduleGroup}
-        onUpdateDetails={onUpdateDetails}
-        onCancel={onCancel}
-        focusTime={focusTime}
-        onDateChange={(date) => {
-          setScheduleDate(date)
-          if (date < startDate || date > endDate) {
-            const weekStart = mondayOfWeek(date)
-            onRangeChange({ start: weekStart, end: toDateKey(addDays(new Date(`${weekStart}T12:00:00`), 6)) })
-          }
-        }}
-      />
 
       {editingBooking && (
         <AdminRescheduleModal
