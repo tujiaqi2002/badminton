@@ -1,11 +1,17 @@
+import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, Gauge, PhoneCall } from 'lucide-react'
-import { addDays, addMinutes, COURTS, mondayOfWeek, overlaps, slotDateTime, toDateKey } from '../lib/booking'
+import { addDays, addMinutes, COURTS, isPastSlot, mondayOfWeek, overlaps, slotDateTime, toDateKey } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
 const HOURS = Array.from({ length: 14 }, (_, index) => `${String(index + 10).padStart(2, '0')}:00`)
 
 export default function WeeklyCapacityMonitor({ bookings, weekDate, onWeekChange, onInspect }) {
   const { locale, t } = useI18n()
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
   const monday = mondayOfWeek(weekDate)
   const days = Array.from({ length: 7 }, (_, index) => {
     const date = addDays(new Date(`${monday}T12:00:00`), index)
@@ -41,9 +47,10 @@ export default function WeeklyCapacityMonitor({ bookings, weekDate, onWeekChange
             <div className="capacity-row" key={time}>
               <strong>{time}</strong>
               {days.map((day) => {
+                const past = isPastSlot(day.key, time, now)
                 const free = availability(day.key, time)
                 const tone = free === 0 ? 'full' : free <= 2 ? 'tight' : 'open'
-                return <button className={tone} key={day.key} onClick={() => onInspect(day.key, time)} aria-label={t('admin.capacity.cell', { date: day.day, time, count: free })}><b>{free}</b><span>{t('admin.capacity.courtsFree')}</span></button>
+                return <button className={past ? 'past' : tone} disabled={past} key={day.key} onClick={() => onInspect(day.key, time)} aria-label={past ? t('admin.capacity.pastCell', { date: day.day, time }) : t('admin.capacity.cell', { date: day.day, time, count: free })}>{past ? <><b>—</b><span>{t('admin.capacity.past')}</span></> : <><b>{free}</b><span>{t('admin.capacity.courtsFree')}</span></>}</button>
               })}
             </div>
           ))}

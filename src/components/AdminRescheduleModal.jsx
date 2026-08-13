@@ -1,6 +1,6 @@
 import { ArrowRight, CalendarClock, Clock3, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { COURTS, timeFromDateTime } from '../lib/booking'
+import { COURTS, timeFromDateTime, venueNow } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
 const durationMinutes = (booking) => Math.round(
@@ -18,6 +18,7 @@ export default function AdminRescheduleModal({ booking, busy, onClose, onSubmit,
   })
   const durations = useMemo(() => [...new Set([...Array.from({ length: 7 }, (_, index) => 60 + index * 30), currentDuration])].sort((a, b) => a - b), [currentDuration])
   const targetCourt = COURTS.find((court) => court.id === form.courtId) || COURTS[0]
+  const today = venueNow().dateKey
 
   const submit = async (event) => {
     event.preventDefault()
@@ -52,7 +53,7 @@ export default function AdminRescheduleModal({ booking, busy, onClose, onSubmit,
         </div>
 
         <div className="admin-reschedule-fields">
-          <label><span>{t('admin.reschedule.date')}</span><input required name="date" type="date" value={form.date} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} /></label>
+          <label><span>{t('admin.reschedule.date')}</span><input required name="date" type="date" min={today} value={form.date} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} /></label>
           <label><span>{t('admin.reschedule.court')}</span><select name="courtId" value={form.courtId} onChange={(event) => setForm((current) => ({ ...current, courtId: event.target.value }))}>{COURTS.map((court) => <option value={court.id} key={court.id}>{courtTitle(court)}</option>)}</select></label>
           <label><span>{t('admin.reschedule.time')}</span><input required name="time" type="time" min="10:00" max="23:00" step="1800" value={form.time} onChange={(event) => setForm((current) => ({ ...current, time: event.target.value }))} /></label>
           <label><span>{t('admin.schedule.duration')}</span><select name="duration" value={form.duration} onChange={(event) => setForm((current) => ({ ...current, duration: Number(event.target.value) }))}>{durations.map((minutes) => <option value={minutes} key={minutes}>{minutes} min</option>)}</select></label>

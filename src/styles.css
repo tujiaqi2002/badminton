@@ -148,6 +148,7 @@ a { color: inherit; text-decoration: none; }
 .slot.available { cursor: pointer; color: rgba(34,36,33,.54); }
 .slot.available:hover, .slot.available:focus-visible { color: white; background: var(--red); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2), inset 0 -12px 24px rgba(159,49,39,.18); outline: 0; }
 .slot.occupied { color: rgba(255,255,255,.52); background: rgba(34,36,33,.58); cursor: not-allowed; }
+.slot.past { color: rgba(34,36,33,.3); background: rgba(34,36,33,.075); cursor: not-allowed; }
 .slot-state { font-size: 9px; letter-spacing: .08em; }
 .mobile-time { display: none; }
 .mobile-schedule { display: none; }
@@ -290,6 +291,8 @@ a { color: inherit; text-decoration: none; }
 .capacity-row button.open { color: #315c3f; background: rgba(77,118,74,.12); }
 .capacity-row button.tight { color: #7b5724; background: rgba(181,139,67,.17); }
 .capacity-row button.full { color: white; background: rgba(165,49,39,.8); }
+.capacity-row button.past { color: rgba(34,36,33,.34); background: rgba(34,36,33,.075); cursor: not-allowed; }
+.capacity-row button.past:hover, .capacity-row button.past:focus-visible { transform: none; border-color: transparent; }
 .capacity-row button b { font: 15px/1 "Songti SC",serif; }
 .capacity-row button span { font-size: 7px; }
 .admin-empty { min-height: 310px; margin-top: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--line); color: var(--ink-soft); }
@@ -362,6 +365,11 @@ a { color: inherit; text-decoration: none; }
 .admin-inspector-form label { min-width: 0; display: grid; gap: 4px; }
 .admin-inspector-form label span { color: var(--ink-soft); font-size: 8px; }
 .admin-inspector-form input, .admin-inspector-form textarea { width: 100%; min-height: 31px; padding: 6px 8px; border: 1px solid var(--line); background: rgba(255,255,255,.68); color: var(--ink); font: inherit; outline: 0; resize: none; }
+.admin-inspector-form .admin-payment-toggle { min-height: 34px; padding: 6px 8px; display: flex; grid-template-columns: auto 1fr; align-items: center; gap: 7px; border: 1px solid var(--line); background: rgba(49,92,63,.055); cursor: pointer; }
+.admin-inspector-form .admin-payment-toggle input { width: 14px; min-height: 14px; padding: 0; accent-color: #315c3f; }
+.admin-payment-status { font-weight: 700; }
+.admin-payment-status.paid { color: #315c3f; }
+.admin-payment-status.unpaid { color: #9a5c1f; }
 .admin-inspector-form .notes { grid-column: 1; }
 .admin-inspector-form-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .admin-inspector-form-actions button { min-width: 82px; padding: 7px 9px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; font-size: 8px; }
@@ -395,7 +403,10 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-hint span { margin-left: auto; display: flex; align-items: center; gap: 7px; }
 .admin-undo-bar { grid-column: 1/-1; grid-row: 3; }
 .admin-schedule-scroll { grid-column: 2; grid-row: 5; min-width: 0; overflow-x: auto; border-bottom: 1px solid var(--line); }
-.admin-schedule-grid { --slot-height: 26px; min-width: 840px; display: grid; grid-template-columns: 64px repeat(5, minmax(150px,1fr)); }
+.admin-schedule-grid { --slot-height: 26px; min-width: 840px; position: relative; display: grid; grid-template-columns: 64px repeat(5, minmax(150px,1fr)); }
+.admin-now-line { position: absolute; z-index: 6; top: var(--now-top); left: 0; right: 0; height: 1px; pointer-events: none; background: var(--red); box-shadow: 0 0 0 1px rgba(199,70,54,.05); }
+.admin-now-line::before { content: ''; position: absolute; left: 60px; top: -3px; width: 7px; height: 7px; border-radius: 50%; background: var(--red); }
+.admin-now-line span { position: absolute; left: 4px; top: -9px; padding: 2px 4px; color: white; background: var(--red); font-size: 7px; line-height: 1.2; }
 .admin-schedule-corner, .admin-schedule-court { min-height: 64px; display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .admin-schedule-court { gap: 9px; }
 .admin-schedule-court span { width: 31px; height: 31px; display: grid; place-items: center; color: white; background: var(--ink); font: 17px/1 "Songti SC", serif; border-radius: 50%; }
@@ -411,6 +422,7 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-slot:hover, .admin-schedule-slot:focus-visible { background: rgba(199,70,54,.08); outline: 0; }
 .admin-schedule-slot.phone-focus:not(:disabled) { background: rgba(199,70,54,.075); }
 .admin-schedule-slot:disabled { cursor: not-allowed; opacity: .32; }
+.admin-schedule-slot.past { background: rgba(34,36,33,.06); opacity: 1; }
 .admin-schedule-booking { position: absolute; z-index: 2; top: calc(var(--start) * var(--slot-height) + 2px); left: 5px; right: 5px; min-height: calc(var(--span) * var(--slot-height) - 4px); padding: 7px 8px 7px 5px; display: flex; align-items: start; gap: 5px; border: 1px solid rgba(255,255,255,.3); background: var(--ink); color: white; box-shadow: 0 7px 17px rgba(34,36,33,.17); cursor: grab; overflow: hidden; }
 .admin-schedule-booking:active { cursor: grabbing; }
 .admin-schedule-booking.dragging { opacity: .4; }
@@ -422,6 +434,9 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-booking div { min-width: 0; display: grid; gap: 4px; }
 .admin-schedule-booking strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
 .admin-schedule-booking span { opacity: .72; font-size: 8px; }
+.admin-schedule-booking .admin-booking-payment { width: max-content; padding: 2px 5px; border-radius: 99px; color: white; font-size: 7px; font-weight: 700; letter-spacing: .04em; opacity: 1; }
+.admin-schedule-booking .admin-booking-payment.paid { background: rgba(32,73,43,.72); }
+.admin-schedule-booking .admin-booking-payment.unpaid { background: rgba(96,55,15,.72); }
 .admin-resize-handle { position: absolute; right: 1px; bottom: 1px; width: 18px; height: 14px; padding: 0; border: 0; border-right: 3px solid rgba(255,255,255,.82); border-bottom: 3px solid rgba(255,255,255,.82); background: transparent; cursor: ns-resize; }
 .admin-range-preview { position: absolute; z-index: 3; pointer-events: none; top: calc(var(--start) * var(--slot-height) + 1px); left: 4px; right: 4px; height: calc(var(--span) * var(--slot-height) - 2px); min-height: 0; padding: 5px 8px; display: grid; align-content: center; gap: 2px; overflow: hidden; color: var(--red-dark); border: 2px dashed var(--red); background: rgba(255,255,255,.9); }
 .admin-range-preview strong { font-size: 10px; }
@@ -975,6 +990,7 @@ html[data-theme="inkplay"] .slot.available.thunder:focus-visible { background: v
 html[data-theme="inkplay"] .slot.available:hover,
 html[data-theme="inkplay"] .slot.available:focus-visible { color: #fffaf0; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), inset 0 -14px 24px rgba(52,45,38,.12); }
 html[data-theme="inkplay"] .slot.occupied { color: rgba(255,250,240,.62); background: rgba(74,67,59,.6); }
+html .slot.past { color: rgba(34,36,33,.3); background: rgba(34,36,33,.075); box-shadow: none; cursor: not-allowed; }
 html[data-theme="inkplay"] :is(.court-seal,.summary-seal,.booking-card-seal,.admin-court-seal).wind { background: var(--wind); }
 html[data-theme="inkplay"] :is(.court-seal,.summary-seal,.booking-card-seal,.admin-court-seal).forest { background: var(--forest); }
 html[data-theme="inkplay"] :is(.court-seal,.summary-seal,.booking-card-seal,.admin-court-seal).fire { background: var(--fire); }
