@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   CalendarRange,
   CalendarClock,
@@ -11,10 +11,11 @@ import {
   UserRound,
   UsersRound,
 } from 'lucide-react'
-import { addDays, COURTS, formatMoney, timeFromDateTime, toDateKey } from '../lib/booking'
+import { addDays, COURTS, formatMoney, mondayOfWeek, timeFromDateTime, toDateKey } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 import AdminSchedule from './AdminSchedule'
 import AdminRescheduleModal from './AdminRescheduleModal'
+import WeeklyCapacityMonitor from './WeeklyCapacityMonitor'
 
 const durationMinutes = (booking) => Math.round(
   (new Date(booking.end_at).getTime() - new Date(booking.start_at).getTime()) / 60_000,
@@ -34,12 +35,27 @@ export default function AdminBookings({
   onReschedule,
   onRescheduleGroup,
   onUndo,
+  undoDepth,
   onUpdateDetails,
 }) {
   const { courtName, courtTitle, locale, t } = useI18n()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('active')
   const [editingBooking, setEditingBooking] = useState(null)
+  const [focusTime, setFocusTime] = useState(null)
+  const [scheduleDate, setScheduleDate] = useState(startDate)
+
+  useEffect(() => {
+    const undo = (event) => {
+      if (!event.ctrlKey || event.altKey || event.shiftKey || event.key.toLowerCase() !== 'z') return
+      const target = event.target
+      if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
+      event.preventDefault()
+      if (!scheduleBusy && undoDepth > 0) onUndo()
+    }
+    window.addEventListener('keydown', undo)
+    return () => window.removeEventListener('keydown', undo)
+  }, [onUndo, scheduleBusy, undoDepth])
 
   const applyPreset = (days) => {
     const today = new Date()
@@ -49,6 +65,8 @@ export default function AdminBookings({
   const filteredBookings = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
     return bookings.filter((booking) => {
+      const bookingDate = booking.start_at.slice(0, 10)
+      const matchesDate = bookingDate >= startDate && bookingDate <= endDate
       const matchesQuery = !normalizedQuery || [
         booking.customer_name,
         booking.customer_email,
@@ -60,9 +78,9 @@ export default function AdminBookings({
       const matchesStatus = statusFilter === 'all'
         || (statusFilter === 'active' && ['held', 'confirmed'].includes(booking.status))
         || booking.status === statusFilter
-      return matchesQuery && matchesStatus
+      return matchesDate && matchesQuery && matchesStatus
     })
-  }, [bookings, query, statusFilter])
+  }, [bookings, endDate, query, startDate, statusFilter])
 
   const groupedBookings = useMemo(() => filteredBookings.reduce((groups, booking) => {
     const date = booking.start_at.slice(0, 10)
@@ -129,18 +147,42 @@ export default function AdminBookings({
         </select>
       </section>
 
+      <div className="admin-undo-keyboard" aria-live="polite"><kbd>Ctrl</kbd><span>+</span><kbd>Z</kbd><strong>{t('admin.schedule.undoKeyboard')}</strong><small>{t('admin.schedule.undoAvailable', { count: undoDepth })}</small></div>
+
+      <WeeklyCapacityMonitor
+        bookings={bookings}
+        weekDate={startDate}
+        onWeekChange={(date) => {
+          setScheduleDate(date)
+          onRangeChange({ start: date, end: toDateKey(addDays(new Date(`${date}T12:00:00`), 6)) })
+        }}
+        onInspect={(date, time) => {
+          setScheduleDate(date)
+          setFocusTime(time)
+          if (date < startDate || date > endDate) {
+            const weekStart = mondayOfWeek(date)
+            onRangeChange({ start: weekStart, end: toDateKey(addDays(new Date(`${weekStart}T12:00:00`), 6)) })
+          }
+          window.setTimeout(() => document.querySelector('.admin-schedule-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
+        }}
+      />
+
       <AdminSchedule
         bookings={bookings}
-        initialDate={startDate}
+        initialDate={scheduleDate}
         busy={scheduleBusy}
         onCreate={onCreate}
         onReschedule={onReschedule}
         onRescheduleGroup={onRescheduleGroup}
-        onUndo={onUndo}
         onUpdateDetails={onUpdateDetails}
         onCancel={onCancel}
+        focusTime={focusTime}
         onDateChange={(date) => {
-          if (date < startDate || date > endDate) onRangeChange({ start: date, end: date })
+          setScheduleDate(date)
+          if (date < startDate || date > endDate) {
+            const weekStart = mondayOfWeek(date)
+            onRangeChange({ start: weekStart, end: toDateKey(addDays(new Date(`${weekStart}T12:00:00`), 6)) })
+          }
         }}
       />
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Pencil, RotateCcw, Save, Trash2, X } from 'lucide-react'
+import { AlertTriangle, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Pencil, Repeat2, Save, Trash2, X } from 'lucide-react'
 import { addDays, COURTS, endTimeFromDateTime, mondayOfWeek, timeFromDateTime, toDateKey } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
@@ -17,12 +17,15 @@ const timeFromMinutes = (minutes) => `${String(Math.floor(minutes / 60)).padStar
 const ADMIN_DURATIONS = Array.from({ length: 7 }, (_, index) => 60 + index * 30)
 
 function NewBookingModal({ draft, busy, onClose, onSubmit }) {
-  const { t } = useI18n()
-  const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '', duration: draft.duration || 60, partySize: 2, courts: draft.courts || [draft.court] })
+  const { courtTitle, t } = useI18n()
+  const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '', duration: draft.duration || 60, partySize: 2, courts: draft.courts || [draft.court], recurring: false, weekCount: 4 })
+  const [conflicts, setConflicts] = useState([])
 
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault()
-    onSubmit({ ...draft, ...form })
+    setConflicts([])
+    const result = await onSubmit({ ...draft, ...form })
+    if (result?.conflicts) setConflicts(result.conflicts)
   }
 
   return (
@@ -38,16 +41,19 @@ function NewBookingModal({ draft, busy, onClose, onSubmit }) {
           <label><span>{t('admin.schedule.customerPhoneOptional')}</span><input type="tel" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>
           <label><span>{t('admin.schedule.duration')}</span><select value={form.duration} onChange={(event) => setForm((current) => ({ ...current, duration: Number(event.target.value) }))}>{ADMIN_DURATIONS.map((minutes) => <option value={minutes} key={minutes} disabled={Number(draft.time.slice(0, 2)) * 60 + Number(draft.time.slice(3)) + minutes > 24 * 60}>{minutes / 60} h</option>)}</select></label>
           <label><span>{t('admin.schedule.partySize')}</span><input type="number" min="1" max="8" value={form.partySize} onChange={(event) => setForm((current) => ({ ...current, partySize: Number(event.target.value) }))} /></label>
+          <label className="wide admin-recurring-toggle"><input type="checkbox" checked={form.recurring} onChange={(event) => { setConflicts([]); setForm((current) => ({ ...current, recurring: event.target.checked })) }} /><span><Repeat2 size={15} /> {t('admin.schedule.weeklyRecurring')}</span></label>
+          {form.recurring && <label className="wide admin-week-count"><span>{t('admin.schedule.repeatFor')}</span><select value={form.weekCount} onChange={(event) => { setConflicts([]); setForm((current) => ({ ...current, weekCount: Number(event.target.value) })) }}>{Array.from({ length: 11 }, (_, index) => index + 2).map((weeks) => <option value={weeks} key={weeks}>{t('admin.schedule.weekCount', { count: weeks })}</option>)}</select></label>}
           <label className="wide"><span>{t('admin.schedule.customerNotesOptional')}</span><textarea maxLength="2000" rows="3" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} /></label>
           <div className="wide admin-court-picker"><span>{t('drawer.courts')}</span><div className="court-multi-picker">{COURTS.map((court) => { const selected = form.courts.some((item) => item.id === court.id); return <button type="button" className={selected ? 'selected' : ''} key={court.id} onClick={() => setForm((current) => { const courts = selected ? current.courts.filter((item) => item.id !== court.id) : [...current.courts, court]; return courts.length ? { ...current, courts } : current })}><strong>{court.name}</strong><small>{court.english}</small></button> })}</div></div>
         </div>
+        {conflicts.length > 0 && <div className="admin-recurring-conflicts" role="alert"><AlertTriangle size={17} /><div><strong>{t('admin.schedule.recurringUnavailable')}</strong><span>{t('admin.schedule.recurringUnavailableHelp')}</span><ul>{conflicts.map((conflict) => <li key={`${conflict.startAt}-${conflict.courtIds.join('-')}`}>{conflict.startAt.slice(0, 10).replaceAll('-', '.')} · {conflict.startAt.slice(11, 16)} · {conflict.courtIds.map((id) => courtTitle(COURTS.find((court) => court.id === id) || COURTS[0])).join(' + ')}</li>)}</ul></div></div>}
         <button className="primary-button" disabled={busy || !form.courts.length}>{busy ? t('admin.schedule.saving') : t('admin.schedule.create')}</button>
       </form>
     </div>
   )
 }
 
-export default function AdminSchedule({ bookings, initialDate, busy, onCreate, onReschedule, onRescheduleGroup, onUndo, onCancel, onUpdateDetails, onDateChange }) {
+export default function AdminSchedule({ bookings, initialDate, busy, onCreate, onReschedule, onRescheduleGroup, onCancel, onUpdateDetails, onDateChange, focusTime }) {
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
   const [weekStart, setWeekStart] = useState(() => mondayOfWeek(initialDate))
@@ -60,7 +66,6 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   const [draft, setDraft] = useState(null)
   const [editingDetails, setEditingDetails] = useState(false)
   const [detailsForm, setDetailsForm] = useState({ email: '', phone: '', notes: '' })
-  const [undoBooking, setUndoBooking] = useState(null)
   const [rangeDraft, setRangeDraft] = useState(null)
   const [resizeDrag, setResizeDrag] = useState(null)
   const pointerMoved = useRef(false)
@@ -73,6 +78,11 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       return initialDate < current || initialDate > toDateKey(addDays(new Date(`${current}T12:00:00`), 6)) ? monday : current
     })
   }, [initialDate])
+
+  useEffect(() => {
+    if (!focusTime) return
+    window.setTimeout(() => document.querySelector(`[data-schedule-time="${focusTime}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
+  }, [dateKey, focusTime])
 
   const dayBookings = useMemo(() => bookings.filter((booking) => (
     booking.start_at.startsWith(dateKey) && ['held', 'confirmed'].includes(booking.status)
@@ -204,10 +214,10 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           (item.booking_group_id || item.id) === (booking.booking_group_id || booking.id)
           && ['held', 'confirmed'].includes(item.status)
         )).length
-        const saved = pointerGroupSize > 1
+        const result = pointerGroupSize > 1
           ? await onRescheduleGroup(booking, target.time, durationMinutes(booking), dateKey, target.court)
           : await onReschedule(booking, target.court, target.time, durationMinutes(booking), dateKey)
-        if (saved) setUndoBooking(booking)
+        if (result?.unchanged) setSelectedBooking(booking)
       }
     }
     window.addEventListener('pointermove', move)
@@ -222,11 +232,10 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
     const startMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3))
     if (startMinutes + 60 > 24 * 60) return
     if (activeSelection) {
-      const saved = activeGroup.length > 1
+      const result = activeGroup.length > 1
         ? await onRescheduleGroup(activeSelection, time, durationMinutes(activeSelection), dateKey, court)
         : await onReschedule(activeSelection, court, time, durationMinutes(activeSelection), dateKey)
-      if (saved) setUndoBooking(activeSelection)
-      if (saved) setSelectedBooking(null)
+      if (result?.saved) setSelectedBooking(null)
       return
     }
     setDraft({ court, courts: [court], dateKey, time })
@@ -276,10 +285,9 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       setResizeDrag(null)
       if (duration === resizeDrag.initialDuration) return
       const court = COURTS.find((item) => item.id === booking.court_id) || COURTS[0]
-      const saved = resizeDrag.groupSize > 1
+      resizeDrag.groupSize > 1
         ? await onRescheduleGroup(booking, timeFromDateTime(booking.start_at), duration, booking.start_at.slice(0, 10))
         : await onReschedule(booking, court, timeFromDateTime(booking.start_at), duration, booking.start_at.slice(0, 10))
-      if (saved) setUndoBooking(booking)
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up, { once: true })
@@ -325,6 +333,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                 <div><dt>{t('admin.schedule.bookedAt')}</dt><dd>{activeSelection.created_at ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activeSelection.created_at)) : t('admin.schedule.notRecorded')}</dd></div>
                 <div><dt>{t('admin.schedule.contact')}</dt><dd>{activeSelection.customer_email || t('admin.schedule.notProvided')} · {activeSelection.customer_phone || t('admin.schedule.notProvided')}</dd></div>
                 <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd>{t('admin.people', { count: activeSelection.party_size })} · {t(`payment.${activeSelection.payment_status}`)}</dd></div>
+                {activeSelection.recurrence_series_id && <div><dt>{t('admin.schedule.recurrence')}</dt><dd>{t('admin.schedule.recurrenceWeek', { count: activeSelection.recurrence_week })}</dd></div>}
                 <div className="notes"><dt>{t('admin.schedule.customerNotes')}</dt><dd>{activeSelection.customer_notes || t('admin.schedule.noNotes')}</dd></div>
               </dl>
             )}
@@ -352,7 +361,6 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           <div className="admin-schedule-hint"><GripVertical size={14} /> {t('admin.schedule.hint')}<span><CalendarPlus size={14} /> {t('admin.schedule.addHint')}</span></div>
         )}
       </div>
-      {undoBooking && <div className="admin-undo-bar" role="status"><span>{t('admin.schedule.changeSaved')}</span><button disabled={busy} onClick={async () => { const saved = await onUndo(undoBooking); if (saved) setUndoBooking(null) }}><RotateCcw size={14} /> {t('admin.schedule.undo')}</button><button aria-label={t('admin.schedule.dismissUndo')} onClick={() => setUndoBooking(null)}><X size={13} /></button></div>}
       <div className="admin-schedule-workbench">
         <aside className="admin-schedule-side admin-schedule-side-left">
           <div className="admin-schedule-day-strip" aria-label={t('admin.schedule.quickDays')}>
@@ -376,7 +384,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           <div className="admin-schedule-corner"><Clock3 size={14} /></div>
           {COURTS.map((court) => <div className={`admin-schedule-court ${court.tone}`} key={court.id}><span>{court.name}</span><strong>{courtTitle(court)}</strong></div>)}
           <div className="admin-schedule-times">
-            {HALF_HOURS.map((time, index) => <div className={index % 2 ? 'half' : ''} key={time}>{index % 2 === 0 ? time : ''}</div>)}
+            {HALF_HOURS.map((time, index) => <div className={index % 2 ? 'half' : ''} data-schedule-time={time} key={time}>{index % 2 === 0 ? time : ''}</div>)}
           </div>
           {COURTS.map((court) => (
             <div
@@ -464,7 +472,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           </div>
         </aside>
       </div>
-      {draft && <NewBookingModal draft={draft} busy={busy} onClose={() => setDraft(null)} onSubmit={async (details) => { const saved = await onCreate(details); if (saved) setDraft(null) }} />}
+      {draft && <NewBookingModal draft={draft} busy={busy} onClose={() => setDraft(null)} onSubmit={async (details) => { const result = await onCreate(details); if (result?.saved) setDraft(null); return result }} />}
     </section>
   )
 }
