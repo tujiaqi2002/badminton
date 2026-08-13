@@ -435,7 +435,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                   aria-label={t('admin.schedule.emptySlot', { court: courtTitle(court), time })}
                 />
               ))}
-              {rangeDraft?.court.id === court.id && <div className="admin-range-preview" style={{ '--start': Math.min(rangeDraft.startIndex, rangeDraft.currentIndex), '--span': Math.abs(rangeDraft.currentIndex - rangeDraft.startIndex) + 1 }}><strong>{timeFromMinutes(OPEN_MINUTES + Math.min(rangeDraft.startIndex, rangeDraft.currentIndex) * 30)}–{timeFromMinutes(OPEN_MINUTES + (Math.max(rangeDraft.startIndex, rangeDraft.currentIndex) + 1) * 30)}</strong><span>{t('admin.schedule.releaseToCreate')}</span></div>}
+              {rangeDraft?.court.id === court.id && <div className={`admin-range-preview ${rangeDraft.startIndex === rangeDraft.currentIndex ? 'compact' : ''}`} style={{ '--start': Math.min(rangeDraft.startIndex, rangeDraft.currentIndex), '--span': Math.abs(rangeDraft.currentIndex - rangeDraft.startIndex) + 1 }}><strong>{timeFromMinutes(OPEN_MINUTES + Math.min(rangeDraft.startIndex, rangeDraft.currentIndex) * 30)}–{timeFromMinutes(OPEN_MINUTES + (Math.max(rangeDraft.startIndex, rangeDraft.currentIndex) + 1) * 30)}</strong><span>{t('admin.schedule.releaseToCreate')}</span></div>}
               {draggedBooking && dragPreview?.court.id === court.id && (
                 <div
                   className="admin-schedule-drop-preview"

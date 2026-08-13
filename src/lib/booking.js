@@ -1,9 +1,9 @@
 export const COURTS = [
-  { id: '10000000-0000-0000-0000-000000000001', name: '一', english: 'Court 1', note: '一号场地', noteEn: 'Court one', tone: 'wind' },
-  { id: '10000000-0000-0000-0000-000000000002', name: '二', english: 'Court 2', note: '二号场地', noteEn: 'Court two', tone: 'forest' },
-  { id: '10000000-0000-0000-0000-000000000003', name: '三', english: 'Court 3', note: '三号场地', noteEn: 'Court three', tone: 'fire' },
-  { id: '10000000-0000-0000-0000-000000000004', name: '四', english: 'Court 4', note: '四号场地', noteEn: 'Court four', tone: 'mountain' },
-  { id: '10000000-0000-0000-0000-000000000005', name: '五', english: 'Court 5', note: '五号场地', noteEn: 'Court five', tone: 'thunder' },
+  { id: '10000000-0000-0000-0000-000000000001', name: '壹', english: 'Court 1', note: '壹号场地', noteEn: 'Court one', tone: 'wind' },
+  { id: '10000000-0000-0000-0000-000000000002', name: '贰', english: 'Court 2', note: '贰号场地', noteEn: 'Court two', tone: 'forest' },
+  { id: '10000000-0000-0000-0000-000000000003', name: '叁', english: 'Court 3', note: '叁号场地', noteEn: 'Court three', tone: 'fire' },
+  { id: '10000000-0000-0000-0000-000000000004', name: '肆', english: 'Court 4', note: '肆号场地', noteEn: 'Court four', tone: 'mountain' },
+  { id: '10000000-0000-0000-0000-000000000005', name: '伍', english: 'Court 5', note: '伍号场地', noteEn: 'Court five', tone: 'thunder' },
 ]
 
 export const SLOTS = Array.from({ length: 14 }, (_, index) => `${String(index + 10).padStart(2, '0')}:00`)
