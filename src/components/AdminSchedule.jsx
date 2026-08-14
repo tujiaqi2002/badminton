@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Link2, MessageSquareText, Pencil, PhoneCall, Repeat2, Save, Trash2, X } from 'lucide-react'
+import { AlertTriangle, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, History, Link2, MessageSquareText, Pencil, PhoneCall, Repeat2, Save, Trash2, X } from 'lucide-react'
 import { addDays, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
+import AdminAuditDrawer from './AdminAuditDrawer'
 
 const OPEN_MINUTES = 10 * 60
 const HALF_HOURS = Array.from({ length: 28 }, (_, index) => {
@@ -150,7 +151,7 @@ function NewBookingModal({ draft, busy, onClose, onSubmit }) {
   )
 }
 
-export default function AdminSchedule({ bookings, initialDate, busy, onCreate, onReschedule, onRescheduleGroup, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus }) {
+export default function AdminSchedule({ bookings, initialDate, busy, onCreate, onReschedule, onRescheduleGroup, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onRevertAudit }) {
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
   const [weekStart, setWeekStart] = useState(() => mondayOfWeek(initialDate))
@@ -165,6 +166,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   const [detailsForm, setDetailsForm] = useState({ name: '', email: '', phone: '', notes: '', paymentStatus: 'pay_at_venue' })
   const [rangeDraft, setRangeDraft] = useState(null)
   const [resizeDrag, setResizeDrag] = useState(null)
+  const [auditOpen, setAuditOpen] = useState(false)
   const [now, setNow] = useState(() => new Date())
   const pointerMoved = useRef(false)
   const pointerTarget = useRef(null)
@@ -183,6 +185,10 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
     if (!focusTime) return
     window.setTimeout(() => document.querySelector(`[data-schedule-time="${focusTime}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
   }, [dateKey, focusTime])
+
+  useEffect(() => {
+    if (draggedId) setAuditOpen(false)
+  }, [draggedId])
 
   const dayBookings = useMemo(() => bookings.filter((booking) => (
     booking.start_at.startsWith(dateKey) && ['held', 'confirmed'].includes(booking.status)
@@ -634,15 +640,32 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           </div>
         </div>
         <aside className="admin-schedule-side admin-schedule-side-right">
-          <div
-            className={`admin-schedule-cancel-drop ${draggedId ? 'active' : ''} ${cancelArmed ? 'armed' : ''}`}
-            aria-label={t('admin.schedule.cancelDrop')}
-          >
-            <Trash2 size={22} />
-            <div><strong>{cancelArmed ? t('admin.schedule.cancelRelease') : t('admin.schedule.cancelDrop')}</strong><span>{t('admin.schedule.cancelProtection')}</span></div>
-          </div>
+          {draggedId ? (
+            <div
+              className={`admin-schedule-cancel-drop active ${cancelArmed ? 'armed' : ''}`}
+              aria-label={t('admin.schedule.cancelDrop')}
+            >
+              <Trash2 size={22} />
+              <div><strong>{cancelArmed ? t('admin.schedule.cancelRelease') : t('admin.schedule.cancelDrop')}</strong><span>{t('admin.schedule.cancelProtection')}</span></div>
+            </div>
+          ) : (
+            <button className="admin-audit-launcher" type="button" onClick={() => { setAuditOpen(true); onOpenAudit?.() }}>
+              <span><History size={18} /></span>
+              <strong>{t('admin.audit.launchTitle')}</strong>
+              <small>{t('admin.audit.launchHelp')}</small>
+              <b>{auditOperations.length}</b>
+            </button>
+          )}
         </aside>
       </div>
+      <AdminAuditDrawer
+        open={auditOpen}
+        operations={auditOperations}
+        loading={auditLoading}
+        revertingId={auditRevertingId}
+        onClose={() => setAuditOpen(false)}
+        onRevert={onRevertAudit}
+      />
       {draft && <NewBookingModal draft={draft} busy={busy} onClose={() => setDraft(null)} onSubmit={async (details) => { const result = await onCreate(details); if (result?.saved) setDraft(null); return result }} />}
     </section>
   )

@@ -65,6 +65,9 @@ export default function App() {
   const [adminCancellingId, setAdminCancellingId] = useState(null)
   const [adminScheduleBusy, setAdminScheduleBusy] = useState(false)
   const [adminUndoDepth, setAdminUndoDepth] = useState(0)
+  const [adminAuditOperations, setAdminAuditOperations] = useState([])
+  const [loadingAdminAudit, setLoadingAdminAudit] = useState(false)
+  const [revertingAuditOperationId, setRevertingAuditOperationId] = useState(null)
   const [adminFocus, setAdminFocus] = useState(null)
   const adminDemoHistory = useRef([])
   const authUserIdRef = useRef(null)
@@ -182,6 +185,25 @@ export default function App() {
     else setAdminBookings(data)
   }, [adminRange, isAdmin, user, notify, t])
 
+  const fetchAdminAuditOperations = useCallback(async () => {
+    if (!user || !isAdmin) {
+      setAdminAuditOperations([])
+      setAdminUndoDepth(0)
+      return
+    }
+    if (!isSupabaseConfigured) return
+    setLoadingAdminAudit(true)
+    const { data, error } = await supabase.rpc('admin_list_recent_audit_operations', { p_limit: 10 })
+    setLoadingAdminAudit(false)
+    if (error) {
+      notify(t('errors.adminAudit'), 'error')
+      return
+    }
+    const operations = data || []
+    setAdminAuditOperations(operations)
+    setAdminUndoDepth(operations.slice(0, 5).filter((operation) => operation.can_undo).length)
+  }, [isAdmin, notify, t, user])
+
   useEffect(() => {
     if (!isSupabaseConfigured) {
       setAuthReady(true)
@@ -218,6 +240,7 @@ export default function App() {
   useEffect(() => { if (view === 'mine') fetchBookings() }, [view, fetchBookings])
   useEffect(() => { fetchAdminAccess() }, [fetchAdminAccess])
   useEffect(() => { if (view === 'admin' || view === 'capacity') fetchAdminBookings() }, [view, fetchAdminBookings])
+  useEffect(() => { if (view === 'admin') fetchAdminAuditOperations() }, [view, fetchAdminAuditOperations])
   useEffect(() => {
     if (!user) {
       adminLandingUserRef.current = null
@@ -397,7 +420,7 @@ export default function App() {
 
     notify(t('success.adminCancel'))
     rememberAdminAction()
-    await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchBookings()])
+    await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchBookings(), fetchAdminAuditOperations()])
   }
 
   const adminCreateBooking = async (details) => {
@@ -484,7 +507,7 @@ export default function App() {
     }
     if ((createdRows?.length || 0) > 0) rememberAdminAction()
     notify(t(details.recurring ? 'success.adminRecurringCreate' : 'success.adminCreate', { count: details.weekCount }))
-    await Promise.all([fetchAdminBookings(), fetchSchedule()])
+    await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchAdminAuditOperations()])
     return { saved: true }
   }
 
@@ -533,7 +556,7 @@ export default function App() {
     }
     notify(t('success.adminReschedule', { name: booking.customer_name }))
     rememberAdminAction()
-    await Promise.all([fetchAdminBookings(), fetchSchedule()])
+    await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchAdminAuditOperations()])
     return { saved: true }
   }
 
@@ -594,12 +617,12 @@ export default function App() {
     if (error) { notify(rescheduleErrorMessage(error.message, t), 'error'); return false }
     notify(t('success.adminReschedule', { name: booking.customer_name }))
     rememberAdminAction()
-    await Promise.all([fetchAdminBookings(), fetchSchedule()])
+    await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchAdminAuditOperations()])
     return { saved: true }
   }
 
-  const adminUndoBookingChange = async () => {
-    if (adminUndoDepth < 1) return false
+  const adminUndoBookingChange = async (operationId = null) => {
+    if (!operationId && adminUndoDepth < 1) return false
     if (!isSupabaseConfigured) {
       const snapshot = adminDemoHistory.current.pop()
       if (!snapshot) return false
@@ -610,13 +633,31 @@ export default function App() {
       return true
     }
     setAdminScheduleBusy(true)
-    const { error } = await supabase.rpc('admin_undo_last_booking_action')
+    if (operationId) setRevertingAuditOperationId(operationId)
+    const { error } = operationId
+      ? await supabase.rpc('admin_revert_audit_operation', { p_operation_id: operationId })
+      : await supabase.rpc('admin_undo_last_booking_action')
+    setRevertingAuditOperationId(null)
     setAdminScheduleBusy(false)
-    if (error) { notify(t('errors.adminUndo'), 'error'); return false }
-    setAdminUndoDepth((current) => Math.max(0, current - 1))
+    if (error) {
+      const reason = error.message.includes('no longer available')
+        ? 'errors.adminUndoConflict'
+        : error.message.includes('changed_afterwards')
+          ? 'errors.adminUndoChanged'
+          : 'errors.adminUndo'
+      notify(t(reason), 'error')
+      await fetchAdminAuditOperations()
+      return false
+    }
     notify(t('success.adminUndo'))
-    await Promise.all([fetchAdminBookings(), fetchSchedule()])
+    await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchAdminAuditOperations()])
     return true
+  }
+
+  const adminRevertAuditOperation = async (operation) => {
+    if (!operation?.can_undo || adminScheduleBusy) return false
+    if (!window.confirm(t('confirm.adminAuditUndo'))) return false
+    return adminUndoBookingChange(operation.operation_id)
   }
 
   const adminUpdateBookingDetails = async (booking, details) => {
@@ -650,7 +691,7 @@ export default function App() {
     }
     setAdminBookings((current) => current.map(update))
     notify(t('success.adminDetails'))
-    await fetchAdminBookings()
+    await Promise.all([fetchAdminBookings(), fetchAdminAuditOperations()])
     return true
   }
 
@@ -696,6 +737,8 @@ export default function App() {
     setIsAdmin(false)
     setAdminAccessReady(true)
     setAdminBookings([])
+    setAdminAuditOperations([])
+    setAdminUndoDepth(0)
     setView('book')
   }
 
@@ -772,6 +815,11 @@ export default function App() {
           onUndo={adminUndoBookingChange}
           undoDepth={adminUndoDepth}
           onUpdateDetails={adminUpdateBookingDetails}
+          auditOperations={adminAuditOperations}
+          auditLoading={loadingAdminAudit}
+          auditRevertingId={revertingAuditOperationId}
+          onOpenAudit={fetchAdminAuditOperations}
+          onRevertAudit={adminRevertAuditOperation}
           focusTarget={adminFocus}
           onClearFocus={() => setAdminFocus(null)}
         />

@@ -416,6 +416,46 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-cancel-drop div { display: grid; gap: 7px; }
 .admin-schedule-cancel-drop strong { font: 13px/1.35 "Songti SC", serif; }
 .admin-schedule-cancel-drop span { opacity: .72; font-size: 8px; line-height: 1.55; }
+.admin-audit-launcher { width: 100%; height: 100%; min-height: 0; padding: 22px 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 0; background: linear-gradient(180deg,rgba(255,255,255,.42),rgba(34,36,33,.025)); color: var(--ink); cursor: pointer; text-align: center; transition: background .18s ease, color .18s ease, box-shadow .18s ease; }
+.admin-audit-launcher:hover, .admin-audit-launcher:focus-visible { color: var(--red-dark); background: rgba(255,255,255,.76); box-shadow: inset 3px 0 0 var(--red); outline: 0; }
+.admin-audit-launcher > span { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid rgba(34,36,33,.15); border-radius: 50%; background: rgba(255,255,255,.65); }
+.admin-audit-launcher strong { font: 14px/1.25 "Songti SC",serif; }
+.admin-audit-launcher small { max-width: 86px; color: var(--ink-soft); font-size: 8px; line-height: 1.5; }
+.admin-audit-launcher b { min-width: 24px; height: 20px; padding: 0 7px; display: grid; place-items: center; border-radius: 999px; color: white; background: var(--ink); font-size: 9px; }
+.admin-audit-backdrop { position: fixed; z-index: 180; inset: 0; border: 0; background: rgba(27,28,26,.22); cursor: default; backdrop-filter: blur(2px); animation: fadeIn .15s ease; }
+.admin-audit-drawer { width: min(430px,calc(100vw - 28px)); position: fixed; z-index: 181; top: 14px; right: 14px; bottom: 14px; padding: 24px 22px 17px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(34,36,33,.18); background: rgba(249,248,243,.97); box-shadow: -22px 0 70px rgba(34,36,33,.18); backdrop-filter: blur(22px); animation: auditDrawerIn .2s ease; }
+@keyframes auditDrawerIn { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+.admin-audit-drawer > header { flex: 0 0 auto; display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.admin-audit-drawer > header > div > span { display: inline-flex; align-items: center; gap: 6px; color: var(--red-dark); font-size: 8px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.admin-audit-drawer h2 { margin: 8px 0 0; font: 30px/1.1 "Songti SC",serif; }
+.admin-audit-drawer > header > button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: rgba(255,255,255,.6); color: var(--ink); cursor: pointer; }
+.admin-audit-drawer > header > button:hover { color: white; background: var(--ink); }
+.admin-audit-drawer > p { margin: 13px 0 17px; color: var(--ink-soft); font-size: 9px; line-height: 1.65; }
+.admin-audit-list { min-height: 0; flex: 1; display: grid; align-content: start; gap: 9px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; }
+.admin-audit-event { padding: 14px; border: 1px solid rgba(34,36,33,.13); background: rgba(255,255,255,.52); box-shadow: 0 8px 22px rgba(34,36,33,.035); }
+.admin-audit-event.reverted { opacity: .62; background: rgba(237,238,231,.65); }
+.admin-audit-event > header { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; align-items: center; gap: 8px; }
+.admin-audit-event-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--ink); }
+.admin-audit-event > header > div { min-width: 0; display: grid; gap: 3px; }
+.admin-audit-event > header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.admin-audit-event > header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); font-size: 7.5px; }
+.admin-audit-event > header b { padding: 4px 6px; color: var(--ink-soft); background: rgba(34,36,33,.055); font-size: 7.5px; }
+.admin-audit-event-body { margin: 11px 0 12px 36px; display: grid; gap: 5px; }
+.admin-audit-event-body > strong { font: 17px/1.15 "Songti SC",serif; }
+.admin-audit-event-body > span { display: grid; gap: 3px; color: var(--ink-soft); font-size: 8px; line-height: 1.5; }
+.admin-audit-event-body > span em { color: var(--red-dark); font-style: normal; }
+.admin-audit-event-body > small { color: var(--ink-soft); font-size: 7.5px; }
+.admin-audit-event > footer { min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid rgba(34,36,33,.08); padding-top: 9px; }
+.admin-audit-state { display: inline-flex; align-items: center; gap: 4px; color: #315c3f; font-size: 7.5px; font-weight: 700; }
+.admin-audit-state.safe { color: var(--ink-soft); }
+.admin-audit-state.muted { color: var(--ink-soft); font-weight: 500; }
+.admin-audit-event > footer button { min-width: 70px; padding: 6px 9px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid rgba(199,70,54,.25); background: rgba(199,70,54,.06); color: var(--red-dark); cursor: pointer; font-size: 8px; font-weight: 700; }
+.admin-audit-event > footer button:hover, .admin-audit-event > footer button:focus-visible { color: white; background: var(--red-dark); outline: 0; }
+.admin-audit-event > footer button:disabled { opacity: .58; cursor: wait; }
+.admin-audit-empty { min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--ink-soft); text-align: center; }
+.admin-audit-empty strong { color: var(--ink); font: 18px/1.2 "Songti SC",serif; }
+.admin-audit-empty span { max-width: 240px; font-size: 8px; line-height: 1.6; }
+.admin-audit-drawer > footer { flex: 0 0 auto; margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 7.5px; line-height: 1.55; }
 .admin-schedule-context { grid-column: 1/-1; grid-row: 1; height: 40px; overflow: hidden; border-bottom: 1px solid var(--line); }
 .admin-drag-readout { height: 40px; padding: 6px 16px; display: flex; align-items: center; gap: 10px; color: white; background: var(--ink); box-shadow: 0 6px 20px rgba(34,36,33,.13); }
 .admin-drag-readout > span { opacity: .58; font-size: 8px; text-transform: uppercase; letter-spacing: .13em; }
@@ -610,6 +650,10 @@ footer small { text-align: right; }
   .admin-calendar-popover { width: min(320px, calc(100vw - 24px)); position: fixed; top: 64px; right: 12px; left: 12px; margin: 0 auto; }
   .admin-schedule-cancel-drop { min-height: 78px; height: 78px; padding: 12px 18px; flex-direction: row; text-align: left; }
   .admin-schedule-cancel-drop strong { font-size: 12px; }
+  .admin-audit-launcher { min-height: 66px; height: 66px; padding: 9px 16px; flex-direction: row; text-align: left; }
+  .admin-audit-launcher > span { width: 32px; height: 32px; }
+  .admin-audit-launcher small { max-width: none; margin-right: auto; }
+  .admin-audit-drawer { width: calc(100vw - 16px); top: 8px; right: 8px; bottom: 8px; padding: 20px 16px 14px; }
   .admin-schedule-inspector { position: static; width: 100%; height: 174px; min-height: 0; padding: 12px 15px; flex-direction: row; gap: 13px; border-right: 0; backdrop-filter: none; }
   .admin-schedule-inspector:not(.has-booking) { height: 72px; }
   .admin-schedule-inspector:not(.has-booking) .admin-inspector-empty { margin: auto 0; }
