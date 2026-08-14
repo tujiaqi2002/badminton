@@ -23,6 +23,7 @@ const durationMinutes = (booking) => Math.round(
 
 export default function AdminBookings({
   bookings,
+  events,
   loading,
   orderBookings,
   orderSummary,
@@ -133,6 +134,7 @@ export default function AdminBookings({
     <main className="admin-bookings-page" aria-busy={loading || loadingOrders || scheduleBusy}>
       <AdminSchedule
         bookings={bookings}
+        events={events}
         initialDate={scheduleDate}
         busy={scheduleBusy}
         onCreate={onCreate}

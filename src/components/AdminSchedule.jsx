@@ -151,7 +151,7 @@ function NewBookingModal({ draft, busy, onClose, onSubmit }) {
   )
 }
 
-export default function AdminSchedule({ bookings, initialDate, busy, onCreate, onReschedule, onRescheduleGroup, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onRevertAudit }) {
+export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onReschedule, onRescheduleGroup, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onRevertAudit }) {
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
   const [weekStart, setWeekStart] = useState(() => mondayOfWeek(initialDate))
@@ -193,6 +193,11 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   const dayBookings = useMemo(() => bookings.filter((booking) => (
     booking.start_at.startsWith(dateKey) && ['held', 'confirmed'].includes(booking.status)
   )), [bookings, dateKey])
+  const dayEvents = useMemo(() => events.filter((item) => (
+    item.status === 'scheduled'
+      && item.starts_at < `${dateKey}T24:00:00`
+      && item.ends_at > `${dateKey}T00:00:00`
+  )), [dateKey, events])
 
   const dayLabel = new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'long', day: 'numeric' })
     .format(new Date(`${dateKey}T12:00:00`))
@@ -573,6 +578,23 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                   <span>{t(dragPreview.invalid ? 'admin.schedule.pastDropBlockedShort' : 'admin.schedule.dropHere')}</span>
                 </div>
               )}
+              {dayEvents.filter((item) => !item.court_ids?.length || item.court_ids.includes(court.id)).map((item) => {
+                const rawStart = item.starts_at.slice(0, 10) < dateKey ? OPEN_MINUTES : Number(item.starts_at.slice(11, 13)) * 60 + Number(item.starts_at.slice(14, 16))
+                const rawEnd = item.ends_at.slice(0, 10) > dateKey ? 24 * 60 : Number(item.ends_at.slice(11, 13)) * 60 + Number(item.ends_at.slice(14, 16))
+                const start = Math.max(OPEN_MINUTES, rawStart)
+                const end = Math.min(24 * 60, rawEnd)
+                if (end <= start) return null
+                const title = locale.startsWith('zh') ? item.title_zh : item.title_en
+                return <article
+                  className={`admin-schedule-event ${item.blocks_booking ? 'blocking' : 'informational'} ${item.color || 'ink'}`}
+                  style={{ '--start': (start - OPEN_MINUTES) / 30, '--span': (end - start) / 30 }}
+                  title={t('admin.schedule.venueEventTitle', { title })}
+                  key={`${item.id}-${court.id}`}
+                >
+                  <CalendarClock size={13} />
+                  <div><strong>{title}</strong><span>{timeFromMinutes(start)}–{timeFromMinutes(end)}</span><small>{t(item.blocks_booking ? 'admin.schedule.eventBlocked' : 'admin.schedule.eventNotice')}</small></div>
+                </article>
+              })}
               {dayBookings.filter((booking) => booking.court_id === court.id).map((booking) => {
                 const startMinutes = Number(timeFromDateTime(booking.start_at).slice(0, 2)) * 60 + Number(timeFromDateTime(booking.start_at).slice(3))
                 const offset = startMinutes - OPEN_MINUTES

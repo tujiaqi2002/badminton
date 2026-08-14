@@ -510,6 +510,14 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-slot.phone-focus:not(:disabled) { background: rgba(199,70,54,.075); }
 .admin-schedule-slot:disabled { cursor: not-allowed; opacity: .32; }
 .admin-schedule-slot.past { background: rgba(34,36,33,.06); opacity: 1; }
+.admin-schedule-event { position: absolute; z-index: 1; top: calc(var(--start) * var(--slot-height) + 2px); left: 4px; right: 4px; height: calc(var(--span) * var(--slot-height) - 4px); min-height: 24px; padding: 7px 9px; display: flex; align-items: flex-start; gap: 6px; overflow: hidden; pointer-events: none; color: var(--ink); border: 1px solid rgba(34,36,33,.2); background: repeating-linear-gradient(-45deg, rgba(34,36,33,.075) 0 7px, rgba(255,255,255,.58) 7px 14px); box-shadow: inset 3px 0 0 var(--ink); }
+.admin-schedule-event.blocking { color: var(--red-dark); border-color: rgba(199,70,54,.35); background: repeating-linear-gradient(-45deg, rgba(199,70,54,.12) 0 7px, rgba(255,250,247,.82) 7px 14px); box-shadow: inset 3px 0 0 var(--red); }
+.admin-schedule-event > svg { flex: 0 0 auto; margin-top: 1px; }
+.admin-schedule-event > div { min-width: 0; display: grid; gap: 3px; }
+.admin-schedule-event strong, .admin-schedule-event span, .admin-schedule-event small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-schedule-event strong { font-size: 9px; }
+.admin-schedule-event span { font-size: 8px; opacity: .78; }
+.admin-schedule-event small { font-size: 7px; font-weight: 700; letter-spacing: .03em; }
 .admin-schedule-booking { position: absolute; z-index: 2; top: calc(var(--start) * var(--slot-height) + 2px); left: 5px; right: 5px; height: calc(var(--span) * var(--slot-height) - 4px); min-height: 0; max-height: calc(var(--span) * var(--slot-height) - 4px); padding: 7px 8px 7px 5px; display: flex; align-items: start; gap: 5px; border: 1px solid rgba(255,255,255,.3); background: var(--ink); color: white; box-shadow: 0 7px 17px rgba(34,36,33,.17); cursor: grab; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; touch-action: none; }
 .admin-schedule-booking:active { cursor: grabbing; }
 .admin-schedule-booking.has-indicators { padding-right: 31px; }
@@ -1216,6 +1224,34 @@ html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96
 .operations-form-grid input:focus, .operations-form-grid select:focus, .operations-form-grid textarea:focus, .hours-editor input:focus, .hours-editor select:focus { border-color: var(--ink); box-shadow: 0 0 0 2px rgba(34,36,33,.05); }
 .operations-form-grid textarea { resize: vertical; }
 .operations-form-grid .full { grid-column: 1/-1; }
+.event-form-intro { min-height: 72px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); background: linear-gradient(135deg, rgba(34,36,33,.045), rgba(255,255,255,.38)); }
+.event-form-intro > span { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--ink); }
+.event-form-intro strong { font: 16px/1.15 "Songti SC",serif; }
+.event-form-intro p { margin: 5px 0 0; color: var(--ink-soft); font-size: 8px; line-height: 1.55; }
+.operations-datetime-control { min-width: 0; position: relative; display: grid; grid-template-columns: minmax(0,1fr) 112px; border: 1px solid var(--line); background: rgba(255,255,255,.66); }
+.operations-date-trigger { min-width: 0; min-height: 46px; padding: 7px 11px; display: flex; align-items: center; gap: 9px; border: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+.operations-date-trigger:hover, .operations-date-trigger:focus-visible { background: rgba(34,36,33,.045); outline: 0; }
+.operations-date-trigger > svg { flex: 0 0 auto; color: var(--red-dark); }
+.operations-date-trigger > span { min-width: 0; display: grid; gap: 2px; color: var(--ink) !important; }
+.operations-date-trigger strong, .operations-date-trigger small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.operations-date-trigger strong { font-size: 10px; }
+.operations-date-trigger small { color: var(--ink-soft); font-size: 7.5px; font-weight: 500; }
+.operations-time-select { min-width: 0; padding-left: 8px; display: flex; align-items: center; border-left: 1px solid var(--line); }
+.operations-time-select > svg { flex: 0 0 auto; color: var(--ink-soft); }
+.operations-time-select select { min-width: 0; min-height: 44px !important; padding: 0 7px !important; border: 0 !important; background: transparent !important; font-weight: 700; }
+.operations-calendar-popover { top: calc(100% + 8px); right: auto; left: 0; }
+.admin-calendar-days button:disabled, .admin-calendar-today:disabled { opacity: .25; cursor: not-allowed; }
+.event-color-picker { min-width: 0; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6,34px); align-content: end; justify-content: start; gap: 7px; border: 0; }
+.event-color-picker legend { grid-column: 1/-1; margin-bottom: 0; padding: 0; }
+.event-color-picker label { width: 34px; height: 38px; position: relative; display: grid; place-items: center; border: 1px solid var(--line); background: rgba(255,255,255,.44); cursor: pointer; }
+.event-color-picker input { position: absolute; opacity: 0; pointer-events: none; }
+.event-color-picker label > span { width: 18px; height: 18px; display: block; border-radius: 50%; background: var(--ink); }
+.event-color-picker label > span.red { background: var(--red); }
+.event-color-picker label > span.gold { background: #9a772d; }
+.event-color-picker label > span.green { background: #55725a; }
+.event-color-picker label > span.blue { background: #4f7782; }
+.event-color-picker label > span.purple { background: #715e7d; }
+.event-color-picker label.selected { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .input-unit { display: grid; grid-template-columns: minmax(0,1fr) auto; border: 1px solid var(--line); background: rgba(255,255,255,.66); }
 .input-unit input { border: 0; background: transparent; }
 .input-unit small { padding: 0 10px; display: grid; place-items: center; color: var(--ink-soft); font-size: 8px; }
@@ -1304,8 +1340,11 @@ html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96
 .operations-modal > header h2 { margin: 0; font: 24px/1 "Songti SC",serif; }
 .operations-modal > header button { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: transparent; cursor: pointer; }
 .operations-form { min-height: 0; padding: 22px; overflow-y: auto; }
-.operations-form > footer { margin-top: 22px; padding-top: 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); }
+.operations-form > footer { margin: 22px -22px -22px; padding: 14px 22px; position: sticky; z-index: 5; bottom: -22px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); background: rgba(250,249,245,.94); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
 .operations-form > footer > button { min-height: 37px; padding: 0 14px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 9px; }
+.operations-form > footer > .operations-primary { border-color: var(--ink); background: var(--ink); color: white; }
+.operations-form > footer > .operations-primary:hover:not(:disabled), .operations-form > footer > .operations-primary:focus-visible:not(:disabled) { background: var(--red-dark); border-color: var(--red-dark); outline: 0; }
+.operations-form > footer > .operations-primary:disabled { border-color: var(--ink); background: var(--ink); color: white; opacity: .5; }
 .check-field { min-height: 38px; display: flex !important; grid-template-columns: auto 1fr; flex-direction: row; align-items: center; gap: 8px !important; border: 1px solid var(--line); padding: 0 10px; background: rgba(255,255,255,.45); }
 .check-field input { width: 14px; min-height: 14px; padding: 0; accent-color: var(--ink); }
 .court-checks { grid-column: 1/-1; margin: 0; padding: 12px; display: grid; grid-template-columns: repeat(5,1fr); gap: 7px; border: 1px solid var(--line); }
@@ -1354,6 +1393,10 @@ html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96
   .operations-settings-card, .operations-next-events { padding: 16px; }
   .operations-form-grid, .operations-form-grid.compact { grid-template-columns: 1fr; }
   .operations-form-grid .full, .court-checks { grid-column: 1; }
+  .operations-datetime-control { grid-template-columns: minmax(0,1fr) 96px; }
+  .operations-calendar-popover { width: min(286px,calc(100vw - 48px)); position: absolute; top: calc(100% + 8px); right: auto; left: 0; margin: 0; }
+  .event-color-picker { grid-template-columns: repeat(6,32px); }
+  .event-color-picker label { width: 32px; }
   .hours-editor article { padding: 13px; grid-template-columns: 1fr 42px 1fr 1fr; }
   .hours-note { grid-column: 1/-1; }
   .event-list article { grid-template-columns: 4px 76px minmax(0,1fr) 62px; gap: 9px; }
