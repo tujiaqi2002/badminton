@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   CalendarRange,
   CalendarClock,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Mail,
   RefreshCw,
@@ -26,6 +28,9 @@ export default function AdminBookings({
   orderSummary,
   orderFilters,
   onOrderFiltersChange,
+  orderPagination,
+  onPreviousOrderPage,
+  onNextOrderPage,
   loadingOrders,
   startDate,
   endDate,
@@ -114,7 +119,9 @@ export default function AdminBookings({
   const uniqueCustomers = orderSummary.customers || 0
   const todayCount = orderSummary.today || 0
   const resultCount = orderSummary.results || 0
-  const hasMoreResults = resultCount > filteredBookings.length
+  const totalPages = Math.max(1, Math.ceil(resultCount / 50))
+  const firstResult = resultCount === 0 ? 0 : (orderPagination.page - 1) * 50 + 1
+  const lastResult = Math.min((orderPagination.page - 1) * 50 + filteredBookings.length, resultCount)
   const formatDuration = (minutes) => minutes % 60 === 0
     ? t('duration.hours', { hours: minutes / 60 })
     : t('duration.hoursMinutes', { hours: Math.floor(minutes / 60), minutes: minutes % 60 })
@@ -203,7 +210,7 @@ export default function AdminBookings({
       </section>
 
       <div className="admin-query-meta" aria-live="polite">
-        <span>{t(hasMoreResults ? 'admin.showingLimited' : 'admin.showingAll', { shown: filteredBookings.length, total: resultCount })}</span>
+        <span>{t('admin.showingPage', { from: firstResult, to: lastResult, total: resultCount })}</span>
         <button type="button" onClick={() => { const today = venueNow().dateKey; setQuery(''); onOrderFiltersChange({ start: today, end: today, query: '', bookingStatus: 'not_cancelled', paymentStatus: 'all' }) }}>{t('admin.resetFilters')}</button>
       </div>
 
@@ -291,6 +298,18 @@ export default function AdminBookings({
               </div>
             </section>
           ))}
+          <nav className="admin-order-pagination" aria-label={t('admin.paginationAria')}>
+            <button type="button" onClick={onPreviousOrderPage} disabled={loadingOrders || orderPagination.page <= 1}>
+              <ChevronLeft size={15} /> {t('admin.previousPage')}
+            </button>
+            <div>
+              <strong>{t('admin.pageStatus', { page: orderPagination.page, pages: totalPages })}</strong>
+              <span>{t('admin.pageSize')}</span>
+            </div>
+            <button type="button" onClick={onNextOrderPage} disabled={loadingOrders || !orderPagination.hasMore}>
+              {t('admin.nextPage')} <ChevronRight size={15} />
+            </button>
+          </nav>
         </div>
       )}
     </main>

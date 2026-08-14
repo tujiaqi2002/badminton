@@ -23,6 +23,13 @@ const defaultAdminOrderFilters = () => ({
 })
 
 const emptyAdminOrderSummary = { results: 0, total_minutes: 0, customers: 0, today: 0 }
+const defaultAdminOrderPagination = () => ({
+  page: 1,
+  cursor: null,
+  cursors: [null],
+  hasMore: false,
+  nextCursor: null,
+})
 
 const filterDemoAdminOrders = (bookings, filters) => {
   const normalizedQuery = filters.query.trim().toLowerCase()
@@ -90,6 +97,7 @@ export default function App() {
   const [adminOrderBookings, setAdminOrderBookings] = useState([])
   const [adminOrderSummary, setAdminOrderSummary] = useState(emptyAdminOrderSummary)
   const [adminOrderFilters, setAdminOrderFilters] = useState(defaultAdminOrderFilters)
+  const [adminOrderPagination, setAdminOrderPagination] = useState(defaultAdminOrderPagination)
   const [adminRange, setAdminRange] = useState(() => {
     const start = mondayOfWeek(todayKey())
     return { start, end: toDateKey(addDays(new Date(`${start}T12:00:00`), 6)) }
@@ -235,18 +243,26 @@ export default function App() {
       setLoadingAdminOrders(false)
       setAdminOrderBookings([])
       setAdminOrderSummary(emptyAdminOrderSummary)
+      setAdminOrderPagination(defaultAdminOrderPagination())
       return
     }
     if (!isSupabaseConfigured) {
       const matches = filterDemoAdminOrders(adminBookings, adminOrderFilters)
+      const from = (adminOrderPagination.page - 1) * 50
+      const items = matches.slice(from, from + 50)
       const today = todayKey()
-      setAdminOrderBookings(matches.slice(0, 50))
+      setAdminOrderBookings(items)
       setAdminOrderSummary({
         results: matches.length,
         total_minutes: matches.reduce((sum, booking) => sum + Math.round((new Date(booking.end_at) - new Date(booking.start_at)) / 60_000), 0),
         customers: new Set(matches.map((booking) => booking.customer_email || booking.customer_phone || booking.customer_name)).size,
         today: matches.filter((booking) => booking.start_at.startsWith(today)).length,
       })
+      setAdminOrderPagination((current) => ({
+        ...current,
+        hasMore: from + items.length < matches.length,
+        nextCursor: from + items.length < matches.length ? { offset: from + items.length } : null,
+      }))
       return
     }
     setLoadingAdminOrders(true)
@@ -257,6 +273,8 @@ export default function App() {
       p_booking_status: adminOrderFilters.bookingStatus,
       p_payment_status: adminOrderFilters.paymentStatus,
       p_limit: 50,
+      p_after_start_at: adminOrderPagination.cursor?.start_at || null,
+      p_after_id: adminOrderPagination.cursor?.id || null,
     })
     if (requestId !== adminOrderRequestRef.current) return
     setLoadingAdminOrders(false)
@@ -266,7 +284,45 @@ export default function App() {
     }
     setAdminOrderBookings(data?.items || [])
     setAdminOrderSummary(data?.summary || emptyAdminOrderSummary)
-  }, [adminBookings, adminOrderFilters, isAdmin, notify, t, user])
+    setAdminOrderPagination((current) => ({
+      ...current,
+      hasMore: Boolean(data?.has_more),
+      nextCursor: data?.next_cursor || null,
+    }))
+  }, [adminBookings, adminOrderFilters, adminOrderPagination.cursor, adminOrderPagination.page, isAdmin, notify, t, user])
+
+  const changeAdminOrderFilters = useCallback((updater) => {
+    setAdminOrderPagination(defaultAdminOrderPagination())
+    setAdminOrderFilters(updater)
+  }, [])
+
+  const showNextAdminOrderPage = useCallback(() => {
+    setAdminOrderPagination((current) => {
+      if (!current.hasMore || !current.nextCursor) return current
+      const cursors = [...current.cursors.slice(0, current.page), current.nextCursor]
+      return {
+        page: current.page + 1,
+        cursor: current.nextCursor,
+        cursors,
+        hasMore: false,
+        nextCursor: null,
+      }
+    })
+  }, [])
+
+  const showPreviousAdminOrderPage = useCallback(() => {
+    setAdminOrderPagination((current) => {
+      if (current.page <= 1) return current
+      const page = current.page - 1
+      return {
+        ...current,
+        page,
+        cursor: current.cursors[page - 1] || null,
+        hasMore: false,
+        nextCursor: null,
+      }
+    })
+  }, [])
 
   const fetchAdminAuditOperations = useCallback(async () => {
     if (!user || !isAdmin) {
@@ -824,6 +880,7 @@ export default function App() {
     setAdminOrderBookings([])
     setAdminOrderSummary(emptyAdminOrderSummary)
     setAdminOrderFilters(defaultAdminOrderFilters())
+    setAdminOrderPagination(defaultAdminOrderPagination())
     setAdminAuditOperations([])
     setAdminUndoDepth(0)
     setView('book')
@@ -893,7 +950,10 @@ export default function App() {
           orderBookings={adminOrderBookings}
           orderSummary={adminOrderSummary}
           orderFilters={adminOrderFilters}
-          onOrderFiltersChange={setAdminOrderFilters}
+          onOrderFiltersChange={changeAdminOrderFilters}
+          orderPagination={adminOrderPagination}
+          onPreviousOrderPage={showPreviousAdminOrderPage}
+          onNextOrderPage={showNextAdminOrderPage}
           loadingOrders={loadingAdminOrders}
           startDate={adminRange.start}
           endDate={adminRange.end}
