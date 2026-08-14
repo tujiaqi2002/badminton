@@ -763,7 +763,6 @@ export default function App() {
           startDate={adminRange.start}
           endDate={adminRange.end}
           onRangeChange={setAdminRange}
-          onRefresh={fetchAdminBookings}
           onCancel={adminCancelBooking}
           cancellingId={adminCancellingId}
           scheduleBusy={adminScheduleBusy}
