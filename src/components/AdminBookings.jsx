@@ -34,6 +34,11 @@ export default function AdminBookings({
   onUndo,
   undoDepth,
   onUpdateDetails,
+  auditOperations,
+  auditLoading,
+  auditRevertingId,
+  onOpenAudit,
+  onRevertAudit,
   focusTarget,
   onClearFocus,
 }) {
@@ -124,6 +129,11 @@ export default function AdminBookings({
         onRescheduleGroup={onRescheduleGroup}
         onUpdateDetails={onUpdateDetails}
         onCancel={onCancel}
+        auditOperations={auditOperations}
+        auditLoading={auditLoading}
+        auditRevertingId={auditRevertingId}
+        onOpenAudit={onOpenAudit}
+        onRevertAudit={onRevertAudit}
         focusTime={focusTime}
         onClearFocus={clearScheduleFocus}
         onDateChange={(date) => {
