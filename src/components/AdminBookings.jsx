@@ -6,7 +6,6 @@ import {
   Mail,
   RefreshCw,
   Search,
-  ShieldCheck,
   Trash2,
   UserRound,
   UsersRound,
@@ -26,7 +25,6 @@ export default function AdminBookings({
   startDate,
   endDate,
   onRangeChange,
-  onRefresh,
   onCancel,
   cancellingId,
   scheduleBusy,
@@ -117,19 +115,6 @@ export default function AdminBookings({
 
   return (
     <main className="admin-bookings-page">
-      <div className="admin-heading">
-        <div>
-          <span className="eyebrow"><ShieldCheck size={13} /> {t('admin.eyebrow')}</span>
-          <h1>{t('admin.title')}</h1>
-          <p>{t('admin.description')}</p>
-        </div>
-        <button className="outline-button admin-refresh" onClick={onRefresh} disabled={loading}>
-          <RefreshCw size={15} className={loading ? 'spin' : ''} /> {t('admin.refresh')}
-        </button>
-      </div>
-
-      <div className="admin-undo-keyboard" aria-live="polite"><kbd>Ctrl</kbd><span>+</span><kbd>Z</kbd><strong>{t('admin.schedule.undoKeyboard')}</strong><small>{t('admin.schedule.undoAvailable', { count: undoDepth })}</small></div>
-
       <AdminSchedule
         bookings={bookings}
         initialDate={scheduleDate}
