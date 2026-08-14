@@ -79,6 +79,43 @@ export const priceFor = (time, duration) => {
   return Math.round(hourly * duration / 60)
 }
 
+export const slotsFromConfiguration = (configuration) => {
+  const hours = configuration?.opening_hours
+  if (!hours || hours.is_closed) return hours?.is_closed ? [] : SLOTS
+  const first = hours.open_minute
+  const last = hours.close_minute
+  const slots = []
+  for (let minute = first; minute + 60 <= last; minute += 60) {
+    slots.push(`${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`)
+  }
+  return slots.length ? slots : SLOTS
+}
+
+export const priceFromConfiguration = (configuration, courtIds, time, duration) => {
+  if (!configuration?.pricing_rules?.length) return priceFor(time, duration) * courtIds.length
+  const startMinute = Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
+  const step = configuration.settings?.slot_minutes || 30
+  const tier = configuration.member?.tier || null
+  const discount = Math.min(100, Math.max(0, Number(configuration.member?.discount_percent || 0)))
+  const amount = courtIds.reduce((courtTotal, courtId) => {
+    let courtAmount = 0
+    for (let offset = 0; offset < duration; offset += step) {
+      const minute = startMinute + offset
+      const rule = configuration.pricing_rules
+        .filter((item) => (!item.court_id || item.court_id === courtId)
+          && (!item.member_tier || item.member_tier === tier)
+          && minute >= item.start_minute && minute < item.end_minute)
+        .sort((left, right) => Number(right.priority || 0) - Number(left.priority || 0)
+          || Number(Boolean(right.court_id)) - Number(Boolean(left.court_id))
+          || Number(Boolean(right.member_tier)) - Number(Boolean(left.member_tier)))[0]
+      if (!rule) return courtTotal + priceFor(time, duration)
+      courtAmount += Number(rule.hourly_rate) * Math.min(step, duration - offset) / 60
+    }
+    return courtTotal + courtAmount
+  }, 0)
+  return Math.round(amount * (1 - discount / 100) * 100) / 100
+}
+
 export const demoSchedule = (dateKey) => [
   { id: 'demo-1', booking_group_id: 'demo-1', court_id: COURTS[0].id, start_at: slotDateTime(dateKey, '10:00'), end_at: slotDateTime(dateKey, '12:00'), status: 'confirmed' },
   { id: 'demo-2', court_id: COURTS[1].id, start_at: slotDateTime(dateKey, '13:00'), end_at: slotDateTime(dateKey, '14:30'), status: 'confirmed' },

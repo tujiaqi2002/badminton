@@ -1,4 +1,4 @@
-import { CalendarDays, Gauge, Globe2, LogOut, ShieldCheck, UserRound } from 'lucide-react'
+import { Building2, CalendarDays, Gauge, Globe2, LogOut, ShieldCheck, UserRound } from 'lucide-react'
 import { useI18n } from '../lib/i18n'
 import ThemeSwitcher from './ThemeSwitcher'
 
@@ -26,6 +26,9 @@ export default function Header({ user, isAdmin, view, onViewChange, onAuth, onSi
           </button>
           <button className={view === 'capacity' ? 'active' : ''} onClick={() => onViewChange('capacity')}>
             <Gauge size={17} /> {t('nav.capacity')}
+          </button>
+          <button className={view === 'operations' ? 'active' : ''} onClick={() => onViewChange('operations')}>
+            <Building2 size={17} /> {t('nav.operations')}
           </button>
         </>}
       </nav>
