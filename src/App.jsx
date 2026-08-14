@@ -23,6 +23,24 @@ const cancellationErrorMessage = (message = '', t) => {
   return t('errors.cancel')
 }
 
+const rescheduleErrorMessage = (message = '', t) => {
+  if (message.includes('already booked')) return t('errors.slotTaken')
+  if (message.includes('already started') || message.includes('start time and court are locked')) return t('errors.inProgressMove')
+  if (message.includes('at least 30 minutes')) return t('errors.inProgressEnd')
+  if (message.includes('already ended')) return t('errors.endedBooking')
+  return t('errors.adminReschedule')
+}
+
+const validateActiveBookingChange = (booking, startAt, endAt, courtId, t) => {
+  const current = venueNow()
+  if (booking.end_at <= current.dateTime) return t('errors.endedBooking')
+  if (booking.start_at > current.dateTime) return null
+  if (startAt !== booking.start_at || courtId !== booking.court_id) return t('errors.inProgressMove')
+  const venueMinimumEnd = venueNow(new Date(Date.now() + 30 * 60_000)).dateTime
+  if (endAt < venueMinimumEnd) return t('errors.inProgressEnd')
+  return null
+}
+
 export default function App() {
   const { courtName, t } = useI18n()
   const { themeDefinition } = useTheme()
@@ -448,7 +466,12 @@ export default function App() {
   const adminRescheduleBooking = async (booking, court, time, duration, targetDate) => {
     const startAt = slotDateTime(targetDate, time)
     const endAt = addMinutes(startAt, duration)
-    if (isPastSlot(targetDate, time)) {
+    const activeChangeError = validateActiveBookingChange(booking, startAt, endAt, court.id, t)
+    if (activeChangeError) {
+      notify(activeChangeError, 'error')
+      return false
+    }
+    if (booking.start_at > venueNow().dateTime && isPastSlot(targetDate, time)) {
       notify(t('errors.pastTime'), 'error')
       return false
     }
@@ -480,7 +503,7 @@ export default function App() {
     })
     setAdminScheduleBusy(false)
     if (error) {
-      notify(t(error.message.includes('already booked') ? 'errors.slotTaken' : 'errors.adminReschedule'), 'error')
+      notify(rescheduleErrorMessage(error.message, t), 'error')
       return false
     }
     notify(t('success.adminReschedule', { name: booking.customer_name }))
@@ -492,7 +515,12 @@ export default function App() {
   const adminRescheduleBookingGroup = async (booking, time, duration, targetDate, anchorCourt = null) => {
     const startAt = slotDateTime(targetDate, time)
     const endAt = addMinutes(startAt, duration)
-    if (isPastSlot(targetDate, time)) {
+    const activeChangeError = validateActiveBookingChange(booking, startAt, endAt, anchorCourt?.id || booking.court_id, t)
+    if (activeChangeError) {
+      notify(activeChangeError, 'error')
+      return false
+    }
+    if (booking.start_at > venueNow().dateTime && isPastSlot(targetDate, time)) {
       notify(t('errors.pastTime'), 'error')
       return false
     }
@@ -538,7 +566,7 @@ export default function App() {
     if (anchorCourt) payload.p_anchor_court_id = anchorCourt.id
     const { error } = await supabase.rpc(rpc, payload)
     setAdminScheduleBusy(false)
-    if (error) { notify(t(error.message.includes('already booked') ? 'errors.slotTaken' : 'errors.adminReschedule'), 'error'); return false }
+    if (error) { notify(rescheduleErrorMessage(error.message, t), 'error'); return false }
     notify(t('success.adminReschedule', { name: booking.customer_name }))
     rememberAdminAction()
     await Promise.all([fetchAdminBookings(), fetchSchedule()])
