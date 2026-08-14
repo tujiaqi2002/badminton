@@ -16,6 +16,12 @@ const durationMinutes = (booking) => Math.round(
 const timeFromMinutes = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
 const ADMIN_DURATIONS = Array.from({ length: 7 }, (_, index) => 60 + index * 30)
 
+const bookingPhaseAtVenue = (booking, nowAtVenue) => {
+  if (booking.end_at <= nowAtVenue.dateTime) return 'ended'
+  if (booking.start_at <= nowAtVenue.dateTime) return 'in-progress'
+  return 'future'
+}
+
 function NewBookingModal({ draft, busy, onClose, onSubmit }) {
   const { courtTitle, t } = useI18n()
   const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '', duration: draft.duration || 60, partySize: 2, courts: draft.courts || [draft.court], recurring: false, weekCount: 4 })
@@ -100,6 +106,31 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   const currentLineOffset = dateKey === nowAtVenue.dateKey && nowAtVenue.minutes >= OPEN_MINUTES && nowAtVenue.minutes <= 24 * 60
     ? (nowAtVenue.minutes - OPEN_MINUTES) / 30
     : null
+  const multiCourtGroups = useMemo(() => {
+    const groups = new Map()
+    dayBookings.forEach((booking) => {
+      if (!booking.booking_group_id) return
+      const rows = groups.get(booking.booking_group_id) || []
+      rows.push(booking)
+      groups.set(booking.booking_group_id, rows)
+    })
+    return [...groups.entries()].flatMap(([id, rows]) => {
+      if (rows.length < 2) return []
+      const courtIndexes = rows.map((booking) => COURTS.findIndex((court) => court.id === booking.court_id)).filter((index) => index >= 0)
+      if (courtIndexes.length < 2) return []
+      const anchor = rows[0]
+      const startMinutes = Number(timeFromDateTime(anchor.start_at).slice(0, 2)) * 60 + Number(timeFromDateTime(anchor.start_at).slice(3))
+      const resizingThisGroup = resizeDrag && (resizeDrag.booking.booking_group_id || resizeDrag.booking.id) === id
+      return [{
+        id,
+        count: rows.length,
+        firstCourt: Math.min(...courtIndexes),
+        lastCourt: Math.max(...courtIndexes),
+        start: (startMinutes - OPEN_MINUTES) / 30,
+        span: (resizingThisGroup ? resizeDrag.duration : durationMinutes(anchor)) / 30,
+      }]
+    })
+  }, [dayBookings, resizeDrag])
   const quickDays = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const date = addDays(new Date(`${weekStart}T12:00:00`), index)
     return {
@@ -309,7 +340,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       const deltaSlots = Math.round((event.clientY - resizeDrag.startY) / 26)
       const startMinutes = Number(timeFromDateTime(resizeDrag.booking.start_at).slice(0, 2)) * 60 + Number(timeFromDateTime(resizeDrag.booking.start_at).slice(3))
       const maxDuration = Math.min(240, 24 * 60 - startMinutes)
-      const duration = Math.max(60, Math.min(maxDuration, resizeDrag.initialDuration + deltaSlots * 30))
+      const duration = Math.max(resizeDrag.minimumDuration, Math.min(maxDuration, resizeDrag.initialDuration + deltaSlots * 30))
       setResizeDrag((current) => ({ ...current, duration }))
     }
     const up = async () => {
@@ -434,6 +465,15 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
         <div className="admin-schedule-scroll">
           <div className="admin-schedule-grid">
           {currentLineOffset !== null && <div className="admin-now-line" style={{ '--now-top': `${64 + currentLineOffset * 26}px` }} aria-label={t('admin.schedule.nowLine', { time: nowAtVenue.time })}><span>{t('admin.schedule.now')} {nowAtVenue.time}</span></div>}
+          {multiCourtGroups.map((group) => (
+            <div
+              className="admin-booking-group-rail"
+              style={{ '--group-first': group.firstCourt, '--group-last': group.lastCourt, '--group-start': group.start, '--group-span': group.span }}
+              aria-label={t('admin.schedule.multiCourtLinked', { count: group.count })}
+              data-label={t('admin.schedule.multiCourtLinked', { count: group.count })}
+              key={group.id}
+            />
+          ))}
           <div className="admin-schedule-corner"><Clock3 size={14} /></div>
           {COURTS.map((court) => <div className={`admin-schedule-court ${court.tone}`} key={court.id}><span>{court.name}</span><strong>{courtTitle(court)}</strong></div>)}
           <div className="admin-schedule-times">
@@ -480,11 +520,19 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                 const startMinutes = Number(timeFromDateTime(booking.start_at).slice(0, 2)) * 60 + Number(timeFromDateTime(booking.start_at).slice(3))
                 const offset = startMinutes - OPEN_MINUTES
                 const groupSize = dayBookings.filter((item) => (item.booking_group_id || item.id) === (booking.booking_group_id || booking.id)).length
-                const minutes = resizeDrag?.booking.id === booking.id ? resizeDrag.duration : durationMinutes(booking)
-                const bookingPast = isPastSlot(booking.start_at.slice(0, 10), timeFromDateTime(booking.start_at), now)
+                const bookingGroupKey = booking.booking_group_id || booking.id
+                const resizeGroupKey = resizeDrag ? (resizeDrag.booking.booking_group_id || resizeDrag.booking.id) : null
+                const minutes = resizeGroupKey === bookingGroupKey ? resizeDrag.duration : durationMinutes(booking)
+                const bookingPhase = bookingPhaseAtVenue(booking, nowAtVenue)
+                const canMove = bookingPhase === 'future'
+                const nowSeconds = Number(nowAtVenue.dateTime.slice(17, 19))
+                const minimumEndMinutes = Math.ceil((nowAtVenue.minutes + 30 + (nowSeconds > 0 ? 1 / 60 : 0)) / 30) * 30
+                const minimumResizeDuration = bookingPhase === 'in-progress' ? Math.max(60, minimumEndMinutes - startMinutes) : 60
+                const maximumResizeDuration = Math.min(240, 24 * 60 - startMinutes)
+                const canResize = bookingPhase !== 'ended' && minimumResizeDuration <= maximumResizeDuration
                 return (
                   <article
-                    className={`admin-schedule-booking ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
+                    className={`admin-schedule-booking ${bookingPhase} ${groupSize > 1 ? 'grouped' : ''} ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
                     draggable={false}
                     onDragStart={(event) => event.preventDefault()}
                     role="button"
@@ -498,7 +546,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                     }}
                     onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedBooking((current) => current?.id === booking.id ? null : booking) } }}
                     onPointerDown={(event) => {
-                      if (event.button !== 0 || busy) return
+                      if (event.button !== 0 || busy || !canMove) return
                       event.preventDefault()
                       window.getSelection()?.removeAllRanges()
                       event.currentTarget.setPointerCapture?.(event.pointerId)
@@ -510,11 +558,11 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                     }}
                     style={{ '--start': offset / 30, '--span': minutes / 30 }}
                     key={booking.id}
-                    title={t('admin.schedule.dragTitle', { name: booking.customer_name })}
+                    title={t(canMove ? 'admin.schedule.dragTitle' : bookingPhase === 'in-progress' ? 'admin.schedule.inProgressResizeTitle' : 'admin.schedule.endedReadOnly', { name: booking.customer_name })}
                   >
-                    <GripVertical size={14} />
-                    <div><strong>{booking.customer_name}{groupSize > 1 ? ` · ${groupSize}×` : ''}</strong><span>{timeFromDateTime(booking.start_at)}–{resizeDrag?.booking.id === booking.id ? timeFromMinutes(startMinutes + minutes) : endTimeFromDateTime(booking.start_at, booking.end_at)}</span><small className={`admin-booking-payment ${booking.payment_status === 'paid' ? 'paid' : 'unpaid'}`}>{t(booking.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.paymentUnpaid')}</small></div>
-                    {!bookingPast && <button className="admin-resize-handle" aria-label={t('admin.schedule.resize')} title={t('admin.schedule.resize')} onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); event.preventDefault(); setResizeDrag({ booking, startY: event.clientY, initialDuration: durationMinutes(booking), duration: durationMinutes(booking), groupSize }) }} />}
+                    {canMove ? <GripVertical size={14} /> : <Clock3 className="admin-booking-state-icon" size={14} />}
+                    <div><strong>{booking.customer_name}{groupSize > 1 ? ` · ${t('admin.schedule.multiCourtShort', { count: groupSize })}` : ''}</strong><span>{timeFromDateTime(booking.start_at)}–{resizeGroupKey === bookingGroupKey ? timeFromMinutes(startMinutes + minutes) : endTimeFromDateTime(booking.start_at, booking.end_at)}</span><small className={`admin-booking-payment ${booking.payment_status === 'paid' ? 'paid' : 'unpaid'}`}>{t(booking.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.paymentUnpaid')}</small></div>
+                    {canResize && <button className="admin-resize-handle" aria-label={t('admin.schedule.resize')} title={t('admin.schedule.resize')} onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); event.preventDefault(); setResizeDrag({ booking, startY: event.clientY, initialDuration: durationMinutes(booking), duration: durationMinutes(booking), minimumDuration: minimumResizeDuration, groupSize }) }} />}
                   </article>
                 )
               })}
