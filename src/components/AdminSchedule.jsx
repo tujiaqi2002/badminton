@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Link2, Pencil, PhoneCall, Repeat2, Save, Trash2, X } from 'lucide-react'
+import { AlertTriangle, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Link2, MessageSquareText, Pencil, PhoneCall, Repeat2, Save, Trash2, X } from 'lucide-react'
 import { addDays, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
@@ -355,17 +355,6 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
         setSelectedBooking(null)
       }}
     >
-      <header>
-        <div>
-          <span className="eyebrow"><GripVertical size={13} /> {t('admin.schedule.eyebrow')}</span>
-          <h2>{t('admin.schedule.title')}</h2>
-          <p>{t('admin.schedule.description')}</p>
-        </div>
-        <div className="admin-schedule-date">
-          <label><strong>{dayLabel}</strong><input type="date" value={dateKey} onChange={(event) => selectDate(event.target.value)} /></label>
-        </div>
-      </header>
-
       <section className={`admin-schedule-inspector ${activeSelection ? 'has-booking' : ''}`} aria-live="polite">
         {activeSelection ? (
           <>
@@ -425,6 +414,10 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       <div className="admin-schedule-workbench">
         <aside className="admin-schedule-side admin-schedule-side-left">
           <div className="admin-schedule-day-strip" aria-label={t('admin.schedule.quickDays')}>
+            <div className="admin-schedule-date admin-schedule-date-inline">
+              <label><strong>{dayLabel}</strong><input type="date" value={dateKey} onChange={(event) => selectDate(event.target.value)} /></label>
+            </div>
+            <button className="today-nav" onClick={() => selectDate(nowAtVenue.dateKey)} aria-label={t('admin.schedule.goToday')}><CalendarDays size={15} /><small>{t('admin.today')}</small></button>
             <button className="week-nav" onClick={() => moveWeek(-1)} aria-label={t('admin.schedule.previousWeek')}><ChevronLeft size={18} /><small>{t('admin.schedule.previousWeekShort')}</small></button>
             {quickDays.map((day) => (
               <button
@@ -442,7 +435,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
         </aside>
         <div className="admin-schedule-scroll">
           <div className="admin-schedule-grid">
-          {currentLineOffset !== null && <div className="admin-now-line" style={{ '--now-top': `${64 + currentLineOffset * 26}px` }} aria-label={t('admin.schedule.nowLine', { time: nowAtVenue.time })}><span>{t('admin.schedule.now')} {nowAtVenue.time}</span></div>}
+          {currentLineOffset !== null && <div className="admin-now-line" style={{ '--now-top': `${50 + currentLineOffset * 26}px` }} aria-label={t('admin.schedule.nowLine', { time: nowAtVenue.time })}><span>{t('admin.schedule.now')} {nowAtVenue.time}</span></div>}
           <div className="admin-schedule-corner"><Clock3 size={14} /></div>
           {COURTS.map((court) => <div className={`admin-schedule-court ${court.tone}`} key={court.id}><span>{court.name}</span><strong>{courtTitle(court)}</strong></div>)}
           <div className="admin-schedule-times">
@@ -531,7 +524,14 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                     title={t(canMove ? 'admin.schedule.dragTitle' : bookingPhase === 'in-progress' ? 'admin.schedule.inProgressResizeTitle' : 'admin.schedule.endedReadOnly', { name: booking.customer_name })}
                   >
                     {canMove ? <GripVertical size={14} /> : <Clock3 className="admin-booking-state-icon" size={14} />}
-                    <div><strong>{booking.customer_name}</strong><span>{timeFromDateTime(booking.start_at)}–{resizeGroupKey === bookingGroupKey ? timeFromMinutes(startMinutes + minutes) : endTimeFromDateTime(booking.start_at, booking.end_at)}</span><small className={`admin-booking-payment ${booking.payment_status === 'paid' ? 'paid' : 'unpaid'}`}>{t(booking.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.paymentUnpaid')}</small></div>
+                    <div>
+                      <strong>{booking.customer_name}</strong>
+                      <span>{timeFromDateTime(booking.start_at)}–{resizeGroupKey === bookingGroupKey ? timeFromMinutes(startMinutes + minutes) : endTimeFromDateTime(booking.start_at, booking.end_at)}</span>
+                      <span className="admin-booking-tags">
+                        <small className={`admin-booking-payment ${booking.payment_status === 'paid' ? 'paid' : 'unpaid'}`}>{t(booking.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.paymentUnpaid')}</small>
+                        {booking.customer_notes?.trim() && <small className="admin-booking-note" title={booking.customer_notes}><MessageSquareText size={8} /> {t('admin.schedule.hasNote')}</small>}
+                      </span>
+                    </div>
                     {indicatorCount > 0 && <span className="admin-booking-indicators">
                       {groupSize > 1 && <span className="admin-booking-indicator" title={t('admin.schedule.multiCourtLinked', { count: groupSize })}><Link2 size={12} /></span>}
                       {booking.recurrence_series_id && <span className="admin-booking-indicator" title={t('admin.schedule.recurrenceCard', { count: booking.recurrence_week })}><Repeat2 size={12} /></span>}
