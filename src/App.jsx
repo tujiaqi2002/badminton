@@ -14,6 +14,44 @@ import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from
 import { useTheme } from './lib/theme'
 
 const todayKey = () => venueNow().dateKey
+const defaultAdminOrderFilters = () => ({
+  start: todayKey(),
+  end: todayKey(),
+  query: '',
+  bookingStatus: 'not_cancelled',
+  paymentStatus: 'all',
+})
+
+const emptyAdminOrderSummary = { results: 0, total_minutes: 0, customers: 0, today: 0 }
+
+const filterDemoAdminOrders = (bookings, filters) => {
+  const normalizedQuery = filters.query.trim().toLowerCase()
+  return bookings.filter((booking) => {
+    const bookingDate = booking.start_at.slice(0, 10)
+    const court = COURTS.find((item) => item.id === booking.court_id)
+    const matchesQuery = !normalizedQuery || [
+      booking.customer_name,
+      booking.customer_email,
+      booking.customer_phone,
+      booking.customer_notes,
+      court?.name,
+      court?.english,
+      court?.note,
+    ].some((value) => value?.toLowerCase().includes(normalizedQuery))
+    const matchesBookingStatus = filters.bookingStatus === 'all'
+      || (filters.bookingStatus === 'not_cancelled' && booking.status !== 'cancelled')
+      || booking.status === filters.bookingStatus
+    const matchesPaymentStatus = filters.paymentStatus === 'all'
+      || (filters.paymentStatus === 'unpaid' && ['pending', 'pay_at_venue'].includes(booking.payment_status))
+      || booking.payment_status === filters.paymentStatus
+    return bookingDate >= filters.start
+      && bookingDate <= filters.end
+      && matchesQuery
+      && matchesBookingStatus
+      && matchesPaymentStatus
+  }).sort((left, right) => left.start_at.localeCompare(right.start_at) || left.id.localeCompare(right.id))
+}
+
 const cancellationErrorMessage = (message = '', t) => {
   if (message.includes('within 12 hours')) return t('errors.cancelWindow')
   if (message.includes('does not belong to you')) return t('errors.notOwner')
@@ -49,6 +87,9 @@ export default function App() {
   const [schedule, setSchedule] = useState(() => demoSchedule(todayKey()))
   const [bookings, setBookings] = useState([])
   const [adminBookings, setAdminBookings] = useState([])
+  const [adminOrderBookings, setAdminOrderBookings] = useState([])
+  const [adminOrderSummary, setAdminOrderSummary] = useState(emptyAdminOrderSummary)
+  const [adminOrderFilters, setAdminOrderFilters] = useState(defaultAdminOrderFilters)
   const [adminRange, setAdminRange] = useState(() => {
     const start = mondayOfWeek(todayKey())
     return { start, end: toDateKey(addDays(new Date(`${start}T12:00:00`), 6)) }
@@ -62,6 +103,7 @@ export default function App() {
   const [loadingSchedule, setLoadingSchedule] = useState(false)
   const [loadingBookings, setLoadingBookings] = useState(false)
   const [loadingAdminBookings, setLoadingAdminBookings] = useState(false)
+  const [loadingAdminOrders, setLoadingAdminOrders] = useState(false)
   const [adminCancellingId, setAdminCancellingId] = useState(null)
   const [adminScheduleBusy, setAdminScheduleBusy] = useState(false)
   const [adminUndoDepth, setAdminUndoDepth] = useState(0)
@@ -70,6 +112,7 @@ export default function App() {
   const [revertingAuditOperationId, setRevertingAuditOperationId] = useState(null)
   const [adminFocus, setAdminFocus] = useState(null)
   const adminDemoHistory = useRef([])
+  const adminOrderRequestRef = useRef(0)
   const authUserIdRef = useRef(null)
   const adminLandingUserRef = useRef(null)
   const [busy, setBusy] = useState(false)
@@ -185,6 +228,46 @@ export default function App() {
     else setAdminBookings(data)
   }, [adminRange, isAdmin, user, notify, t])
 
+  const fetchAdminOrderBookings = useCallback(async () => {
+    const requestId = adminOrderRequestRef.current + 1
+    adminOrderRequestRef.current = requestId
+    if (!user || !isAdmin) {
+      setLoadingAdminOrders(false)
+      setAdminOrderBookings([])
+      setAdminOrderSummary(emptyAdminOrderSummary)
+      return
+    }
+    if (!isSupabaseConfigured) {
+      const matches = filterDemoAdminOrders(adminBookings, adminOrderFilters)
+      const today = todayKey()
+      setAdminOrderBookings(matches.slice(0, 50))
+      setAdminOrderSummary({
+        results: matches.length,
+        total_minutes: matches.reduce((sum, booking) => sum + Math.round((new Date(booking.end_at) - new Date(booking.start_at)) / 60_000), 0),
+        customers: new Set(matches.map((booking) => booking.customer_email || booking.customer_phone || booking.customer_name)).size,
+        today: matches.filter((booking) => booking.start_at.startsWith(today)).length,
+      })
+      return
+    }
+    setLoadingAdminOrders(true)
+    const { data, error } = await supabase.rpc('admin_search_bookings', {
+      p_start_date: adminOrderFilters.start,
+      p_end_date: adminOrderFilters.end,
+      p_query: adminOrderFilters.query,
+      p_booking_status: adminOrderFilters.bookingStatus,
+      p_payment_status: adminOrderFilters.paymentStatus,
+      p_limit: 50,
+    })
+    if (requestId !== adminOrderRequestRef.current) return
+    setLoadingAdminOrders(false)
+    if (error) {
+      notify(t('errors.adminOrderSearch'), 'error')
+      return
+    }
+    setAdminOrderBookings(data?.items || [])
+    setAdminOrderSummary(data?.summary || emptyAdminOrderSummary)
+  }, [adminBookings, adminOrderFilters, isAdmin, notify, t, user])
+
   const fetchAdminAuditOperations = useCallback(async () => {
     if (!user || !isAdmin) {
       setAdminAuditOperations([])
@@ -240,6 +323,7 @@ export default function App() {
   useEffect(() => { if (view === 'mine') fetchBookings() }, [view, fetchBookings])
   useEffect(() => { fetchAdminAccess() }, [fetchAdminAccess])
   useEffect(() => { if (view === 'admin' || view === 'capacity') fetchAdminBookings() }, [view, fetchAdminBookings])
+  useEffect(() => { if (view === 'admin') fetchAdminOrderBookings() }, [view, fetchAdminOrderBookings])
   useEffect(() => { if (view === 'admin') fetchAdminAuditOperations() }, [view, fetchAdminAuditOperations])
   useEffect(() => {
     if (!user) {
@@ -420,7 +504,7 @@ export default function App() {
 
     notify(t('success.adminCancel'))
     rememberAdminAction()
-    await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchBookings(), fetchAdminAuditOperations()])
+    await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchSchedule(), fetchBookings(), fetchAdminAuditOperations()])
   }
 
   const adminCreateBooking = async (details) => {
@@ -507,7 +591,7 @@ export default function App() {
     }
     if ((createdRows?.length || 0) > 0) rememberAdminAction()
     notify(t(details.recurring ? 'success.adminRecurringCreate' : 'success.adminCreate', { count: details.weekCount }))
-    await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchAdminAuditOperations()])
+    await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchSchedule(), fetchAdminAuditOperations()])
     return { saved: true }
   }
 
@@ -556,7 +640,7 @@ export default function App() {
     }
     notify(t('success.adminReschedule', { name: booking.customer_name }))
     rememberAdminAction()
-    await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchAdminAuditOperations()])
+    await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchSchedule(), fetchAdminAuditOperations()])
     return { saved: true }
   }
 
@@ -617,7 +701,7 @@ export default function App() {
     if (error) { notify(rescheduleErrorMessage(error.message, t), 'error'); return false }
     notify(t('success.adminReschedule', { name: booking.customer_name }))
     rememberAdminAction()
-    await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchAdminAuditOperations()])
+    await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchSchedule(), fetchAdminAuditOperations()])
     return { saved: true }
   }
 
@@ -650,7 +734,7 @@ export default function App() {
       return false
     }
     notify(t('success.adminUndo'))
-    await Promise.all([fetchAdminBookings(), fetchSchedule(), fetchAdminAuditOperations()])
+    await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchSchedule(), fetchAdminAuditOperations()])
     return true
   }
 
@@ -691,7 +775,7 @@ export default function App() {
     }
     setAdminBookings((current) => current.map(update))
     notify(t('success.adminDetails'))
-    await Promise.all([fetchAdminBookings(), fetchAdminAuditOperations()])
+    await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchAdminAuditOperations()])
     return true
   }
 
@@ -737,6 +821,9 @@ export default function App() {
     setIsAdmin(false)
     setAdminAccessReady(true)
     setAdminBookings([])
+    setAdminOrderBookings([])
+    setAdminOrderSummary(emptyAdminOrderSummary)
+    setAdminOrderFilters(defaultAdminOrderFilters())
     setAdminAuditOperations([])
     setAdminUndoDepth(0)
     setView('book')
@@ -803,6 +890,11 @@ export default function App() {
         <AdminBookings
           bookings={adminBookings}
           loading={loadingAdminBookings}
+          orderBookings={adminOrderBookings}
+          orderSummary={adminOrderSummary}
+          orderFilters={adminOrderFilters}
+          onOrderFiltersChange={setAdminOrderFilters}
+          loadingOrders={loadingAdminOrders}
           startDate={adminRange.start}
           endDate={adminRange.end}
           onRangeChange={setAdminRange}
