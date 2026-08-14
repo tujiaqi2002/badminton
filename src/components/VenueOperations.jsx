@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
   BadgeDollarSign,
   Building2,
+  CalendarDays,
   CalendarClock,
   ChevronLeft,
   ChevronRight,
@@ -21,7 +22,7 @@ import {
   UsersRound,
   X,
 } from 'lucide-react'
-import { COURTS, venueNow } from '../lib/booking'
+import { addDays, COURTS, toDateKey, venueNow } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 
@@ -45,6 +46,7 @@ const COPY = {
     weekday: '星期', startTime: '开始时间', endTime: '结束时间', hourlyRate: '每小时价格', memberTier: '会员等级', priority: '优先级', active: '启用', effective: '有效日期', noLimit: '不限',
     eventsTitle: '活动与特殊安排', eventsHelp: '可记录比赛、维护、包场和闭馆；阻止预订的活动会检查已有订单冲突。', addEvent: '新增活动',
     titleZh: '中文标题', titleEn: '英文标题', description: '说明', eventType: '类型', status: '状态', startsAt: '开始', endsAt: '结束', blocksBooking: '阻止新的预订', eventCourts: '适用场地（不选代表全馆）', conflicts: '与 {{count}} 笔有效预订冲突',
+    eventFormHelp: '安排比赛、包场、维护或闭馆，并同步显示在预定管理日历中。', chooseDate: '选择日期', chooseTime: '选择时间', previousMonth: '上个月', nextMonth: '下个月', today: '今天', color: '标记颜色',
     scheduled: '已排期', draft: '草稿', completed: '已完成', cancelled: '已取消', special_event: '特别活动', tournament: '比赛', maintenance: '维护', private_event: '包场', promotion: '推广活动', closure: '闭馆',
     membersTitle: '会员查询', membersHelp: '会员资料与登录账号分离，未来可继续接入积分、套餐、余额和门禁。', addMember: '新增会员', searchMember: '搜索姓名、会员号、电话或邮箱', allStatuses: '全部状态',
     memberNumber: '会员号', memberName: '姓名', contact: '联系方式', tier: '等级', discount: '折扣', joined: '加入日期', expires: '到期日期', statusLabel: '状态', memberNotes: '会员备注', paused: '暂停', expired: '已过期',
@@ -72,6 +74,7 @@ const COPY = {
     weekday: 'Weekday', startTime: 'Start', endTime: 'End', hourlyRate: 'Hourly rate', memberTier: 'Member tier', priority: 'Priority', active: 'Active', effective: 'Effective dates', noLimit: 'No limit',
     eventsTitle: 'Events and exceptions', eventsHelp: 'Track tournaments, maintenance, private events and closures. Blocking events are checked against live bookings.', addEvent: 'Add event',
     titleZh: 'Chinese title', titleEn: 'English title', description: 'Description', eventType: 'Type', status: 'Status', startsAt: 'Starts', endsAt: 'Ends', blocksBooking: 'Block new bookings', eventCourts: 'Courts (none means entire venue)', conflicts: 'Conflicts with {{count}} active bookings',
+    eventFormHelp: 'Schedule tournaments, private events, maintenance or closures and show them on the booking calendar.', chooseDate: 'Choose date', chooseTime: 'Choose time', previousMonth: 'Previous month', nextMonth: 'Next month', today: 'Today', color: 'Marker color',
     scheduled: 'Scheduled', draft: 'Draft', completed: 'Completed', cancelled: 'Cancelled', special_event: 'Special event', tournament: 'Tournament', maintenance: 'Maintenance', private_event: 'Private event', promotion: 'Promotion', closure: 'Closure',
     membersTitle: 'Member directory', membersHelp: 'Member records stay separate from login accounts and can later support passes, points, balances and access control.', addMember: 'Add member', searchMember: 'Search name, member number, phone or email', allStatuses: 'All statuses',
     memberNumber: 'Member no.', memberName: 'Name', contact: 'Contact', tier: 'Tier', discount: 'Discount', joined: 'Joined', expires: 'Expires', statusLabel: 'Status', memberNotes: 'Member notes', paused: 'Paused', expired: 'Expired',
@@ -91,23 +94,22 @@ const minuteToTime = (minute) => minute === 1440
   ? '24:00'
   : `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`
 const timeToMinute = (time) => time === '24:00' ? 1440 : Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
+const addLocalMinutes = (value, minutes) => {
+  const date = new Date(`${value}:00`)
+  date.setMinutes(date.getMinutes() + minutes)
+  return `${toDateKey(date)}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
 const dateInput = (date = new Date()) => {
   const copy = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
   return copy.toISOString().slice(0, 10)
-}
-const dateTimeInput = (date = new Date()) => {
-  const copy = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
-  copy.setMinutes(Math.ceil(copy.getMinutes() / 30) * 30, 0, 0)
-  return copy.toISOString().slice(0, 16)
 }
 const emptyPricingRule = () => ({
   name_zh: '', name_en: '', court_id: '', day_of_week: '', start_minute: 600,
   end_minute: 1440, hourly_rate: 28, member_tier: '', valid_from: '', valid_to: '', priority: 100, is_active: true,
 })
 const emptyEvent = () => {
-  const start = new Date(Date.now() + 24 * 60 * 60_000)
-  const end = new Date(start.getTime() + 2 * 60 * 60_000)
-  return { title_zh: '', title_en: '', description: '', event_type: 'special_event', status: 'scheduled', starts_at: dateTimeInput(start), ends_at: dateTimeInput(end), blocks_booking: false, color: 'ink', court_ids: [] }
+  const tomorrow = toDateKey(addDays(new Date(`${venueNow().dateKey}T12:00:00`), 1))
+  return { title_zh: '', title_en: '', description: '', event_type: 'special_event', status: 'scheduled', starts_at: `${tomorrow}T10:00`, ends_at: `${tomorrow}T12:00`, blocks_booking: false, color: 'ink', court_ids: [] }
 }
 const emptyMember = () => ({
   member_number: '', display_name: '', email: '', phone: '', tier: 'standard', status: 'active',
@@ -128,6 +130,82 @@ function Modal({ title, onClose, children, wide = false }) {
       {children}
     </section>
   </div>
+}
+
+const EVENT_TIMES = Array.from({ length: 28 }, (_, index) => minuteToTime(600 + index * 30))
+
+function EventDateTimeField({ label, value, minValue = '', locale, c, onChange }) {
+  const rootRef = useRef(null)
+  const [open, setOpen] = useState(false)
+  const dateKey = value.slice(0, 10)
+  const time = value.slice(11, 16)
+  const [monthCursor, setMonthCursor] = useState(() => {
+    const selected = new Date(`${dateKey}T12:00:00`)
+    return new Date(selected.getFullYear(), selected.getMonth(), 1, 12)
+  })
+
+  useEffect(() => {
+    const selected = new Date(`${dateKey}T12:00:00`)
+    setMonthCursor(new Date(selected.getFullYear(), selected.getMonth(), 1, 12))
+  }, [dateKey])
+
+  useEffect(() => {
+    if (!open) return undefined
+    const closeOutside = (event) => { if (!rootRef.current?.contains(event.target)) setOpen(false) }
+    const closeOnEscape = (event) => { if (event.key === 'Escape') setOpen(false) }
+    document.addEventListener('pointerdown', closeOutside)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
+
+  const calendarDays = useMemo(() => {
+    const firstDayOffset = (monthCursor.getDay() + 6) % 7
+    const firstCell = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1 - firstDayOffset, 12)
+    return Array.from({ length: 42 }, (_, index) => addDays(firstCell, index))
+  }, [monthCursor])
+  const weekdays = useMemo(() => Array.from({ length: 7 }, (_, index) => (
+    new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(addDays(new Date('2026-08-10T12:00:00'), index))
+  )), [locale])
+  const timeOptions = useMemo(() => [...new Set([...EVENT_TIMES, time])].filter(Boolean).sort(), [time])
+  const selectedLabel = new Intl.DateTimeFormat(locale, { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(`${dateKey}T12:00:00`))
+  const monthLabel = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long' }).format(monthCursor)
+  const todayKey = venueNow().dateKey
+  const minimumDate = minValue.slice(0, 10)
+  const chooseDate = (key) => {
+    let next = `${key}T${time}`
+    if (minValue && next <= minValue) {
+      const minimumTime = minValue.slice(11, 16)
+      const nextTime = EVENT_TIMES.find((item) => item > minimumTime) || '23:30'
+      next = `${key}T${nextTime}`
+    }
+    onChange(next)
+    setOpen(false)
+  }
+
+  return <label className="operations-datetime-field">
+    <span>{label}</span>
+    <div className="operations-datetime-control" ref={rootRef}>
+      <button type="button" className="operations-date-trigger" onClick={() => setOpen((current) => !current)} aria-haspopup="dialog" aria-expanded={open}>
+        <CalendarDays size={15} /><span><strong>{selectedLabel}</strong><small>{dateKey.replaceAll('-', '.')}</small></span>
+      </button>
+      <div className="operations-time-select"><Clock3 size={14} /><select aria-label={`${label} · ${c.chooseTime}`} value={time} onChange={(event) => onChange(`${dateKey}T${event.target.value}`)}>
+        {timeOptions.map((item) => <option key={item} value={item} disabled={Boolean(minValue && dateKey === minimumDate && `${dateKey}T${item}` <= minValue)}>{item}</option>)}
+      </select></div>
+      {open && <div className="admin-calendar-popover operations-calendar-popover" role="dialog" aria-label={`${label} · ${c.chooseDate}`}>
+        <header><button type="button" onClick={() => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1, 12))} aria-label={c.previousMonth}><ChevronLeft size={17} /></button><strong>{monthLabel}</strong><button type="button" onClick={() => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1, 12))} aria-label={c.nextMonth}><ChevronRight size={17} /></button></header>
+        <div className="admin-calendar-weekdays" aria-hidden="true">{weekdays.map((weekday, index) => <span key={`${weekday}-${index}`}>{weekday}</span>)}</div>
+        <div className="admin-calendar-days">{calendarDays.map((date) => {
+          const key = toDateKey(date)
+          const disabled = Boolean(minimumDate && key < minimumDate)
+          return <button type="button" disabled={disabled} className={`${key === dateKey ? 'selected' : ''} ${key === todayKey ? 'today' : ''} ${date.getMonth() !== monthCursor.getMonth() ? 'outside' : ''}`} onClick={() => chooseDate(key)} key={key}>{date.getDate()}</button>
+        })}</div>
+        <button type="button" className="admin-calendar-today" disabled={Boolean(minimumDate && todayKey < minimumDate)} onClick={() => chooseDate(todayKey)}><CalendarDays size={13} /> {c.today}</button>
+      </div>}
+    </div>
+  </label>
 }
 
 export default function VenueOperations({ onNotify }) {
@@ -251,7 +329,7 @@ export default function VenueOperations({ onNotify }) {
 
   const todayDow = new Date(`${venueNow().dateKey}T12:00:00`).getDay()
   const todayHours = data?.hours?.find((item) => item.day_of_week === todayDow)
-  const upcoming = (data?.events || []).filter((item) => item.status === 'scheduled' && item.ends_at >= venueNow().dateTime)
+  const upcoming = (data?.events || []).filter((item) => item.status === 'scheduled' && item.ends_at?.slice(0, 19) >= venueNow().dateTime)
   const activeRules = (data?.pricing_rules || []).filter((item) => item.is_active)
   const formatDateTime = (value) => value ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '—'
   const formatDate = (value) => value ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(`${value}T12:00:00`)) : '—'
@@ -393,12 +471,13 @@ export default function VenueOperations({ onNotify }) {
       </div><footer><button type="button" onClick={() => setPricingForm(null)}>{c.cancel}</button><button className="operations-primary" disabled={busy}><Save size={14} />{busy ? c.saving : c.save}</button></footer>
     </form></Modal>}
 
-    {eventForm && <Modal title={eventForm.id ? c.edit : c.addEvent} onClose={() => setEventForm(null)} wide><form className="operations-form" onSubmit={saveEvent}>
-      <div className="operations-form-grid"><label><span>{c.titleZh}</span><input required value={eventForm.title_zh} onChange={(e) => setEventForm({ ...eventForm, title_zh: e.target.value })} /></label><label><span>{c.titleEn}</span><input required value={eventForm.title_en} onChange={(e) => setEventForm({ ...eventForm, title_en: e.target.value })} /></label>
+    {eventForm && <Modal title={eventForm.id ? c.edit : c.addEvent} onClose={() => setEventForm(null)} wide><form className="operations-form operations-event-form" onSubmit={saveEvent}>
+      <div className="operations-form-grid"><div className="event-form-intro full"><span><CalendarClock size={18} /></span><div><strong>{eventForm.id ? c.edit : c.addEvent}</strong><p>{c.eventFormHelp}</p></div></div><label><span>{c.titleZh}</span><input required value={eventForm.title_zh} onChange={(e) => setEventForm({ ...eventForm, title_zh: e.target.value })} /></label><label><span>{c.titleEn}</span><input required value={eventForm.title_en} onChange={(e) => setEventForm({ ...eventForm, title_en: e.target.value })} /></label>
         <label><span>{c.eventType}</span><select value={eventForm.event_type} onChange={(e) => setEventForm({ ...eventForm, event_type: e.target.value })}>{EVENT_TYPES.map((type) => <option key={type} value={type}>{eventLabel(type)}</option>)}</select></label><label><span>{c.status}</span><select value={eventForm.status} onChange={(e) => setEventForm({ ...eventForm, status: e.target.value })}>{['draft', 'scheduled', 'completed', 'cancelled'].map((status) => <option key={status} value={status}>{eventLabel(status)}</option>)}</select></label>
-        <label><span>{c.startsAt}</span><input type="datetime-local" required value={eventForm.starts_at} onChange={(e) => setEventForm({ ...eventForm, starts_at: e.target.value })} /></label><label><span>{c.endsAt}</span><input type="datetime-local" required min={eventForm.starts_at} value={eventForm.ends_at} onChange={(e) => setEventForm({ ...eventForm, ends_at: e.target.value })} /></label>
+        <EventDateTimeField label={c.startsAt} value={eventForm.starts_at} locale={locale} c={c} onChange={(value) => setEventForm((current) => ({ ...current, starts_at: value, ends_at: current.ends_at <= value ? addLocalMinutes(value, 60) : current.ends_at }))} />
+        <EventDateTimeField label={c.endsAt} value={eventForm.ends_at} minValue={eventForm.starts_at} locale={locale} c={c} onChange={(value) => setEventForm({ ...eventForm, ends_at: value })} />
         <fieldset className="court-checks"><legend>{c.eventCourts}</legend>{COURTS.map((court) => <label key={court.id}><input type="checkbox" checked={eventForm.court_ids?.includes(court.id)} onChange={(e) => setEventForm({ ...eventForm, court_ids: e.target.checked ? [...(eventForm.court_ids || []), court.id] : (eventForm.court_ids || []).filter((id) => id !== court.id) })} /><span>{language === 'zh' ? court.name : court.english}</span></label>)}</fieldset>
-        <label className="check-field"><input type="checkbox" checked={eventForm.blocks_booking} onChange={(e) => setEventForm({ ...eventForm, blocks_booking: e.target.checked })} /><span>{c.blocksBooking}</span></label><label><span>Color</span><select value={eventForm.color} onChange={(e) => setEventForm({ ...eventForm, color: e.target.value })}>{EVENT_COLORS.map((color) => <option key={color} value={color}>{color}</option>)}</select></label>
+        <label className="check-field"><input type="checkbox" checked={eventForm.blocks_booking} onChange={(e) => setEventForm({ ...eventForm, blocks_booking: e.target.checked })} /><span>{c.blocksBooking}</span></label><fieldset className="event-color-picker"><legend>{c.color}</legend>{EVENT_COLORS.map((color) => <label className={eventForm.color === color ? 'selected' : ''} key={color}><input type="radio" name="event-color" value={color} checked={eventForm.color === color} onChange={(e) => setEventForm({ ...eventForm, color: e.target.value })} /><span className={color} /></label>)}</fieldset>
         <label className="full"><span>{c.description}</span><textarea rows="4" value={eventForm.description || ''} onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })} /></label>
       </div><footer><button type="button" onClick={() => setEventForm(null)}>{c.cancel}</button><button className="operations-primary" disabled={busy}><Save size={14} />{busy ? c.saving : c.save}</button></footer>
     </form></Modal>}

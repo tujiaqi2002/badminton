@@ -96,6 +96,7 @@ export default function App() {
   const [bookingConfiguration, setBookingConfiguration] = useState(null)
   const [bookings, setBookings] = useState([])
   const [adminBookings, setAdminBookings] = useState([])
+  const [adminVenueEvents, setAdminVenueEvents] = useState([])
   const [adminOrderBookings, setAdminOrderBookings] = useState([])
   const [adminOrderSummary, setAdminOrderSummary] = useState(emptyAdminOrderSummary)
   const [adminOrderFilters, setAdminOrderFilters] = useState(defaultAdminOrderFilters)
@@ -210,7 +211,11 @@ export default function App() {
   }, [user, notify, t])
 
   const fetchAdminBookings = useCallback(async () => {
-    if (!user || !isAdmin) return setAdminBookings([])
+    if (!user || !isAdmin) {
+      setAdminBookings([])
+      setAdminVenueEvents([])
+      return
+    }
     if (!isSupabaseConfigured) return
     setLoadingAdminBookings(true)
     const monitorStart = mondayOfWeek(adminRange.start)
@@ -239,9 +244,17 @@ export default function App() {
       if ((result.data?.length || 0) < pageSize) break
     }
 
+    const eventResult = await supabase.rpc('admin_get_venue_schedule_events', {
+      p_start_date: queryStart,
+      p_end_date: queryEnd,
+    })
     setLoadingAdminBookings(false)
     if (error) notify(t('errors.adminBookings'), 'error')
     else setAdminBookings(data)
+    if (eventResult.error) {
+      setAdminVenueEvents([])
+      notify(t('errors.schedule'), 'error')
+    } else setAdminVenueEvents(eventResult.data || [])
   }, [adminRange, isAdmin, user, notify, t])
 
   const fetchAdminOrderBookings = useCallback(async () => {
@@ -970,6 +983,7 @@ export default function App() {
       ) : view === 'admin' && isAdmin ? (
         <AdminBookings
           bookings={adminBookings}
+          events={adminVenueEvents}
           loading={loadingAdminBookings}
           orderBookings={adminOrderBookings}
           orderSummary={adminOrderSummary}
