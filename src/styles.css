@@ -22,11 +22,17 @@ button, a { -webkit-tap-highlight-color: transparent; }
 button { color: inherit; }
 a { color: inherit; text-decoration: none; }
 
-.app-shell { min-height: 100vh; overflow: hidden; }
+.app-shell { min-height: 100vh; overflow-x: clip; }
 .site-header {
-  height: 76px; max-width: 1400px; margin: 0 auto; padding: 0 42px;
+  width: 100%; height: 60px; margin: 0; padding: 0 max(42px, calc((100vw - 1400px) / 2 + 42px));
   display: flex; align-items: center; justify-content: space-between; gap: 28px;
-  position: relative; z-index: 20;
+  position: sticky; z-index: 120; top: 0;
+  border-bottom: 1px solid rgba(34,36,33,.08);
+  background: rgba(243,240,233,.78);
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  box-shadow: 0 1px 0 rgba(255,255,255,.5), 0 7px 24px rgba(34,36,33,.035);
+  -webkit-backdrop-filter: saturate(155%) blur(20px);
+  backdrop-filter: saturate(155%) blur(20px);
 }
 .brand { display: flex; align-items: center; gap: 11px; border: 0; background: none; cursor: pointer; padding: 0; }
 .brand-mark {
@@ -321,7 +327,7 @@ a { color: inherit; text-decoration: none; }
 .admin-cancel-booking { color: var(--red-dark); }
 .admin-cancel-booking:hover { color: var(--red); }
 .admin-booking-actions button:disabled { opacity: .45; cursor: wait; }
-.admin-schedule-editor { margin: 0 0 55px; display: grid; grid-template-columns: 210px minmax(0,1fr) 140px; border: 1px solid var(--line); background: rgba(255,255,255,.28); box-shadow: 0 22px 58px rgba(40,38,32,.06); }
+.admin-schedule-editor { --inspector-width: 210px; --cancel-width: 140px; margin: 0 0 55px; display: grid; grid-template-columns: var(--inspector-width) minmax(0,1fr) var(--cancel-width); border: 1px solid var(--line); background: rgba(255,255,255,.28); box-shadow: 0 22px 58px rgba(40,38,32,.06); }
 .admin-schedule-editor > header { grid-column: 1/-1; grid-row: 1; min-height: 128px; padding: 25px 28px; display: flex; justify-content: space-between; align-items: center; gap: 25px; border-bottom: 1px solid var(--line); }
 .admin-schedule-editor h2 { margin: 8px 0 7px; font: 32px/1.1 "Songti SC", serif; }
 .admin-schedule-editor header p { max-width: 590px; margin: 0; color: var(--ink-soft); font-size: 10px; line-height: 1.7; }
@@ -333,19 +339,20 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-side { z-index: 7; background: rgba(247,245,239,.96); backdrop-filter: blur(12px); }
 .admin-schedule-side-left { grid-column: 1/-1; grid-row: 2; position: static; min-width: 0; border-bottom: 1px solid var(--line); }
 .admin-schedule-side-right { grid-column: 3; grid-row: 3; position: sticky; top: 12px; height: min(778px, calc(100vh - 24px)); min-height: 506px; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.admin-schedule-day-strip { height: auto; padding: 6px 8px; display: grid; grid-template-columns: minmax(150px,185px) 58px 64px repeat(7,minmax(0,1fr)) 64px; grid-template-rows: 48px; gap: 5px; background: rgba(255,255,255,.2); }
-.admin-schedule-day-strip button { min-width: 0; min-height: 0; padding: 4px 3px; display: grid; place-items: center; gap: 2px; border: 1px solid var(--line); background: rgba(255,255,255,.5); color: var(--ink); cursor: pointer; }
-.admin-schedule-day-strip button:hover, .admin-schedule-day-strip button:focus-visible { border-color: var(--red); outline: 0; }
+.admin-schedule-day-strip { height: 54px; display: grid; grid-template-columns: calc(var(--inspector-width) - 56px) 56px 46px repeat(7,minmax(0,1fr)) 46px var(--cancel-width); grid-template-rows: 54px; background: rgba(255,255,255,.32); }
+.admin-schedule-day-strip::after { content: ''; grid-column: 12; grid-row: 1; border-left: 1px solid var(--line); background: rgba(247,245,239,.48); }
+.admin-schedule-day-strip button { min-width: 0; min-height: 0; padding: 4px 3px; display: grid; place-items: center; gap: 2px; border: 0; border-left: 1px solid var(--line); background: rgba(255,255,255,.18); color: var(--ink); cursor: pointer; transition: color .16s ease, background .16s ease, box-shadow .16s ease; }
+.admin-schedule-day-strip button:hover, .admin-schedule-day-strip button:focus-visible { color: var(--red-dark); background: rgba(255,255,255,.72); outline: 0; }
 .admin-schedule-day-strip button.drop-target { color: white; border-color: var(--red); background: var(--red); box-shadow: 0 0 0 3px rgba(199,70,54,.15); transform: translateY(-2px); }
 .admin-schedule-day-strip button.past:not(.active) { color: var(--ink-soft); background: rgba(238,236,230,.55); }
-.admin-schedule-day-strip button.active { color: white; border-color: var(--ink); background: var(--ink); }
+.admin-schedule-day-strip button.active { color: white; background: var(--ink); box-shadow: inset 0 -2px 0 var(--red); }
 .admin-schedule-day-strip small { color: inherit; opacity: .7; font-size: 8px; }
 .admin-schedule-day-strip strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
 .admin-schedule-day-strip .week-nav { display: flex; flex-direction: column; gap: 3px; color: var(--ink-soft); }
 .admin-schedule-day-strip .week-nav:hover { color: var(--red); }
 .admin-schedule-day-strip .today-nav { display: flex; flex-direction: column; gap: 2px; color: var(--red-dark); }
-.admin-schedule-date-inline { min-width: 0; border: 1px solid var(--line); background: rgba(255,255,255,.58); }
-.admin-schedule-date-inline label { min-width: 0; height: 100%; padding: 5px 8px; align-content: center; text-align: left; }
+.admin-schedule-date-inline { min-width: 0; border: 0; background: rgba(255,255,255,.42); }
+.admin-schedule-date-inline label { min-width: 0; height: 100%; padding: 6px 11px; align-content: center; text-align: left; }
 .admin-schedule-date-inline strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 .admin-schedule-date-inline input { width: 100%; min-width: 0; margin-top: 2px; font-size: 8px; text-align: left; }
 .admin-schedule-inspector { grid-column: 1; grid-row: 3; position: sticky; top: 12px; z-index: 7; height: min(778px, calc(100vh - 24px)); min-height: 506px; padding: 18px 16px; display: flex; flex-direction: column; align-items: stretch; gap: 18px; overflow-x: hidden; overflow-y: auto; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(247,245,239,.96); backdrop-filter: blur(12px); }
@@ -560,7 +567,7 @@ footer small { text-align: right; }
   .admin-controls select { min-height: 38px; }
   .admin-booking-row { grid-template-columns: 130px 190px minmax(190px, 1fr); }
   .admin-booking-details { grid-column: 2/-1; }
-  .admin-schedule-editor { grid-template-columns: 180px minmax(0,1fr) 120px; }
+  .admin-schedule-editor { --inspector-width: 180px; --cancel-width: 120px; }
   .admin-schedule-inspector, .admin-schedule-side-right { height: min(792px, calc(100vh - 16px)); }
 }
 
@@ -575,7 +582,8 @@ footer small { text-align: right; }
   .admin-schedule-side-left { order: 0; border-right: 0; border-bottom: 1px solid var(--line); }
   .admin-schedule-scroll { order: 1; width: 100%; }
   .admin-schedule-side-right { order: 2; border-top: 1px solid var(--line); border-left: 0; }
-  .admin-schedule-day-strip { height: auto; overflow-x: auto; grid-template-columns: 150px 54px 58px repeat(7,96px) 58px; grid-template-rows: 48px; padding: 6px; scrollbar-width: none; }
+  .admin-schedule-day-strip { height: 52px; overflow-x: auto; grid-template-columns: 138px 52px 46px repeat(7,96px) 46px; grid-template-rows: 52px; padding: 0; scrollbar-width: none; }
+  .admin-schedule-day-strip::after { display: none; }
   .admin-schedule-day-strip::-webkit-scrollbar { display: none; }
   .admin-schedule-day-strip .week-nav { flex-direction: column; }
   .admin-schedule-cancel-drop { min-height: 78px; height: 78px; padding: 12px 18px; flex-direction: row; text-align: left; }
@@ -602,7 +610,7 @@ footer small { text-align: right; }
 
 @media (max-width: 760px) {
   body { padding-bottom: calc(65px + env(safe-area-inset-bottom)); }
-  .site-header { height: 64px; padding: 0 18px; }
+  .site-header { height: 56px; padding: 0 18px; }
   .header-actions { gap: 6px; }
   .desktop-nav, .account-button .account-label, .account-button > svg, .header-login { display: none; }
   .account-button { margin-left: auto; }
