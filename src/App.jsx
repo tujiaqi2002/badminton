@@ -68,6 +68,7 @@ export default function App() {
   const [adminUndoDepth, setAdminUndoDepth] = useState(0)
   const [adminFocus, setAdminFocus] = useState(null)
   const adminDemoHistory = useRef([])
+  const authUserIdRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState(null)
 
@@ -187,19 +188,28 @@ export default function App() {
       setAdminAccessReady(true)
       return
     }
-    supabase.auth.getSession().then(({ data }) => {
-      const nextUser = data.session?.user || null
-      setUser(nextUser)
-      setIsAdmin(false)
-      setAdminAccessReady(!nextUser)
+    const applySession = (session) => {
+      const nextUser = session?.user || null
+      const nextUserId = nextUser?.id || null
+      const identityChanged = authUserIdRef.current !== nextUserId
+      authUserIdRef.current = nextUserId
+      setUser((current) => (
+        current?.id === nextUserId && current?.email === nextUser?.email ? current : nextUser
+      ))
+      if (identityChanged) {
+        setIsAdmin(false)
+        setAdminAccessReady(!nextUser)
+      } else if (!nextUser) {
+        setIsAdmin(false)
+        setAdminAccessReady(true)
+      }
       setAuthReady(true)
+    }
+    supabase.auth.getSession().then(({ data }) => {
+      applySession(data.session)
     })
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      const nextUser = session?.user || null
-      setUser(nextUser)
-      setIsAdmin(false)
-      setAdminAccessReady(!nextUser)
-      setAuthReady(true)
+      applySession(session)
     })
     return () => data.subscription.unsubscribe()
   }, [])
@@ -208,7 +218,9 @@ export default function App() {
   useEffect(() => { if (view === 'mine') fetchBookings() }, [view, fetchBookings])
   useEffect(() => { fetchAdminAccess() }, [fetchAdminAccess])
   useEffect(() => { if (view === 'admin' || view === 'capacity') fetchAdminBookings() }, [view, fetchAdminBookings])
-  useEffect(() => { if ((view === 'admin' || view === 'capacity') && !isAdmin) setView('mine') }, [view, isAdmin])
+  useEffect(() => {
+    if ((view === 'admin' || view === 'capacity') && adminAccessReady && !isAdmin) setView('mine')
+  }, [view, isAdmin, adminAccessReady])
 
   useEffect(() => {
     if (!isSupabaseConfigured || !isAdmin) return
