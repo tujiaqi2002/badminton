@@ -181,7 +181,7 @@ a { color: inherit; text-decoration: none; }
 .drawer-contact-fields label:not(:first-child) { margin-top: 7px; }
 .drawer-contact-fields input, .drawer-contact-fields textarea { width: 100%; padding: 11px 12px; border: 1px solid var(--line); background: rgba(255,255,255,.62); color: var(--ink); font: inherit; outline: 0; resize: vertical; }
 .drawer-contact-fields input:focus, .drawer-contact-fields textarea:focus { border-color: var(--ink); box-shadow: 0 0 0 2px rgba(34,36,33,.06); }
-.segmented-control { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.segmented-control { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
 .segmented-control button { height: 40px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 11px; }
 .segmented-control button.selected { border-color: var(--ink); background: var(--ink); color: white; }
 .segmented-control button:disabled { opacity: .3; cursor: not-allowed; }
@@ -371,6 +371,12 @@ a { color: inherit; text-decoration: none; }
 .admin-payment-status { font-weight: 700; }
 .admin-payment-status.paid { color: #315c3f; }
 .admin-payment-status.unpaid { color: #9a5c1f; }
+.admin-booking-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.admin-quick-payment { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; cursor: pointer; }
+.admin-quick-payment input { width: 12px; height: 12px; margin: 0; accent-color: #315c3f; cursor: pointer; }
+.admin-quick-payment.paid { color: #315c3f; cursor: default; }
+.admin-quick-payment.unpaid { color: #9a5c1f; }
+.admin-quick-payment input:disabled { opacity: 1; cursor: default; }
 .admin-inspector-form .notes { grid-column: 1; }
 .admin-inspector-form-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .admin-inspector-form-actions button { min-width: 82px; padding: 7px 9px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; font-size: 8px; }
@@ -424,7 +430,7 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-slot.phone-focus:not(:disabled) { background: rgba(199,70,54,.075); }
 .admin-schedule-slot:disabled { cursor: not-allowed; opacity: .32; }
 .admin-schedule-slot.past { background: rgba(34,36,33,.06); opacity: 1; }
-.admin-schedule-booking { position: absolute; z-index: 2; top: calc(var(--start) * var(--slot-height) + 2px); left: 5px; right: 5px; min-height: calc(var(--span) * var(--slot-height) - 4px); padding: 7px 8px 7px 5px; display: flex; align-items: start; gap: 5px; border: 1px solid rgba(255,255,255,.3); background: var(--ink); color: white; box-shadow: 0 7px 17px rgba(34,36,33,.17); cursor: grab; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; touch-action: none; }
+.admin-schedule-booking { position: absolute; z-index: 2; top: calc(var(--start) * var(--slot-height) + 2px); left: 5px; right: 5px; height: calc(var(--span) * var(--slot-height) - 4px); min-height: 0; max-height: calc(var(--span) * var(--slot-height) - 4px); padding: 7px 8px 7px 5px; display: flex; align-items: start; gap: 5px; border: 1px solid rgba(255,255,255,.3); background: var(--ink); color: white; box-shadow: 0 7px 17px rgba(34,36,33,.17); cursor: grab; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; touch-action: none; }
 .admin-schedule-booking:active { cursor: grabbing; }
 .admin-schedule-booking.has-indicators { padding-right: 31px; }
 .admin-schedule-booking.has-two-indicators { padding-right: 54px; }
@@ -451,6 +457,19 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-booking .admin-booking-payment { width: max-content; padding: 2px 5px; border-radius: 99px; color: white; font-size: 7px; font-weight: 700; letter-spacing: .04em; opacity: 1; }
 .admin-schedule-booking .admin-booking-payment.paid { background: rgba(32,73,43,.72); }
 .admin-schedule-booking .admin-booking-payment.unpaid { background: rgba(96,55,15,.72); }
+.admin-schedule-booking.short { padding-top: 4px; padding-bottom: 4px; box-shadow: 0 3px 10px rgba(34,36,33,.14); }
+.admin-schedule-booking.short > div { gap: 1px; }
+.admin-schedule-booking.short .admin-booking-payment { padding-block: 1px; line-height: 1.05; }
+.admin-schedule-booking.half-hour { top: calc(var(--start) * var(--slot-height) + 1px); height: calc(var(--span) * var(--slot-height) - 2px); max-height: calc(var(--span) * var(--slot-height) - 2px); padding: 2px 5px; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(34,36,33,.13); }
+.admin-schedule-booking.half-hour > svg { width: 11px; height: 11px; }
+.admin-schedule-booking.half-hour > div { width: 100%; display: flex; align-items: center; gap: 5px; }
+.admin-schedule-booking.half-hour > div > span { display: none; }
+.admin-schedule-booking.half-hour .admin-booking-payment { margin-left: auto; padding: 1px 4px; }
+.admin-schedule-booking.half-hour.has-indicators { padding-right: 25px; }
+.admin-schedule-booking.half-hour.has-two-indicators { padding-right: 43px; }
+.admin-schedule-booking.half-hour .admin-booking-indicators { top: 3px; right: 3px; gap: 2px; }
+.admin-schedule-booking.half-hour .admin-booking-indicator { width: 16px; height: 16px; }
+.admin-schedule-booking.half-hour .admin-booking-indicator svg { width: 10px; height: 10px; }
 .admin-resize-handle { position: absolute; right: 1px; bottom: 1px; width: 18px; height: 14px; padding: 0; border: 0; border-right: 3px solid rgba(255,255,255,.82); border-bottom: 3px solid rgba(255,255,255,.82); background: transparent; cursor: ns-resize; }
 .admin-range-preview { position: absolute; z-index: 3; pointer-events: none; top: calc(var(--start) * var(--slot-height) + 1px); left: 4px; right: 4px; height: calc(var(--span) * var(--slot-height) - 2px); min-height: 0; padding: 5px 8px; display: grid; align-content: center; gap: 2px; overflow: hidden; color: var(--red-dark); border: 2px dashed var(--red); background: rgba(255,255,255,.9); }
 .admin-range-preview strong { font-size: 10px; }

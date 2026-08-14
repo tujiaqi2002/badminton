@@ -414,7 +414,7 @@ begin
   if length(trim(p_customer_phone)) > 40 then raise exception 'Customer phone is too long'; end if;
   if length(coalesce(p_customer_notes, '')) > 2000 then raise exception 'Customer notes are too long'; end if;
   if p_end_at <= p_start_at then raise exception 'Invalid time range'; end if;
-  if p_end_at < p_start_at + interval '1 hour' then raise exception 'Minimum booking length is 1 hour'; end if;
+  if p_end_at < p_start_at + interval '30 minutes' then raise exception 'Minimum booking length is 30 minutes'; end if;
   if p_end_at > p_start_at + interval '2 hours' then raise exception 'Maximum booking length is 2 hours'; end if;
   if p_start_at::time < time '07:00' or p_end_at::time > time '22:00' then raise exception 'Booking must be within opening hours'; end if;
   if p_start_at < timezone('America/Toronto', now()) - interval '5 minutes' then raise exception 'Cannot book a past time'; end if;
@@ -498,7 +498,7 @@ begin
   if length(coalesce(p_customer_phone, '')) > 40 then raise exception 'Customer phone is too long'; end if;
   if length(coalesce(p_customer_notes, '')) > 2000 then raise exception 'Customer notes are too long'; end if;
   if p_end_at <= p_start_at then raise exception 'Invalid time range'; end if;
-  if p_end_at < p_start_at + interval '1 hour' then raise exception 'Minimum booking length is 1 hour'; end if;
+  if p_end_at < p_start_at + interval '30 minutes' then raise exception 'Minimum booking length is 30 minutes'; end if;
   if p_end_at > p_start_at + interval '4 hours' then raise exception 'Maximum booking length is 4 hours'; end if;
   if p_start_at::date <> p_end_at::date then raise exception 'Booking must end on the same day'; end if;
   if p_start_at::time < time '07:00' or p_end_at::time > time '22:00' then raise exception 'Booking must be within opening hours'; end if;
@@ -555,7 +555,7 @@ begin
     where staff.user_id = v_actor_id and staff.role = 'admin'
   ) then raise exception 'Manager access required'; end if;
   if p_end_at <= p_start_at then raise exception 'Invalid time range'; end if;
-  if p_end_at < p_start_at + interval '1 hour' then raise exception 'Minimum booking length is 1 hour'; end if;
+  if p_end_at < p_start_at + interval '30 minutes' then raise exception 'Minimum booking length is 30 minutes'; end if;
   if p_end_at > p_start_at + interval '4 hours' then raise exception 'Maximum booking length is 4 hours'; end if;
   if p_start_at::date <> p_end_at::date then raise exception 'Booking must end on the same day'; end if;
   if p_start_at::time < time '07:00' or p_end_at::time > time '22:00' then raise exception 'Booking must be within opening hours'; end if;

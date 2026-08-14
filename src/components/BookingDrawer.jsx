@@ -2,7 +2,7 @@ import { Check, Clock3, Minus, Plus, ShieldCheck, WalletCards, X } from 'lucide-
 import { COURTS, formatMoney, priceFor } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
-const DURATIONS = [60, 90, 120]
+const DURATIONS = [30, 60, 90, 120]
 
 export default function BookingDrawer({ selection, onClose, onConfirm, busy, stripeEnabled, invalid }) {
   const { courtNote, courtTitle, locale, t } = useI18n()
@@ -34,7 +34,7 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
           <div className="segmented-control">
             {DURATIONS.map((minutes) => (
               <button key={minutes} disabled={Number(time.slice(0, 2)) * 60 + minutes > 24 * 60} className={duration === minutes ? 'selected' : ''} onClick={() => set({ duration: minutes })}>
-                {minutes === 60 ? t('drawer.oneHour') : minutes === 90 ? t('drawer.ninetyMinutes') : t('drawer.twoHours')}
+                {minutes === 30 ? t('drawer.thirtyMinutes') : minutes === 60 ? t('drawer.oneHour') : minutes === 90 ? t('drawer.ninetyMinutes') : t('drawer.twoHours')}
               </button>
             ))}
           </div>
