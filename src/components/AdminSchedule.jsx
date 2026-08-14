@@ -22,6 +22,97 @@ const bookingPhaseAtVenue = (booking, nowAtVenue) => {
   return 'future'
 }
 
+function ScheduleDatePicker({ dateKey, dayLabel, locale, todayKey, onSelect, t }) {
+  const rootRef = useRef(null)
+  const [open, setOpen] = useState(false)
+  const [monthCursor, setMonthCursor] = useState(() => {
+    const selected = new Date(`${dateKey}T12:00:00`)
+    return new Date(selected.getFullYear(), selected.getMonth(), 1, 12)
+  })
+
+  useEffect(() => {
+    const selected = new Date(`${dateKey}T12:00:00`)
+    setMonthCursor(new Date(selected.getFullYear(), selected.getMonth(), 1, 12))
+  }, [dateKey])
+
+  useEffect(() => {
+    if (!open) return undefined
+    const closeOutside = (event) => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false)
+    }
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOutside)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
+
+  const calendarDays = useMemo(() => {
+    const firstDayOffset = (monthCursor.getDay() + 6) % 7
+    const firstCell = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1 - firstDayOffset, 12)
+    return Array.from({ length: 42 }, (_, index) => addDays(firstCell, index))
+  }, [monthCursor])
+  const weekdays = useMemo(() => Array.from({ length: 7 }, (_, index) => (
+    new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(addDays(new Date('2026-08-10T12:00:00'), index))
+  )), [locale])
+  const monthLabel = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long' }).format(monthCursor)
+  const fullDate = (date) => new Intl.DateTimeFormat(locale, { dateStyle: 'full' }).format(date)
+  const moveMonth = (amount) => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1, 12))
+  const chooseDate = (next) => {
+    onSelect(next)
+    setOpen(false)
+  }
+
+  return (
+    <div className={`admin-schedule-date-inline ${open ? 'open' : ''}`} ref={rootRef}>
+      <button
+        type="button"
+        className="admin-date-trigger"
+        onClick={() => setOpen((current) => !current)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={t('admin.schedule.chooseDate')}
+      >
+        <span><strong>{dayLabel}</strong><small>{dateKey.replaceAll('-', '.')}</small></span>
+        <CalendarDays size={14} />
+      </button>
+      {open && (
+        <div className="admin-calendar-popover" role="dialog" aria-label={t('admin.schedule.chooseDate')}>
+          <header>
+            <button type="button" onClick={() => moveMonth(-1)} aria-label={t('admin.schedule.previousMonth')}><ChevronLeft size={17} /></button>
+            <strong>{monthLabel}</strong>
+            <button type="button" onClick={() => moveMonth(1)} aria-label={t('admin.schedule.nextMonth')}><ChevronRight size={17} /></button>
+          </header>
+          <div className="admin-calendar-weekdays" aria-hidden="true">{weekdays.map((weekday, index) => <span key={`${weekday}-${index}`}>{weekday}</span>)}</div>
+          <div className="admin-calendar-days">
+            {calendarDays.map((date) => {
+              const key = toDateKey(date)
+              const outsideMonth = date.getMonth() !== monthCursor.getMonth()
+              return (
+                <button
+                  type="button"
+                  className={`${key === dateKey ? 'selected' : ''} ${key === todayKey ? 'today' : ''} ${outsideMonth ? 'outside' : ''}`}
+                  onClick={() => chooseDate(key)}
+                  aria-label={fullDate(date)}
+                  aria-current={key === dateKey ? 'date' : undefined}
+                  key={key}
+                >
+                  {date.getDate()}
+                </button>
+              )
+            })}
+          </div>
+          <button type="button" className="admin-calendar-today" onClick={() => chooseDate(todayKey)}><CalendarDays size={13} /> {t('admin.today')}</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function NewBookingModal({ draft, busy, onClose, onSubmit }) {
   const { courtTitle, t } = useI18n()
   const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '', duration: draft.duration || 60, partySize: 2, courts: draft.courts || [draft.court], recurring: false, weekCount: 4 })
@@ -397,7 +488,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           <div className="admin-drag-readout" role="status" aria-live="polite">
             <span>{t('admin.schedule.preview')}</span>
             <strong>{draggedBooking.customer_name}</strong>
-            <b>{dateKey.replaceAll('-', '.')} · {courtTitle(dragPreview.court)} · {dragPreview.time}–{dragPreview.endTime}</b>
+            <b>{dateKey.replaceAll('-', '.')} · {courtTitle(dragPreview.court)} · {t('admin.schedule.dragStart')} {dragPreview.time} → {t('admin.schedule.dragEnd')} {dragPreview.endTime}</b>
             <small>{t(dragPreview.invalid ? 'admin.schedule.pastDropBlocked' : 'admin.schedule.releaseToMove')}</small>
           </div>
         ) : focusTime ? (
@@ -414,9 +505,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       <div className="admin-schedule-workbench">
         <aside className="admin-schedule-side admin-schedule-side-left">
           <div className="admin-schedule-day-strip" aria-label={t('admin.schedule.quickDays')}>
-            <div className="admin-schedule-date admin-schedule-date-inline">
-              <label><strong>{dayLabel}</strong><input type="date" value={dateKey} onChange={(event) => selectDate(event.target.value)} /></label>
-            </div>
+            <ScheduleDatePicker dateKey={dateKey} dayLabel={dayLabel} locale={locale} todayKey={nowAtVenue.dateKey} onSelect={selectDate} t={t} />
             <button className="today-nav" onClick={() => selectDate(nowAtVenue.dateKey)} aria-label={t('admin.schedule.goToday')}><CalendarDays size={15} /><small>{t('admin.today')}</small></button>
             <button className="week-nav" onClick={() => moveWeek(-1)} aria-label={t('admin.schedule.previousWeek')}><ChevronLeft size={18} /><small>{t('admin.schedule.previousWeekShort')}</small></button>
             {quickDays.map((day) => (
