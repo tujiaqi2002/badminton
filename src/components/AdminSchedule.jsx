@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Pencil, PhoneCall, Repeat2, Save, Trash2, X } from 'lucide-react'
+import { AlertTriangle, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Link2, Pencil, PhoneCall, Repeat2, Save, Trash2, X } from 'lucide-react'
 import { addDays, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
@@ -80,6 +80,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   const editorRef = useRef(null)
 
   useEffect(() => {
+    setSelectedBooking(null)
     setDateKey(initialDate)
     setWeekStart((current) => {
       const monday = mondayOfWeek(initialDate)
@@ -106,31 +107,6 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   const currentLineOffset = dateKey === nowAtVenue.dateKey && nowAtVenue.minutes >= OPEN_MINUTES && nowAtVenue.minutes <= 24 * 60
     ? (nowAtVenue.minutes - OPEN_MINUTES) / 30
     : null
-  const multiCourtGroups = useMemo(() => {
-    const groups = new Map()
-    dayBookings.forEach((booking) => {
-      if (!booking.booking_group_id) return
-      const rows = groups.get(booking.booking_group_id) || []
-      rows.push(booking)
-      groups.set(booking.booking_group_id, rows)
-    })
-    return [...groups.entries()].flatMap(([id, rows]) => {
-      if (rows.length < 2) return []
-      const courtIndexes = rows.map((booking) => COURTS.findIndex((court) => court.id === booking.court_id)).filter((index) => index >= 0)
-      if (courtIndexes.length < 2) return []
-      const anchor = rows[0]
-      const startMinutes = Number(timeFromDateTime(anchor.start_at).slice(0, 2)) * 60 + Number(timeFromDateTime(anchor.start_at).slice(3))
-      const resizingThisGroup = resizeDrag && (resizeDrag.booking.booking_group_id || resizeDrag.booking.id) === id
-      return [{
-        id,
-        count: rows.length,
-        firstCourt: Math.min(...courtIndexes),
-        lastCourt: Math.max(...courtIndexes),
-        start: (startMinutes - OPEN_MINUTES) / 30,
-        span: (resizingThisGroup ? resizeDrag.duration : durationMinutes(anchor)) / 30,
-      }]
-    })
-  }, [dayBookings, resizeDrag])
   const quickDays = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const date = addDays(new Date(`${weekStart}T12:00:00`), index)
     return {
@@ -170,6 +146,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
   }, [activeSelection])
 
   const selectDate = (next) => {
+    setSelectedBooking(null)
     setDateKey(next)
     onDateChange(next)
   }
@@ -253,11 +230,10 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       const insideCancel = cancelRect && event.clientX >= cancelRect.left && event.clientX <= cancelRect.right && event.clientY >= cancelRect.top && event.clientY <= cancelRect.bottom
       const dayButton = element?.closest('[data-transfer-date]')
       if ((dayButton && !dayButton.disabled) || pointerTarget.current?.type === 'day') {
-        const booking = pointerDrag.booking
         const nextDate = dayButton?.dataset.transferDate || pointerTarget.current.date
         pointerTarget.current = null
         finishDrag()
-        setSelectedBooking(booking)
+        setSelectedBooking(null)
         setDateKey(nextDate)
         onDateChange(nextDate)
         return
@@ -303,9 +279,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
     setDraft({ court, courts: [court], dateKey, time })
   }
 
-  const chooseTransferDay = (next, bookingId = draggedId) => {
-    const booking = bookings.find((item) => item.id === bookingId) || activeSelection
-    if (booking) setSelectedBooking(booking)
+  const chooseTransferDay = (next) => {
     setDraggedId(null)
     selectDate(next)
   }
@@ -453,7 +427,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                 className={`${dateKey === day.key ? 'active' : ''} ${day.key < nowAtVenue.dateKey ? 'past' : ''} ${dragDay === day.key ? 'drop-target' : ''}`}
                 data-transfer-date={day.key >= nowAtVenue.dateKey ? day.key : undefined}
                 key={day.key}
-                onClick={() => chooseTransferDay(day.key, null)}
+                onClick={() => chooseTransferDay(day.key)}
               >
                 <small>{dateKey === day.key ? t('admin.schedule.selectedDay') : day.weekday}</small>
                 <strong>{day.day}</strong>
@@ -465,18 +439,6 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
         <div className="admin-schedule-scroll">
           <div className="admin-schedule-grid">
           {currentLineOffset !== null && <div className="admin-now-line" style={{ '--now-top': `${64 + currentLineOffset * 26}px` }} aria-label={t('admin.schedule.nowLine', { time: nowAtVenue.time })}><span>{t('admin.schedule.now')} {nowAtVenue.time}</span></div>}
-          {multiCourtGroups.map((group) => (
-            <div
-              className="admin-booking-group-links"
-              style={{ '--group-first': group.firstCourt, '--group-last': group.lastCourt, '--group-start': group.start, '--group-span': group.span }}
-              aria-label={t('admin.schedule.multiCourtLinked', { count: group.count })}
-              key={group.id}
-            >
-              {Array.from({ length: group.lastCourt - group.firstCourt }, (_, index) => (
-                <i style={{ '--link-position': `${((index + 1) / (group.lastCourt - group.firstCourt + 1)) * 100}%` }} key={index} />
-              ))}
-            </div>
-          ))}
           <div className="admin-schedule-corner"><Clock3 size={14} /></div>
           {COURTS.map((court) => <div className={`admin-schedule-court ${court.tone}`} key={court.id}><span>{court.name}</span><strong>{courtTitle(court)}</strong></div>)}
           <div className="admin-schedule-times">
@@ -533,9 +495,10 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                 const minimumResizeDuration = bookingPhase === 'in-progress' ? Math.max(60, minimumEndMinutes - startMinutes) : 60
                 const maximumResizeDuration = Math.min(240, 24 * 60 - startMinutes)
                 const canResize = bookingPhase !== 'ended' && minimumResizeDuration <= maximumResizeDuration
+                const indicatorCount = Number(groupSize > 1) + Number(Boolean(booking.recurrence_series_id))
                 return (
                   <article
-                    className={`admin-schedule-booking ${bookingPhase} ${booking.recurrence_series_id ? 'recurring' : ''} ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
+                    className={`admin-schedule-booking ${bookingPhase} ${indicatorCount ? 'has-indicators' : ''} ${indicatorCount > 1 ? 'has-two-indicators' : ''} ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
                     draggable={false}
                     onDragStart={(event) => event.preventDefault()}
                     role="button"
@@ -565,7 +528,10 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                   >
                     {canMove ? <GripVertical size={14} /> : <Clock3 className="admin-booking-state-icon" size={14} />}
                     <div><strong>{booking.customer_name}</strong><span>{timeFromDateTime(booking.start_at)}–{resizeGroupKey === bookingGroupKey ? timeFromMinutes(startMinutes + minutes) : endTimeFromDateTime(booking.start_at, booking.end_at)}</span><small className={`admin-booking-payment ${booking.payment_status === 'paid' ? 'paid' : 'unpaid'}`}>{t(booking.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.paymentUnpaid')}</small></div>
-                    {booking.recurrence_series_id && <span className="admin-booking-recurrence" title={t('admin.schedule.recurrenceCard', { count: booking.recurrence_week })}><Repeat2 size={12} /></span>}
+                    {indicatorCount > 0 && <span className="admin-booking-indicators">
+                      {groupSize > 1 && <span className="admin-booking-indicator" title={t('admin.schedule.multiCourtLinked', { count: groupSize })}><Link2 size={12} /></span>}
+                      {booking.recurrence_series_id && <span className="admin-booking-indicator" title={t('admin.schedule.recurrenceCard', { count: booking.recurrence_week })}><Repeat2 size={12} /></span>}
+                    </span>}
                     {canResize && <button className="admin-resize-handle" aria-label={t('admin.schedule.resize')} title={t('admin.schedule.resize')} onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); event.preventDefault(); setResizeDrag({ booking, startY: event.clientY, initialDuration: durationMinutes(booking), duration: durationMinutes(booking), minimumDuration: minimumResizeDuration, groupSize }) }} />}
                   </article>
                 )
