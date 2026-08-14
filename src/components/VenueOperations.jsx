@@ -232,6 +232,11 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
   const [auditCursorStack, setAuditCursorStack] = useState([null])
   const [auditPage, setAuditPage] = useState(1)
   const [auditDetail, setAuditDetail] = useState(null)
+  const configurationLoadedRef = useRef(onConfigurationLoaded)
+
+  useEffect(() => {
+    configurationLoadedRef.current = onConfigurationLoaded
+  }, [onConfigurationLoaded])
 
   const notify = useCallback((message, tone = 'success') => {
     if (onNotify) onNotify(message, tone)
@@ -251,8 +256,8 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
     setData(result)
     setSettings(result.settings)
     setHours(result.hours || [])
-    onConfigurationLoaded?.(result)
-  }, [c.loadError, onConfigurationLoaded])
+    configurationLoadedRef.current?.(result)
+  }, [c.loadError])
 
   const queryMembers = useCallback(async (cursor = null, page = 1) => {
     const { data: result, error: requestError } = await supabase.rpc('admin_search_members', {
