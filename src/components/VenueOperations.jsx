@@ -208,7 +208,7 @@ function EventDateTimeField({ label, value, minValue = '', locale, c, onChange }
   </label>
 }
 
-export default function VenueOperations({ onNotify }) {
+export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
   const { language, locale } = useI18n()
   const c = COPY[language] || COPY.en
   const [tab, setTab] = useState('overview')
@@ -251,7 +251,8 @@ export default function VenueOperations({ onNotify }) {
     setData(result)
     setSettings(result.settings)
     setHours(result.hours || [])
-  }, [c.loadError])
+    onConfigurationLoaded?.(result)
+  }, [c.loadError, onConfigurationLoaded])
 
   const queryMembers = useCallback(async (cursor = null, page = 1) => {
     const { data: result, error: requestError } = await supabase.rpc('admin_search_members', {

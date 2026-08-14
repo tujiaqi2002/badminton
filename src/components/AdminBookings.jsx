@@ -52,8 +52,11 @@ export default function AdminBookings({
   onRevertAudit,
   focusTarget,
   onClearFocus,
+  configuration,
+  onScheduleDateChange,
 }) {
   const { courtName, courtTitle, locale, t } = useI18n()
+  const currency = configuration?.settings?.currency || 'CAD'
   const [query, setQuery] = useState(orderFilters.query)
   const [editingBooking, setEditingBooking] = useState(null)
   const [focusTime, setFocusTime] = useState(null)
@@ -77,9 +80,10 @@ export default function AdminBookings({
   useEffect(() => {
     if (!focusTarget) return
     setScheduleDate(focusTarget.date)
+    onScheduleDateChange?.(focusTarget.date)
     setFocusTime(focusTarget.time)
     window.setTimeout(() => document.querySelector('.admin-schedule-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
-  }, [focusTarget])
+  }, [focusTarget, onScheduleDateChange])
 
   const clearScheduleFocus = () => {
     setFocusTime(null)
@@ -149,8 +153,10 @@ export default function AdminBookings({
         onRevertAudit={onRevertAudit}
         focusTime={focusTime}
         onClearFocus={clearScheduleFocus}
+        configuration={configuration}
         onDateChange={(date) => {
           setScheduleDate(date)
+          onScheduleDateChange?.(date)
           if (focusTarget && date !== focusTarget.date) clearScheduleFocus()
           if (date < startDate || date > endDate) {
             const weekStart = mondayOfWeek(date)
@@ -222,6 +228,7 @@ export default function AdminBookings({
           busy={scheduleBusy}
           onClose={() => setEditingBooking(null)}
           onSubmit={onReschedule}
+          configuration={configuration}
           onMoved={(date, bookingId) => {
             setEditingBooking(null)
             setQuery('')
@@ -272,7 +279,7 @@ export default function AdminBookings({
                         <span className={`status-pill ${booking.status}`}>{t(`status.${booking.status}`)}</span>
                         <span><UsersRound size={14} /> {t('admin.people', { count: booking.party_size })}</span>
                         <span>{t(`payment.${booking.payment_status}`)}</span>
-                        <strong>{formatMoney(booking.total_amount || 0, locale)}</strong>
+                        <strong>{formatMoney(booking.total_amount || 0, locale, currency)}</strong>
                         {['held', 'confirmed'].includes(booking.status) && (
                           <div className="admin-booking-actions">
                             <button

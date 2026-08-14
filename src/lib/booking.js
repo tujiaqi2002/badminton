@@ -8,6 +8,12 @@ export const COURTS = [
 
 export const SLOTS = Array.from({ length: 14 }, (_, index) => `${String(index + 10).padStart(2, '0')}:00`)
 
+let activeVenueTimezone = 'America/Toronto'
+
+export const setVenueTimezone = (timezone) => {
+  if (typeof timezone === 'string' && timezone.trim()) activeVenueTimezone = timezone.trim()
+}
+
 export const toDateKey = (date) => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -25,7 +31,7 @@ export const slotDateTime = (dateKey, time) => `${dateKey}T${time}:00`
 
 export const venueNow = (date = new Date()) => {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Toronto',
+    timeZone: activeVenueTimezone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -69,8 +75,8 @@ export const mondayOfWeek = (dateKey) => {
 
 export const overlaps = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && aEnd > bStart
 
-export const formatMoney = (amount, locale = 'zh-CN') => new Intl.NumberFormat(locale, {
-  style: 'currency', currency: 'CAD', maximumFractionDigits: 0,
+export const formatMoney = (amount, locale = 'zh-CN', currency = 'CAD') => new Intl.NumberFormat(locale, {
+  style: 'currency', currency, maximumFractionDigits: 0,
 }).format(amount)
 
 export const priceFor = (time, duration) => {
@@ -84,11 +90,31 @@ export const slotsFromConfiguration = (configuration) => {
   if (!hours || hours.is_closed) return hours?.is_closed ? [] : SLOTS
   const first = hours.open_minute
   const last = hours.close_minute
+  const step = Number(configuration?.settings?.slot_minutes || 30)
   const slots = []
-  for (let minute = first; minute + 60 <= last; minute += 60) {
+  for (let minute = first; minute + step <= last; minute += step) {
     slots.push(`${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`)
   }
   return slots.length ? slots : SLOTS
+}
+
+export const openingHoursForDate = (configuration, dateKey) => {
+  if (!configuration) return { day_of_week: new Date(`${dateKey}T12:00:00`).getDay(), open_minute: 600, close_minute: 1440, is_closed: false }
+  if (configuration.opening_hours && !Array.isArray(configuration.opening_hours)) return configuration.opening_hours
+  const hours = configuration.hours || configuration.opening_hours || []
+  const dayOfWeek = new Date(`${dateKey}T12:00:00`).getDay()
+  return hours.find((item) => Number(item.day_of_week) === dayOfWeek)
+    || { day_of_week: dayOfWeek, open_minute: 600, close_minute: 1440, is_closed: false }
+}
+
+export const bookingDurations = (configuration, manager = false) => {
+  const settings = configuration?.settings || configuration || {}
+  const maximum = Number(manager ? settings.manager_max_minutes : settings.customer_max_minutes) || (manager ? 240 : 120)
+  const step = Number(settings.slot_minutes || 30)
+  const minimum = Math.ceil(30 / step) * step
+  const durations = []
+  for (let minutes = minimum; minutes <= maximum; minutes += step) durations.push(minutes)
+  return [...new Set(durations)].sort((left, right) => left - right)
 }
 
 export const priceFromConfiguration = (configuration, courtIds, time, duration) => {

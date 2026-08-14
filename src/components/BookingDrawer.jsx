@@ -1,8 +1,6 @@
 import { Check, Clock3, Minus, Plus, ShieldCheck, WalletCards, X } from 'lucide-react'
-import { COURTS, formatMoney, priceFromConfiguration } from '../lib/booking'
+import { bookingDurations, COURTS, formatMoney, priceFromConfiguration } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
-
-const DURATIONS = [30, 60, 90, 120]
 
 export default function BookingDrawer({ selection, onClose, onConfirm, busy, stripeEnabled, invalid, configuration }) {
   const { courtNote, courtTitle, locale, t } = useI18n()
@@ -10,6 +8,10 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
 
   const { court, courts = [court], time, dateKey, duration, partySize, paymentMethod, phone = '', notes = '' } = selection
   const set = selection.set
+  const durations = bookingDurations(configuration)
+  const closeMinute = Number(configuration?.opening_hours?.close_minute || 1440)
+  const currency = configuration?.settings?.currency || 'CAD'
+  const cancellationHours = Number(configuration?.settings?.cancellation_notice_hours ?? 12)
   const price = priceFromConfiguration(configuration, courts.map((court) => court.id), time, duration)
   const endMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) + duration
   const endTime = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
@@ -32,9 +34,9 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
         <div className="drawer-field">
           <label>{t('drawer.duration')}</label>
           <div className="segmented-control">
-            {DURATIONS.map((minutes) => (
-              <button key={minutes} disabled={Number(time.slice(0, 2)) * 60 + minutes > 24 * 60} className={duration === minutes ? 'selected' : ''} onClick={() => set({ duration: minutes })}>
-                {minutes === 30 ? t('drawer.thirtyMinutes') : minutes === 60 ? t('drawer.oneHour') : minutes === 90 ? t('drawer.ninetyMinutes') : t('drawer.twoHours')}
+            {durations.map((minutes) => (
+              <button key={minutes} disabled={Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5)) + minutes > closeMinute} className={duration === minutes ? 'selected' : ''} onClick={() => set({ duration: minutes })}>
+                {minutes === 30 ? t('drawer.thirtyMinutes') : minutes === 60 ? t('drawer.oneHour') : minutes === 90 ? t('drawer.ninetyMinutes') : minutes === 120 ? t('drawer.twoHours') : minutes < 60 ? t('duration.minutes', { minutes }) : minutes % 60 === 0 ? t('duration.hours', { hours: minutes / 60 }) : t('duration.hoursMinutes', { hours: Math.floor(minutes / 60), minutes: minutes % 60 })}
               </button>
             ))}
           </div>
@@ -80,11 +82,11 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
           </button>
         </div>
 
-        <div className="price-row"><span>{t('drawer.fee')}</span><strong>{formatMoney(price, locale)}</strong></div>
-        <p className="booking-policy"><Clock3 size={15} /> {t('drawer.policy')}</p>
+        <div className="price-row"><span>{t('drawer.fee')}</span><strong>{formatMoney(price, locale, currency)}</strong></div>
+        <p className="booking-policy"><Clock3 size={15} /> {t('drawer.policyDynamic', { hours: cancellationHours })}</p>
 
         <button className="primary-button confirm-button" disabled={busy || invalid || !phone.trim()} onClick={() => onConfirm({ ...selection, phone: phone.trim(), notes: notes.trim(), price })}>
-          {busy ? t('drawer.locking') : invalid ? t('drawer.invalid') : !phone.trim() ? t('drawer.phoneRequired') : t('drawer.confirm', { price: formatMoney(price, locale) })}
+          {busy ? t('drawer.locking') : invalid ? t('drawer.invalid') : !phone.trim() ? t('drawer.phoneRequired') : t('drawer.confirm', { price: formatMoney(price, locale, currency) })}
         </button>
       </aside>
     </div>

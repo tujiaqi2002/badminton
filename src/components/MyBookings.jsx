@@ -2,8 +2,11 @@ import { CalendarX2, Clock3, MapPin, ReceiptText } from 'lucide-react'
 import { COURTS, formatMoney, timeFromDateTime } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
-export default function MyBookings({ user, bookings, loading, onLogin, onCancel }) {
-  const { courtTitle, locale, t } = useI18n()
+export default function MyBookings({ user, bookings, loading, onLogin, onCancel, configuration }) {
+  const { courtTitle, language, locale, t } = useI18n()
+  const cancellationHours = Number(configuration?.settings?.cancellation_notice_hours ?? 12)
+  const currency = configuration?.settings?.currency || 'CAD'
+  const venueName = configuration?.settings?.[language === 'zh' ? 'name_zh' : 'name_en'] || t('venue.name')
   if (!user) {
     return (
       <main className="empty-page">
@@ -30,7 +33,7 @@ export default function MyBookings({ user, bookings, loading, onLogin, onCancel 
           {bookings.map((booking) => {
             const court = COURTS.find((item) => item.id === booking.court_id) || COURTS[0]
             const canCancel = ['confirmed', 'held'].includes(booking.status)
-              && new Date(booking.start_at).getTime() > Date.now() + 12 * 60 * 60 * 1000
+              && new Date(booking.start_at).getTime() > Date.now() + cancellationHours * 60 * 60 * 1000
             return (
               <article className="booking-card" key={booking.id}>
                 <div className={`booking-card-seal ${court.tone}`}>{court.name}</div>
@@ -38,8 +41,8 @@ export default function MyBookings({ user, bookings, loading, onLogin, onCancel 
                   <div className="booking-card-title"><div><small>{booking.start_at.slice(0, 10).replaceAll('-', '.')}</small><h2>{courtTitle(court)}</h2></div><span className={`status-pill ${booking.status}`}>{t(`status.${booking.status}`)}</span></div>
                   <div className="booking-meta">
                     <span><Clock3 size={15} />{timeFromDateTime(booking.start_at)}—{timeFromDateTime(booking.end_at)}</span>
-                    <span><MapPin size={15} />{t('venue.name')}</span>
-                    <span><ReceiptText size={15} />{formatMoney(booking.total_amount || 0, locale)}</span>
+                    <span><MapPin size={15} />{venueName}</span>
+                    <span><ReceiptText size={15} />{formatMoney(booking.total_amount || 0, locale, currency)}</span>
                   </div>
                   {canCancel && <button className="text-button danger" onClick={() => onCancel(booking)}>{t('my.cancel')}</button>}
                 </div>
