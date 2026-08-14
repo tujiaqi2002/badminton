@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Pencil, PhoneCall, Repeat2, Save, Trash2, X } from 'lucide-react'
 import { addDays, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
@@ -466,22 +466,16 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           <div className="admin-schedule-grid">
           {currentLineOffset !== null && <div className="admin-now-line" style={{ '--now-top': `${64 + currentLineOffset * 26}px` }} aria-label={t('admin.schedule.nowLine', { time: nowAtVenue.time })}><span>{t('admin.schedule.now')} {nowAtVenue.time}</span></div>}
           {multiCourtGroups.map((group) => (
-            <Fragment key={group.id}>
-              <div
-                className="admin-booking-group-rail"
-                style={{ '--group-first': group.firstCourt, '--group-last': group.lastCourt, '--group-start': group.start, '--group-span': group.span }}
-                aria-label={t('admin.schedule.multiCourtLinked', { count: group.count })}
-              />
-              <div
-                className="admin-booking-group-links"
-                style={{ '--group-first': group.firstCourt, '--group-last': group.lastCourt, '--group-start': group.start, '--group-span': group.span }}
-                aria-hidden="true"
-              >
-                {Array.from({ length: group.lastCourt - group.firstCourt }, (_, index) => (
-                  <i style={{ '--link-position': `${((index + 1) / (group.lastCourt - group.firstCourt + 1)) * 100}%` }} key={index} />
-                ))}
-              </div>
-            </Fragment>
+            <div
+              className="admin-booking-group-links"
+              style={{ '--group-first': group.firstCourt, '--group-last': group.lastCourt, '--group-start': group.start, '--group-span': group.span }}
+              aria-label={t('admin.schedule.multiCourtLinked', { count: group.count })}
+              key={group.id}
+            >
+              {Array.from({ length: group.lastCourt - group.firstCourt }, (_, index) => (
+                <i style={{ '--link-position': `${((index + 1) / (group.lastCourt - group.firstCourt + 1)) * 100}%` }} key={index} />
+              ))}
+            </div>
           ))}
           <div className="admin-schedule-corner"><Clock3 size={14} /></div>
           {COURTS.map((court) => <div className={`admin-schedule-court ${court.tone}`} key={court.id}><span>{court.name}</span><strong>{courtTitle(court)}</strong></div>)}
@@ -535,13 +529,13 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                 const bookingPhase = bookingPhaseAtVenue(booking, nowAtVenue)
                 const canMove = bookingPhase === 'future'
                 const nowSeconds = Number(nowAtVenue.dateTime.slice(17, 19))
-                const minimumEndMinutes = Math.ceil((nowAtVenue.minutes + 30 + (nowSeconds > 0 ? 1 / 60 : 0)) / 30) * 30
+                const minimumEndMinutes = Math.ceil((nowAtVenue.minutes + (nowSeconds > 0 ? 1 / 60 : 0)) / 30) * 30
                 const minimumResizeDuration = bookingPhase === 'in-progress' ? Math.max(60, minimumEndMinutes - startMinutes) : 60
                 const maximumResizeDuration = Math.min(240, 24 * 60 - startMinutes)
                 const canResize = bookingPhase !== 'ended' && minimumResizeDuration <= maximumResizeDuration
                 return (
                   <article
-                    className={`admin-schedule-booking ${bookingPhase} ${groupSize > 1 ? 'grouped' : ''} ${booking.recurrence_series_id ? 'recurring' : ''} ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
+                    className={`admin-schedule-booking ${bookingPhase} ${booking.recurrence_series_id ? 'recurring' : ''} ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
                     draggable={false}
                     onDragStart={(event) => event.preventDefault()}
                     role="button"
@@ -571,7 +565,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                   >
                     {canMove ? <GripVertical size={14} /> : <Clock3 className="admin-booking-state-icon" size={14} />}
                     <div><strong>{booking.customer_name}</strong><span>{timeFromDateTime(booking.start_at)}–{resizeGroupKey === bookingGroupKey ? timeFromMinutes(startMinutes + minutes) : endTimeFromDateTime(booking.start_at, booking.end_at)}</span><small className={`admin-booking-payment ${booking.payment_status === 'paid' ? 'paid' : 'unpaid'}`}>{t(booking.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.paymentUnpaid')}</small></div>
-                    {booking.recurrence_series_id && <span className="admin-booking-recurrence" title={t('admin.schedule.recurrenceCard', { count: booking.recurrence_week })}><Repeat2 size={10} /><em>{t('admin.schedule.recurrenceShort', { count: booking.recurrence_week })}</em></span>}
+                    {booking.recurrence_series_id && <span className="admin-booking-recurrence" title={t('admin.schedule.recurrenceCard', { count: booking.recurrence_week })}><Repeat2 size={12} /></span>}
                     {canResize && <button className="admin-resize-handle" aria-label={t('admin.schedule.resize')} title={t('admin.schedule.resize')} onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); event.preventDefault(); setResizeDrag({ booking, startY: event.clientY, initialDuration: durationMinutes(booking), duration: durationMinutes(booking), minimumDuration: minimumResizeDuration, groupSize }) }} />}
                   </article>
                 )
