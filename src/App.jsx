@@ -228,6 +228,11 @@ export default function App() {
     }
   }, [isAdmin, notify, t, user])
 
+  const handleVenueOperationsConfiguration = useCallback((configuration) => {
+    setVenueTimezone(configuration?.settings?.timezone)
+    setVenueOperationsConfiguration(configuration)
+  }, [])
+
   const fetchAdminBookings = useCallback(async () => {
     if (!user || !isAdmin) {
       setAdminBookings([])
@@ -1067,10 +1072,7 @@ export default function App() {
         />
       ) : view === 'operations' && isAdmin ? (
         <Suspense fallback={<main className="operations-page"><div className="operations-loading"><Clock3 className="spin" /><span>{t('auth.checkingAccess')}</span></div></main>}>
-          <VenueOperations onNotify={notify} onConfigurationLoaded={(configuration) => {
-            setVenueTimezone(configuration?.settings?.timezone)
-            setVenueOperationsConfiguration(configuration)
-          }} />
+          <VenueOperations onNotify={notify} onConfigurationLoaded={handleVenueOperationsConfiguration} />
         </Suspense>
       ) : (
         <MyBookings user={user} bookings={bookings} loading={loadingBookings} onLogin={() => setShowAuth(true)} onCancel={cancelBooking} configuration={bookingConfiguration || venueOperationsConfiguration} />
