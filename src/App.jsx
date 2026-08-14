@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, CircleUserRound, Clock3, Gauge, MapPin, Radio, ShieldCheck, Sparkles } from 'lucide-react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Building2, CalendarDays, CircleUserRound, Clock3, Gauge, MapPin, Radio, ShieldCheck, Sparkles } from 'lucide-react'
 import AdminCapacity from './components/AdminCapacity'
 import AdminBookings from './components/AdminBookings'
 import AuthModal from './components/AuthModal'
@@ -8,12 +8,13 @@ import BookingDrawer from './components/BookingDrawer'
 import DateStrip from './components/DateStrip'
 import Header from './components/Header'
 import MyBookings from './components/MyBookings'
-import { addDays, addMinutes, COURTS, demoSchedule, isPastSlot, mondayOfWeek, overlaps, slotDateTime, toDateKey, venueNow } from './lib/booking'
+import { addDays, addMinutes, COURTS, demoSchedule, isPastSlot, mondayOfWeek, overlaps, slotDateTime, slotsFromConfiguration, toDateKey, venueNow } from './lib/booking'
 import { useI18n } from './lib/i18n'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
 
 const todayKey = () => venueNow().dateKey
+const VenueOperations = lazy(() => import('./components/VenueOperations'))
 const defaultAdminOrderFilters = () => ({
   start: todayKey(),
   end: todayKey(),
@@ -92,6 +93,7 @@ export default function App() {
   const [view, setView] = useState('book')
   const [dateKey, setDateKey] = useState(todayKey)
   const [schedule, setSchedule] = useState(() => demoSchedule(todayKey()))
+  const [bookingConfiguration, setBookingConfiguration] = useState(null)
   const [bookings, setBookings] = useState([])
   const [adminBookings, setAdminBookings] = useState([])
   const [adminOrderBookings, setAdminOrderBookings] = useState([])
@@ -160,6 +162,12 @@ export default function App() {
     if (error) notify(t('errors.schedule'), 'error')
     else setSchedule(data || [])
   }, [dateKey, isAdmin, notify, t])
+
+  const fetchBookingConfiguration = useCallback(async () => {
+    if (!isSupabaseConfigured || !user) { setBookingConfiguration(null); return }
+    const { data, error } = await supabase.rpc('get_venue_booking_configuration', { p_date: dateKey })
+    if (!error) setBookingConfiguration(data)
+  }, [dateKey, user])
 
   const fetchBookings = useCallback(async () => {
     if (!user) return setBookings([])
@@ -376,6 +384,7 @@ export default function App() {
   }, [])
 
   useEffect(() => { fetchSchedule() }, [fetchSchedule])
+  useEffect(() => { if (view === 'book') fetchBookingConfiguration() }, [view, fetchBookingConfiguration])
   useEffect(() => { if (view === 'mine') fetchBookings() }, [view, fetchBookings])
   useEffect(() => { fetchAdminAccess() }, [fetchAdminAccess])
   useEffect(() => { if (view === 'admin' || view === 'capacity') fetchAdminBookings() }, [view, fetchAdminBookings])
@@ -395,7 +404,7 @@ export default function App() {
     window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }))
   }, [view])
   useEffect(() => {
-    if ((view === 'admin' || view === 'capacity') && adminAccessReady && !isAdmin) setView('mine')
+    if ((view === 'admin' || view === 'capacity' || view === 'operations') && adminAccessReady && !isAdmin) setView('mine')
   }, [view, isAdmin, adminAccessReady])
 
   useEffect(() => {
@@ -430,14 +439,29 @@ export default function App() {
     return { start, end: addMinutes(start, selection.duration) }
   }, [selection])
 
-  const selectionConflicts = selectedInterval && schedule.some(
+  const configuredSchedule = useMemo(() => {
+    const eventBlocks = (bookingConfiguration?.blocked_intervals || []).flatMap((event) => {
+      const courtIds = event.court_ids?.length ? event.court_ids : COURTS.map((court) => court.id)
+      return courtIds.map((courtId) => ({
+        id: `event-${event.id}-${courtId}`, court_id: courtId,
+        start_at: event.start_at, end_at: event.end_at, status: 'confirmed', venue_event: true,
+      }))
+    })
+    return [...schedule, ...eventBlocks]
+  }, [bookingConfiguration, schedule])
+  const bookingSlots = useMemo(() => slotsFromConfiguration(bookingConfiguration), [bookingConfiguration])
+
+  const selectionConflicts = selectedInterval && configuredSchedule.some(
     (item) => (selection.courts || [selection.court]).some((court) => court.id === item.court_id)
       && overlaps(selectedInterval.start, selectedInterval.end, item.start_at, item.end_at),
   )
-  const selectionOutsideHours = selectedInterval && (
-    selectedInterval.start.slice(11, 16) < '10:00'
-    || new Date(selectedInterval.end).getTime() > new Date(`${selection.dateKey}T24:00:00`).getTime()
-  )
+  const selectionOutsideHours = selectedInterval && (() => {
+    const hours = bookingConfiguration?.opening_hours
+    if (!hours) return selectedInterval.start.slice(11, 16) < '10:00'
+      || new Date(selectedInterval.end).getTime() > new Date(`${selection.dateKey}T24:00:00`).getTime()
+    const startMinute = Number(selection.time.slice(0, 2)) * 60 + Number(selection.time.slice(3, 5))
+    return hours.is_closed || startMinute < hours.open_minute || startMinute + selection.duration > hours.close_minute
+  })()
   const selectionPast = selection && isPastSlot(selection.dateKey, selection.time)
   const selectionInvalid = Boolean(selectionConflicts || selectionOutsideHours || selectionPast)
 
@@ -931,7 +955,7 @@ export default function App() {
               <div className="demo-banner"><span>{t('demo.label')}</span> {t('demo.description')}</div>
             )}
             <DateStrip selected={dateKey} onSelect={setDateKey} />
-            <BookingBoard dateKey={dateKey} schedule={schedule} loading={loadingSchedule} onSelect={openSelection} />
+            <BookingBoard dateKey={dateKey} schedule={configuredSchedule} loading={loadingSchedule} onSelect={openSelection} slots={bookingSlots} />
           </section>
 
           <section className="ritual-section">
@@ -987,6 +1011,10 @@ export default function App() {
             setView('admin')
           }}
         />
+      ) : view === 'operations' && isAdmin ? (
+        <Suspense fallback={<main className="operations-page"><div className="operations-loading"><Clock3 className="spin" /><span>{t('auth.checkingAccess')}</span></div></main>}>
+          <VenueOperations onNotify={notify} />
+        </Suspense>
       ) : (
         <MyBookings user={user} bookings={bookings} loading={loadingBookings} onLogin={() => setShowAuth(true)} onCancel={cancelBooking} />
       )}
@@ -998,10 +1026,11 @@ export default function App() {
         <button className={view === 'mine' ? 'active' : ''} onClick={() => setView('mine')}><CircleUserRound size={20} /><span>{t('nav.myShort')}</span></button>
         {isAdmin && <button className={view === 'admin' ? 'active' : ''} onClick={() => setView('admin')}><ShieldCheck size={20} /><span>{t('nav.adminShort')}</span></button>}
         {isAdmin && <button className={view === 'capacity' ? 'active' : ''} onClick={() => setView('capacity')}><Gauge size={20} /><span>{t('nav.capacityShort')}</span></button>}
+        {isAdmin && <button className={view === 'operations' ? 'active' : ''} onClick={() => setView('operations')}><Building2 size={20} /><span>{t('nav.operationsShort')}</span></button>}
         <button onClick={() => view === 'book' && document.getElementById('availability')?.scrollIntoView({ behavior: 'smooth' })}><Clock3 size={20} /><span>{t('nav.slots')}</span></button>
       </nav>
 
-      <BookingDrawer selection={selection} onClose={() => setSelection(null)} onConfirm={confirmBooking} busy={busy} stripeEnabled={stripeEnabled} invalid={selectionInvalid} />
+      <BookingDrawer selection={selection} onClose={() => setSelection(null)} onConfirm={confirmBooking} busy={busy} stripeEnabled={stripeEnabled} invalid={selectionInvalid} configuration={bookingConfiguration} />
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} onEmail={loginByEmail} onGoogle={loginWithGoogle} onDemo={enterDemo} demoMode={!isSupabaseConfigured} googleEnabled={googleAuthEnabled} />}
       {toast && <div className={`toast ${toast.tone}`} role="status">{toast.message}</div>}
     </div>

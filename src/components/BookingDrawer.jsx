@@ -1,16 +1,16 @@
 import { Check, Clock3, Minus, Plus, ShieldCheck, WalletCards, X } from 'lucide-react'
-import { COURTS, formatMoney, priceFor } from '../lib/booking'
+import { COURTS, formatMoney, priceFromConfiguration } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
 const DURATIONS = [30, 60, 90, 120]
 
-export default function BookingDrawer({ selection, onClose, onConfirm, busy, stripeEnabled, invalid }) {
+export default function BookingDrawer({ selection, onClose, onConfirm, busy, stripeEnabled, invalid, configuration }) {
   const { courtNote, courtTitle, locale, t } = useI18n()
   if (!selection) return null
 
   const { court, courts = [court], time, dateKey, duration, partySize, paymentMethod, phone = '', notes = '' } = selection
   const set = selection.set
-  const price = priceFor(time, duration) * courts.length
+  const price = priceFromConfiguration(configuration, courts.map((court) => court.id), time, duration)
   const endMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) + duration
   const endTime = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
 
