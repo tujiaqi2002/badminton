@@ -16,7 +16,7 @@ export default function AdminRescheduleModal({ booking, busy, onClose, onSubmit,
     time: timeFromDateTime(booking.start_at),
     duration: currentDuration,
   })
-  const durations = useMemo(() => [...new Set([...Array.from({ length: 7 }, (_, index) => 60 + index * 30), currentDuration])].sort((a, b) => a - b), [currentDuration])
+  const durations = useMemo(() => [...new Set([...Array.from({ length: 8 }, (_, index) => 30 + index * 30), currentDuration])].sort((a, b) => a - b), [currentDuration])
   const targetCourt = COURTS.find((court) => court.id === form.courtId) || COURTS[0]
   const today = venueNow().dateKey
 

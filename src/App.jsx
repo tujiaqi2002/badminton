@@ -26,7 +26,7 @@ const cancellationErrorMessage = (message = '', t) => {
 const rescheduleErrorMessage = (message = '', t) => {
   if (message.includes('already booked')) return t('errors.slotTaken')
   if (message.includes('already started') || message.includes('start time and court are locked')) return t('errors.inProgressMove')
-  if (message.includes('at least 30 minutes')) return t('errors.inProgressEnd')
+  if (message.includes('at least 30 minutes') || message.includes('end after the current time')) return t('errors.inProgressEnd')
   if (message.includes('already ended')) return t('errors.endedBooking')
   return t('errors.adminReschedule')
 }
@@ -36,8 +36,7 @@ const validateActiveBookingChange = (booking, startAt, endAt, courtId, t) => {
   if (booking.end_at <= current.dateTime) return t('errors.endedBooking')
   if (booking.start_at > current.dateTime) return null
   if (startAt !== booking.start_at || courtId !== booking.court_id) return t('errors.inProgressMove')
-  const venueMinimumEnd = venueNow(new Date(Date.now() + 30 * 60_000)).dateTime
-  if (endAt < venueMinimumEnd) return t('errors.inProgressEnd')
+  if (endAt <= venueNow().dateTime) return t('errors.inProgressEnd')
   return null
 }
 

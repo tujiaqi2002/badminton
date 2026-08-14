@@ -14,7 +14,7 @@ const durationMinutes = (booking) => Math.round(
 )
 
 const timeFromMinutes = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
-const ADMIN_DURATIONS = Array.from({ length: 7 }, (_, index) => 60 + index * 30)
+const ADMIN_DURATIONS = Array.from({ length: 8 }, (_, index) => 30 + index * 30)
 
 const bookingPhaseAtVenue = (booking, nowAtVenue) => {
   if (booking.end_at <= nowAtVenue.dateTime) return 'ended'
@@ -130,6 +130,17 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
     })
     setEditingDetails(false)
   }, [activeSelection])
+
+  const markSelectionPaid = async () => {
+    if (!activeSelection || activeSelection.payment_status === 'paid' || busy) return
+    await onUpdateDetails(activeSelection, {
+      name: activeSelection.customer_name || '',
+      email: activeSelection.customer_email || '',
+      phone: activeSelection.customer_phone || '',
+      notes: activeSelection.customer_notes || '',
+      paymentStatus: 'paid',
+    })
+  }
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000)
@@ -297,7 +308,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
       const startIndex = Math.min(rangeDraft.startIndex, rangeDraft.currentIndex)
       const endIndex = Math.max(rangeDraft.startIndex, rangeDraft.currentIndex) + 1
       const span = endIndex - startIndex
-      const duration = Math.max(60, Math.min(240, span * 30))
+      const duration = Math.max(30, Math.min(240, span * 30))
       const startMinutes = OPEN_MINUTES + startIndex * 30
       const startTime = timeFromMinutes(startMinutes)
       if (startMinutes + duration <= 24 * 60 && !isPastSlot(dateKey, startTime, now)) setDraft({ court: rangeDraft.court, courts: [rangeDraft.court], dateKey, time: startTime, duration })
@@ -382,7 +393,7 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                 <div><dt>{t('admin.schedule.courtTime')}</dt><dd>{activeGroup.map((booking) => courtTitle(COURTS.find((court) => court.id === booking.court_id) || COURTS[0])).join(' + ')} · {activeSelection.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(activeSelection.start_at)}–{endTimeFromDateTime(activeSelection.start_at, activeSelection.end_at)}</dd></div>
                 <div><dt>{t('admin.schedule.bookedAt')}</dt><dd>{activeSelection.created_at ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activeSelection.created_at)) : t('admin.schedule.notRecorded')}</dd></div>
                 <div><dt>{t('admin.schedule.contact')}</dt><dd>{activeSelection.customer_email || t('admin.schedule.notProvided')} · {activeSelection.customer_phone || t('admin.schedule.notProvided')}</dd></div>
-                <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd>{t('admin.people', { count: activeSelection.party_size })} · <span className={`admin-payment-status ${activeSelection.payment_status === 'paid' ? 'paid' : 'unpaid'}`}>{t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.paymentUnpaid')}</span> · {t(`payment.${activeSelection.payment_status}`)} · {formatMoney(groupPrice, locale)}</dd></div>
+                <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd className="admin-booking-meta">{t('admin.people', { count: activeSelection.party_size })} · <label className={`admin-quick-payment ${activeSelection.payment_status === 'paid' ? 'paid' : 'unpaid'}`} title={t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paidEditHint' : 'admin.schedule.quickMarkPaid')}><input type="checkbox" checked={activeSelection.payment_status === 'paid'} disabled={busy || activeSelection.payment_status === 'paid'} onChange={markSelectionPaid} /><span>{t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.quickMarkPaid')}</span></label> · {t(`payment.${activeSelection.payment_status}`)} · {formatMoney(groupPrice, locale)}</dd></div>
                 {activeSelection.recurrence_series_id && <div><dt>{t('admin.schedule.recurrence')}</dt><dd>{t('admin.schedule.recurrenceWeek', { count: activeSelection.recurrence_week })}</dd></div>}
                 <div className="notes"><dt>{t('admin.schedule.customerNotes')}</dt><dd>{activeSelection.customer_notes || t('admin.schedule.noNotes')}</dd></div>
               </dl>
@@ -392,20 +403,13 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
           <div className="admin-inspector-empty"><strong>{t('admin.schedule.noSelectionTitle')}</strong><span>{t('admin.schedule.noSelectionText')}</span></div>
         )}
       </section>
-      <div className={`admin-schedule-context ${draggedBooking && dragPreview ? `dragging ${dragPreview.invalid ? 'invalid' : ''}` : activeSelection ? 'selected' : focusTime ? 'phone-focus' : ''}`}>
+      <div className={`admin-schedule-context ${draggedBooking && dragPreview ? `dragging ${dragPreview.invalid ? 'invalid' : ''}` : focusTime ? 'phone-focus' : ''}`}>
         {draggedBooking && dragPreview ? (
           <div className="admin-drag-readout" role="status" aria-live="polite">
             <span>{t('admin.schedule.preview')}</span>
             <strong>{draggedBooking.customer_name}</strong>
             <b>{dateKey.replaceAll('-', '.')} · {courtTitle(dragPreview.court)} · {dragPreview.time}–{dragPreview.endTime}</b>
             <small>{t(dragPreview.invalid ? 'admin.schedule.pastDropBlocked' : 'admin.schedule.releaseToMove')}</small>
-          </div>
-        ) : activeSelection ? (
-          <div className="admin-schedule-selection" role="status">
-            <GripVertical size={14} />
-            <strong>{activeSelection.customer_name}</strong>
-            <span>{t('admin.schedule.pickDestination')}</span>
-            <button onMouseDown={(event) => event.preventDefault()} onClick={() => setSelectedBooking(null)}><X size={13} /> {t('admin.schedule.clearSelection')}</button>
           </div>
         ) : focusTime ? (
           <div className="admin-phone-focus-guide" role="status" aria-live="polite">
@@ -492,13 +496,13 @@ export default function AdminSchedule({ bookings, initialDate, busy, onCreate, o
                 const canMove = bookingPhase === 'future'
                 const nowSeconds = Number(nowAtVenue.dateTime.slice(17, 19))
                 const minimumEndMinutes = Math.ceil((nowAtVenue.minutes + (nowSeconds > 0 ? 1 / 60 : 0)) / 30) * 30
-                const minimumResizeDuration = bookingPhase === 'in-progress' ? Math.max(60, minimumEndMinutes - startMinutes) : 60
+                const minimumResizeDuration = bookingPhase === 'in-progress' ? Math.max(30, minimumEndMinutes - startMinutes) : 30
                 const maximumResizeDuration = Math.min(240, 24 * 60 - startMinutes)
                 const canResize = bookingPhase !== 'ended' && minimumResizeDuration <= maximumResizeDuration
                 const indicatorCount = Number(groupSize > 1) + Number(Boolean(booking.recurrence_series_id))
                 return (
                   <article
-                    className={`admin-schedule-booking ${bookingPhase} ${indicatorCount ? 'has-indicators' : ''} ${indicatorCount > 1 ? 'has-two-indicators' : ''} ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
+                    className={`admin-schedule-booking ${bookingPhase} ${minutes <= 60 ? 'short' : ''} ${minutes === 30 ? 'half-hour' : ''} ${indicatorCount ? 'has-indicators' : ''} ${indicatorCount > 1 ? 'has-two-indicators' : ''} ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
                     draggable={false}
                     onDragStart={(event) => event.preventDefault()}
                     role="button"
