@@ -3,15 +3,15 @@ import { LoaderCircle, Radio } from 'lucide-react'
 import { addMinutes, COURTS, SLOTS, isPastSlot, overlaps, slotDateTime } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
-function isOccupied(schedule, courtId, dateKey, time) {
+function isOccupied(schedule, courtId, dateKey, time, slotMinutes) {
   const start = slotDateTime(dateKey, time)
-  const end = addMinutes(start, 60)
+  const end = addMinutes(start, slotMinutes)
   return schedule.some((item) => item.court_id === courtId && overlaps(start, end, item.start_at, item.end_at))
 }
 
-function SlotButton({ court, time, dateKey, schedule, onSelect, now }) {
+function SlotButton({ court, time, dateKey, schedule, onSelect, now, slotMinutes }) {
   const { courtName, t } = useI18n()
-  const occupied = isOccupied(schedule, court.id, dateKey, time)
+  const occupied = isOccupied(schedule, court.id, dateKey, time, slotMinutes)
   const past = isPastSlot(dateKey, time, now)
   const state = past ? 'past' : occupied ? 'booked' : 'available'
   return (
@@ -31,15 +31,21 @@ function SlotButton({ court, time, dateKey, schedule, onSelect, now }) {
   )
 }
 
-export default function BookingBoard({ dateKey, schedule, loading, onSelect, slots = SLOTS }) {
+export default function BookingBoard({ dateKey, schedule, loading, onSelect, slots = SLOTS, configuration }) {
   const { courtName, courtNote, courtTitle, language, t } = useI18n()
+  const slotMinutes = Number(configuration?.settings?.slot_minutes || 60)
+  const hours = configuration?.opening_hours
+  const minuteLabel = (minute) => minute === 1440 ? '24:00' : `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`
+  const hoursLabel = hours?.is_closed
+    ? t('board.closed')
+    : hours ? t('board.openingHoursDynamic', { start: minuteLabel(hours.open_minute), end: minuteLabel(hours.close_minute) }) : t('board.openingHours')
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000)
     return () => window.clearInterval(timer)
   }, [])
   const availableCount = COURTS.reduce((count, court) => count + slots.filter((time) => (
-    !isOccupied(schedule, court.id, dateKey, time) && !isPastSlot(dateKey, time, now)
+    !isOccupied(schedule, court.id, dateKey, time, slotMinutes) && !isPastSlot(dateKey, time, now)
   )).length, 0)
 
   return (
@@ -57,7 +63,7 @@ export default function BookingBoard({ dateKey, schedule, loading, onSelect, slo
       <div className="legend" aria-label={t('board.legend')}>
         <span><i className="legend-dot available-dot" />{t('board.available')}</span>
         <span><i className="legend-dot occupied-dot" />{t('board.booked')}</span>
-        <span>{t('board.openingHours')}</span>
+        <span>{hoursLabel}</span>
       </div>
 
       {loading ? (
@@ -75,7 +81,7 @@ export default function BookingBoard({ dateKey, schedule, loading, onSelect, slo
                     <span>{language === 'zh' ? court.english : court.name}</span>
                   </div>
                   {slots.map((time) => (
-                    <SlotButton key={time} court={court} time={time} dateKey={dateKey} schedule={schedule} onSelect={onSelect} now={now} />
+                    <SlotButton key={time} court={court} time={time} dateKey={dateKey} schedule={schedule} onSelect={onSelect} now={now} slotMinutes={slotMinutes} />
                   ))}
                 </div>
               ))}
@@ -91,7 +97,7 @@ export default function BookingBoard({ dateKey, schedule, loading, onSelect, slo
                 </div>
                 <div className="mobile-slot-grid">
                   {slots.map((time) => (
-                    <SlotButton key={time} court={court} time={time} dateKey={dateKey} schedule={schedule} onSelect={onSelect} now={now} />
+                    <SlotButton key={time} court={court} time={time} dateKey={dateKey} schedule={schedule} onSelect={onSelect} now={now} slotMinutes={slotMinutes} />
                   ))}
                 </div>
               </article>

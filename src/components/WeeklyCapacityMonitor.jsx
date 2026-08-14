@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, Gauge, PhoneCall } from 'lucide-react'
-import { addDays, addMinutes, COURTS, isPastSlot, mondayOfWeek, overlaps, slotDateTime, toDateKey } from '../lib/booking'
+import { addDays, addMinutes, COURTS, isPastSlot, mondayOfWeek, openingHoursForDate, overlaps, slotDateTime, toDateKey } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
-const HOURS = Array.from({ length: 14 }, (_, index) => `${String(index + 10).padStart(2, '0')}:00`)
-
-export default function WeeklyCapacityMonitor({ bookings, weekDate, onWeekChange, onInspect }) {
+export default function WeeklyCapacityMonitor({ bookings, events = [], weekDate, onWeekChange, onInspect, configuration }) {
   const { locale, t } = useI18n()
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -13,6 +11,14 @@ export default function WeeklyCapacityMonitor({ bookings, weekDate, onWeekChange
     return () => window.clearInterval(timer)
   }, [])
   const monday = mondayOfWeek(weekDate)
+  const slotMinutes = Number(configuration?.settings?.slot_minutes || 60)
+  const openDays = (configuration?.hours || []).filter((item) => !item.is_closed)
+  const firstMinute = openDays.length ? Math.min(...openDays.map((item) => Number(item.open_minute))) : 600
+  const lastMinute = openDays.length ? Math.max(...openDays.map((item) => Number(item.close_minute))) : 1440
+  const hours = Array.from({ length: Math.max(0, Math.floor((lastMinute - firstMinute) / slotMinutes)) }, (_, index) => {
+    const minute = firstMinute + index * slotMinutes
+    return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`
+  })
   const days = Array.from({ length: 7 }, (_, index) => {
     const date = addDays(new Date(`${monday}T12:00:00`), index)
     return {
@@ -24,12 +30,16 @@ export default function WeeklyCapacityMonitor({ bookings, weekDate, onWeekChange
 
   const availability = (date, time) => {
     const start = slotDateTime(date, time)
-    const end = addMinutes(start, 60)
-    const booked = new Set(bookings.filter((booking) => (
-      ['held', 'confirmed'].includes(booking.status)
-      && overlaps(start, end, booking.start_at, booking.end_at)
-    )).map((booking) => booking.court_id)).size
-    return COURTS.length - booked
+    const end = addMinutes(start, slotMinutes)
+    const blockedCourtIds = new Set(events.filter((event) => (
+      event.status === 'scheduled' && event.blocks_booking
+      && overlaps(start, end, event.starts_at, event.ends_at)
+    )).flatMap((event) => event.court_ids?.length ? event.court_ids : COURTS.map((court) => court.id)))
+    const unavailable = new Set([
+      ...bookings.filter((booking) => ['held', 'confirmed'].includes(booking.status) && overlaps(start, end, booking.start_at, booking.end_at)).map((booking) => booking.court_id),
+      ...blockedCourtIds,
+    ]).size
+    return COURTS.length - unavailable
   }
 
   return (
@@ -43,14 +53,17 @@ export default function WeeklyCapacityMonitor({ bookings, weekDate, onWeekChange
           <button className="capacity-week-nav" onClick={() => onWeekChange(toDateKey(addDays(new Date(`${monday}T12:00:00`), -7)))} aria-label={t('admin.schedule.previousWeek')}><ChevronLeft size={17} /></button>
           {days.map((day) => <div className="capacity-day" key={day.key}><small>{day.weekday}</small><strong>{day.day}</strong></div>)}
           <button className="capacity-week-nav" onClick={() => onWeekChange(toDateKey(addDays(new Date(`${monday}T12:00:00`), 7)))} aria-label={t('admin.schedule.nextWeek')}><ChevronRight size={17} /></button>
-          {HOURS.map((time) => (
+          {hours.map((time) => (
             <div className="capacity-row" key={time}>
               <strong>{time}</strong>
               {days.map((day) => {
                 const past = isPastSlot(day.key, time, now)
+                const opening = openingHoursForDate(configuration, day.key)
+                const minute = Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
+                const closed = opening.is_closed || minute < opening.open_minute || minute + slotMinutes > opening.close_minute
                 const free = availability(day.key, time)
                 const tone = free === 0 ? 'full' : free <= 2 ? 'tight' : 'open'
-                return <button className={past ? 'past' : tone} disabled={past} key={day.key} onClick={() => onInspect(day.key, time)} aria-label={past ? t('admin.capacity.pastCell', { date: day.day, time }) : t('admin.capacity.cell', { date: day.day, time, count: free })}>{past ? <><b>—</b><span>{t('admin.capacity.past')}</span></> : <><b>{free}</b><span>{t('admin.capacity.courtsFree')}</span></>}</button>
+                return <button className={closed ? 'closed' : past ? 'past' : tone} disabled={closed || past} key={day.key} onClick={() => onInspect(day.key, time)} aria-label={closed ? t('board.closed') : past ? t('admin.capacity.pastCell', { date: day.day, time }) : t('admin.capacity.cell', { date: day.day, time, count: free })}>{closed || past ? <><b>—</b><span>{t(closed ? 'board.closed' : 'admin.capacity.past')}</span></> : <><b>{free}</b><span>{t('admin.capacity.courtsFree')}</span></>}</button>
               })}
             </div>
           ))}

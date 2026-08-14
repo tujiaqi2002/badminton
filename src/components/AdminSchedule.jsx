@@ -1,21 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, CalendarClock, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, History, Link2, MessageSquareText, Pencil, PhoneCall, Repeat2, Save, Trash2, X } from 'lucide-react'
-import { addDays, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
+import { addDays, bookingDurations, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 import AdminAuditDrawer from './AdminAuditDrawer'
-
-const OPEN_MINUTES = 10 * 60
-const HALF_HOURS = Array.from({ length: 28 }, (_, index) => {
-  const minutes = OPEN_MINUTES + index * 30
-  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
-})
 
 const durationMinutes = (booking) => Math.round(
   (new Date(booking.end_at).getTime() - new Date(booking.start_at).getTime()) / 60_000,
 )
 
 const timeFromMinutes = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
-const ADMIN_DURATIONS = Array.from({ length: 8 }, (_, index) => 30 + index * 30)
 
 const bookingPhaseAtVenue = (booking, nowAtVenue) => {
   if (booking.end_at <= nowAtVenue.dateTime) return 'ended'
@@ -114,9 +107,12 @@ function ScheduleDatePicker({ dateKey, dayLabel, locale, todayKey, onSelect, t }
   )
 }
 
-function NewBookingModal({ draft, busy, onClose, onSubmit }) {
+function NewBookingModal({ draft, busy, onClose, onSubmit, configuration }) {
   const { courtTitle, t } = useI18n()
-  const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '', duration: draft.duration || 60, partySize: 2, courts: draft.courts || [draft.court], recurring: false, weekCount: 4 })
+  const durations = bookingDurations(configuration, true)
+  const closeMinute = Number(configuration?.opening_hours?.close_minute || 1440)
+  const initialDuration = draft.duration || (durations.includes(60) ? 60 : durations[0] || 30)
+  const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '', duration: initialDuration, partySize: 2, courts: draft.courts || [draft.court], recurring: false, weekCount: 4 })
   const [conflicts, setConflicts] = useState([])
 
   const submit = async (event) => {
@@ -137,7 +133,7 @@ function NewBookingModal({ draft, busy, onClose, onSubmit }) {
           <label className="wide"><span>{t('admin.schedule.customerName')}</span><input required value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label>
           <label><span>{t('admin.schedule.customerEmailOptional')}</span><input type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} /></label>
           <label><span>{t('admin.schedule.customerPhoneOptional')}</span><input type="tel" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>
-          <label><span>{t('admin.schedule.duration')}</span><select value={form.duration} onChange={(event) => setForm((current) => ({ ...current, duration: Number(event.target.value) }))}>{ADMIN_DURATIONS.map((minutes) => <option value={minutes} key={minutes} disabled={Number(draft.time.slice(0, 2)) * 60 + Number(draft.time.slice(3)) + minutes > 24 * 60}>{minutes / 60} h</option>)}</select></label>
+          <label><span>{t('admin.schedule.duration')}</span><select value={form.duration} onChange={(event) => setForm((current) => ({ ...current, duration: Number(event.target.value) }))}>{durations.map((minutes) => <option value={minutes} key={minutes} disabled={Number(draft.time.slice(0, 2)) * 60 + Number(draft.time.slice(3)) + minutes > closeMinute}>{minutes < 60 ? `${minutes} min` : minutes % 60 === 0 ? `${minutes / 60} h` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`}</option>)}</select></label>
           <label><span>{t('admin.schedule.partySize')}</span><input type="number" min="1" max="8" value={form.partySize} onChange={(event) => setForm((current) => ({ ...current, partySize: Number(event.target.value) }))} /></label>
           <label className="wide admin-recurring-toggle"><input type="checkbox" checked={form.recurring} onChange={(event) => { setConflicts([]); setForm((current) => ({ ...current, recurring: event.target.checked })) }} /><span><Repeat2 size={15} /> {t('admin.schedule.weeklyRecurring')}</span></label>
           {form.recurring && <label className="wide admin-week-count"><span>{t('admin.schedule.repeatFor')}</span><select value={form.weekCount} onChange={(event) => { setConflicts([]); setForm((current) => ({ ...current, weekCount: Number(event.target.value) })) }}>{Array.from({ length: 11 }, (_, index) => index + 2).map((weeks) => <option value={weeks} key={weeks}>{t('admin.schedule.weekCount', { count: weeks })}</option>)}</select></label>}
@@ -151,7 +147,7 @@ function NewBookingModal({ draft, busy, onClose, onSubmit }) {
   )
 }
 
-export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onReschedule, onRescheduleGroup, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onRevertAudit }) {
+export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onReschedule, onRescheduleGroup, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onRevertAudit, configuration }) {
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
   const [weekStart, setWeekStart] = useState(() => mondayOfWeek(initialDate))
@@ -171,6 +167,14 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const pointerMoved = useRef(false)
   const pointerTarget = useRef(null)
   const editorRef = useRef(null)
+  const slotMinutes = Number(configuration?.settings?.slot_minutes || 30)
+  const managerMaxMinutes = Number(configuration?.settings?.manager_max_minutes || 240)
+  const openMinutes = Number(configuration?.opening_hours?.open_minute || 600)
+  const closeMinutes = Number(configuration?.opening_hours?.close_minute || 1440)
+  const venueClosed = Boolean(configuration?.opening_hours?.is_closed)
+  const minimumBookingDuration = Math.ceil(30 / slotMinutes) * slotMinutes
+  const currency = configuration?.settings?.currency || 'CAD'
+  const timeSlots = useMemo(() => Array.from({ length: Math.max(0, Math.floor((closeMinutes - openMinutes) / slotMinutes)) }, (_, index) => timeFromMinutes(openMinutes + index * slotMinutes)), [closeMinutes, openMinutes, slotMinutes])
 
   useEffect(() => {
     setSelectedBooking(null)
@@ -206,8 +210,8 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const activeGroup = activeSelection ? bookings.filter((booking) => (booking.booking_group_id || booking.id) === (activeSelection.booking_group_id || activeSelection.id) && ['held', 'confirmed'].includes(booking.status)) : []
   const groupPrice = activeGroup.reduce((sum, booking) => sum + Number(booking.total_amount || 0), 0)
   const nowAtVenue = venueNow(now)
-  const currentLineOffset = dateKey === nowAtVenue.dateKey && nowAtVenue.minutes >= OPEN_MINUTES && nowAtVenue.minutes <= 24 * 60
-    ? (nowAtVenue.minutes - OPEN_MINUTES) / 30
+  const currentLineOffset = dateKey === nowAtVenue.dateKey && nowAtVenue.minutes >= openMinutes && nowAtVenue.minutes <= closeMinutes
+    ? (nowAtVenue.minutes - openMinutes) / slotMinutes
     : null
   const quickDays = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const date = addDays(new Date(`${weekStart}T12:00:00`), index)
@@ -317,12 +321,12 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       const court = COURTS.find((item) => item.id === lane.dataset.courtId)
       if (!court) return
       const rect = lane.getBoundingClientRect()
-      const slotHeight = rect.height / HALF_HOURS.length
+      const slotHeight = rect.height / timeSlots.length
       const duration = durationMinutes(pointerDrag.booking)
-      const maxIndex = Math.max(0, Math.floor((14 * 60 - duration) / 30))
+      const maxIndex = Math.max(0, Math.floor((closeMinutes - openMinutes - duration) / slotMinutes))
       const index = Math.max(0, Math.min(maxIndex, Math.round((event.clientY - rect.top - pointerDrag.grabOffset) / slotHeight)))
-      const startMinutes = OPEN_MINUTES + index * 30
-      const nextTarget = { court, index, time: timeFromMinutes(startMinutes), endTime: timeFromMinutes(startMinutes + duration), span: duration / 30 }
+      const startMinutes = openMinutes + index * slotMinutes
+      const nextTarget = { court, index, time: timeFromMinutes(startMinutes), endTime: timeFromMinutes(startMinutes + duration), span: duration / slotMinutes }
       if (isPastSlot(dateKey, nextTarget.time, now)) {
         pointerTarget.current = { type: 'invalid' }
         setDragPreview({ ...nextTarget, invalid: true })
@@ -379,17 +383,18 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
     }
-  }, [bookings, dateKey, now, onCancel, onDateChange, onReschedule, onRescheduleGroup, pointerDrag])
+  }, [bookings, closeMinutes, dateKey, now, onCancel, onDateChange, onReschedule, onRescheduleGroup, openMinutes, pointerDrag, slotMinutes, timeSlots.length])
 
   const chooseSlot = (court, time) => {
     const startMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3))
-    if (startMinutes + 60 > 24 * 60 || isPastSlot(dateKey, time, now)) return
+    if (venueClosed || startMinutes + minimumBookingDuration > closeMinutes || isPastSlot(dateKey, time, now)) return
     if (activeSelection) {
       setSelectedBooking(null)
       return
     }
     onClearFocus?.()
-    setDraft({ court, courts: [court], dateKey, time })
+    const durations = bookingDurations(configuration, true).filter((minutes) => startMinutes + minutes <= closeMinutes)
+    setDraft({ court, courts: [court], dateKey, time, duration: durations.includes(60) ? 60 : durations[0] || minimumBookingDuration })
   }
 
   const chooseTransferDay = (next) => {
@@ -410,24 +415,24 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       const startIndex = Math.min(rangeDraft.startIndex, rangeDraft.currentIndex)
       const endIndex = Math.max(rangeDraft.startIndex, rangeDraft.currentIndex) + 1
       const span = endIndex - startIndex
-      const duration = Math.max(30, Math.min(240, span * 30))
-      const startMinutes = OPEN_MINUTES + startIndex * 30
+      const duration = Math.max(minimumBookingDuration, Math.min(managerMaxMinutes, span * slotMinutes))
+      const startMinutes = openMinutes + startIndex * slotMinutes
       const startTime = timeFromMinutes(startMinutes)
-      if (startMinutes + duration <= 24 * 60 && !isPastSlot(dateKey, startTime, now)) setDraft({ court: rangeDraft.court, courts: [rangeDraft.court], dateKey, time: startTime, duration })
+      if (!venueClosed && startMinutes + duration <= closeMinutes && !isPastSlot(dateKey, startTime, now)) setDraft({ court: rangeDraft.court, courts: [rangeDraft.court], dateKey, time: startTime, duration })
       setRangeDraft(null)
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
     return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
-  }, [dateKey, now, rangeDraft])
+  }, [closeMinutes, dateKey, managerMaxMinutes, minimumBookingDuration, now, openMinutes, rangeDraft, slotMinutes, venueClosed])
 
   useEffect(() => {
     if (!resizeDrag) return undefined
     const move = (event) => {
       const deltaSlots = Math.round((event.clientY - resizeDrag.startY) / 26)
       const startMinutes = Number(timeFromDateTime(resizeDrag.booking.start_at).slice(0, 2)) * 60 + Number(timeFromDateTime(resizeDrag.booking.start_at).slice(3))
-      const maxDuration = Math.min(240, 24 * 60 - startMinutes)
-      const duration = Math.max(resizeDrag.minimumDuration, Math.min(maxDuration, resizeDrag.initialDuration + deltaSlots * 30))
+      const maxDuration = Math.min(managerMaxMinutes, closeMinutes - startMinutes)
+      const duration = Math.max(resizeDrag.minimumDuration, Math.min(maxDuration, resizeDrag.initialDuration + deltaSlots * slotMinutes))
       setResizeDrag((current) => ({ ...current, duration }))
     }
     const up = async () => {
@@ -443,7 +448,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up, { once: true })
     return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
-  }, [onReschedule, onRescheduleGroup, resizeDrag])
+  }, [closeMinutes, managerMaxMinutes, onReschedule, onRescheduleGroup, resizeDrag, slotMinutes])
 
   return (
     <section
@@ -484,7 +489,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                 <div><dt>{t('admin.schedule.courtTime')}</dt><dd>{activeGroup.map((booking) => courtTitle(COURTS.find((court) => court.id === booking.court_id) || COURTS[0])).join(' + ')} · {activeSelection.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(activeSelection.start_at)}–{endTimeFromDateTime(activeSelection.start_at, activeSelection.end_at)}</dd></div>
                 <div><dt>{t('admin.schedule.bookedAt')}</dt><dd>{activeSelection.created_at ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activeSelection.created_at)) : t('admin.schedule.notRecorded')}</dd></div>
                 <div><dt>{t('admin.schedule.contact')}</dt><dd>{activeSelection.customer_email || t('admin.schedule.notProvided')} · {activeSelection.customer_phone || t('admin.schedule.notProvided')}</dd></div>
-                <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd className="admin-booking-meta">{t('admin.people', { count: activeSelection.party_size })} · <label className={`admin-quick-payment ${activeSelection.payment_status === 'paid' ? 'paid' : 'unpaid'}`} title={t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paidEditHint' : 'admin.schedule.quickMarkPaid')}><input type="checkbox" checked={activeSelection.payment_status === 'paid'} disabled={busy || activeSelection.payment_status === 'paid'} onChange={markSelectionPaid} /><span>{t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.quickMarkPaid')}</span></label> · {t(`payment.${activeSelection.payment_status}`)} · {formatMoney(groupPrice, locale)}</dd></div>
+                <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd className="admin-booking-meta">{t('admin.people', { count: activeSelection.party_size })} · <label className={`admin-quick-payment ${activeSelection.payment_status === 'paid' ? 'paid' : 'unpaid'}`} title={t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paidEditHint' : 'admin.schedule.quickMarkPaid')}><input type="checkbox" checked={activeSelection.payment_status === 'paid'} disabled={busy || activeSelection.payment_status === 'paid'} onChange={markSelectionPaid} /><span>{t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.quickMarkPaid')}</span></label> · {t(`payment.${activeSelection.payment_status}`)} · {formatMoney(groupPrice, locale, currency)}</dd></div>
                 {activeSelection.recurrence_series_id && <div><dt>{t('admin.schedule.recurrence')}</dt><dd>{t('admin.schedule.recurrenceWeek', { count: activeSelection.recurrence_week })}</dd></div>}
                 <div className="notes"><dt>{t('admin.schedule.customerNotes')}</dt><dd>{activeSelection.customer_notes || t('admin.schedule.noNotes')}</dd></div>
               </dl>
@@ -534,12 +539,12 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
           </div>
         </aside>
         <div className="admin-schedule-scroll">
-          <div className="admin-schedule-grid">
+          <div className={`admin-schedule-grid ${venueClosed ? 'venue-closed' : ''}`} style={{ '--slot-count': timeSlots.length }}>
           {currentLineOffset !== null && <div className="admin-now-line" style={{ '--now-top': `${50 + currentLineOffset * 26}px` }} aria-label={t('admin.schedule.nowLine', { time: nowAtVenue.time })}><span>{t('admin.schedule.now')} {nowAtVenue.time}</span></div>}
           <div className="admin-schedule-corner"><Clock3 size={14} /></div>
           {COURTS.map((court) => <div className={`admin-schedule-court ${court.tone}`} key={court.id}><span>{court.name}</span><strong>{courtTitle(court)}</strong></div>)}
           <div className="admin-schedule-times">
-            {HALF_HOURS.map((time, index) => <div className={`${index % 2 ? 'half' : ''} ${focusTime === time ? 'phone-focus' : ''}`} data-schedule-time={time} key={time}>{index % 2 === 0 ? time : ''}</div>)}
+            {timeSlots.map((time) => { const minute = Number(time.slice(3, 5)); const boundary = (minute + slotMinutes) % 60 === 0; return <div className={`${boundary ? 'hour-boundary' : 'minor'} ${focusTime === time ? 'phone-focus' : ''}`} data-schedule-time={time} key={time}>{minute === 0 || slotMinutes >= 60 ? time : ''}</div> })}
           </div>
           {COURTS.map((court) => (
             <div
@@ -547,16 +552,17 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               data-court-id={court.id}
               key={court.id}
             >
-              {HALF_HOURS.map((time, index) => {
+              {timeSlots.map((time, index) => {
                 const past = isPastSlot(dateKey, time, now)
+                const startMinute = openMinutes + index * slotMinutes
                 return (
                 <button
-                  className={`admin-schedule-slot ${past ? 'past' : ''} ${focusTime === time ? 'phone-focus' : ''}`}
+                  className={`admin-schedule-slot ${(startMinute + slotMinutes) % 60 === 0 ? 'hour-boundary' : ''} ${past ? 'past' : ''} ${focusTime === time ? 'phone-focus' : ''}`}
                   key={time}
-                  disabled={time === '23:30' || past}
+                  disabled={venueClosed || startMinute + minimumBookingDuration > closeMinutes || past}
                   data-court-id={court.id}
                   data-index={index}
-                  onClick={() => { if (!rangeDraft && time !== '23:30') chooseSlot(court, time) }}
+                  onClick={() => { if (!rangeDraft) chooseSlot(court, time) }}
                   onPointerDown={(event) => {
                     if (event.button !== 0 || busy || activeSelection) return
                     event.preventDefault()
@@ -567,7 +573,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                 />
                 )
               })}
-              {rangeDraft?.court.id === court.id && <div className={`admin-range-preview ${rangeDraft.startIndex === rangeDraft.currentIndex ? 'compact' : ''}`} style={{ '--start': Math.min(rangeDraft.startIndex, rangeDraft.currentIndex), '--span': Math.abs(rangeDraft.currentIndex - rangeDraft.startIndex) + 1 }}><strong>{timeFromMinutes(OPEN_MINUTES + Math.min(rangeDraft.startIndex, rangeDraft.currentIndex) * 30)}–{timeFromMinutes(OPEN_MINUTES + (Math.max(rangeDraft.startIndex, rangeDraft.currentIndex) + 1) * 30)}</strong><span>{t('admin.schedule.releaseToCreate')}</span></div>}
+              {rangeDraft?.court.id === court.id && <div className={`admin-range-preview ${rangeDraft.startIndex === rangeDraft.currentIndex ? 'compact' : ''}`} style={{ '--start': Math.min(rangeDraft.startIndex, rangeDraft.currentIndex), '--span': Math.abs(rangeDraft.currentIndex - rangeDraft.startIndex) + 1 }}><strong>{timeFromMinutes(openMinutes + Math.min(rangeDraft.startIndex, rangeDraft.currentIndex) * slotMinutes)}–{timeFromMinutes(openMinutes + (Math.max(rangeDraft.startIndex, rangeDraft.currentIndex) + 1) * slotMinutes)}</strong><span>{t('admin.schedule.releaseToCreate')}</span></div>}
               {draggedBooking && dragPreview?.court.id === court.id && (
                 <div
                   className={`admin-schedule-drop-preview ${dragPreview.invalid ? 'invalid' : ''}`}
@@ -579,15 +585,15 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                 </div>
               )}
               {dayEvents.filter((item) => !item.court_ids?.length || item.court_ids.includes(court.id)).map((item) => {
-                const rawStart = item.starts_at.slice(0, 10) < dateKey ? OPEN_MINUTES : Number(item.starts_at.slice(11, 13)) * 60 + Number(item.starts_at.slice(14, 16))
-                const rawEnd = item.ends_at.slice(0, 10) > dateKey ? 24 * 60 : Number(item.ends_at.slice(11, 13)) * 60 + Number(item.ends_at.slice(14, 16))
-                const start = Math.max(OPEN_MINUTES, rawStart)
-                const end = Math.min(24 * 60, rawEnd)
+                const rawStart = item.starts_at.slice(0, 10) < dateKey ? openMinutes : Number(item.starts_at.slice(11, 13)) * 60 + Number(item.starts_at.slice(14, 16))
+                const rawEnd = item.ends_at.slice(0, 10) > dateKey ? closeMinutes : Number(item.ends_at.slice(11, 13)) * 60 + Number(item.ends_at.slice(14, 16))
+                const start = Math.max(openMinutes, rawStart)
+                const end = Math.min(closeMinutes, rawEnd)
                 if (end <= start) return null
                 const title = locale.startsWith('zh') ? item.title_zh : item.title_en
                 return <article
                   className={`admin-schedule-event ${item.blocks_booking ? 'blocking' : 'informational'} ${item.color || 'ink'}`}
-                  style={{ '--start': (start - OPEN_MINUTES) / 30, '--span': (end - start) / 30 }}
+                  style={{ '--start': (start - openMinutes) / slotMinutes, '--span': (end - start) / slotMinutes }}
                   title={t('admin.schedule.venueEventTitle', { title })}
                   key={`${item.id}-${court.id}`}
                 >
@@ -597,7 +603,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               })}
               {dayBookings.filter((booking) => booking.court_id === court.id).map((booking) => {
                 const startMinutes = Number(timeFromDateTime(booking.start_at).slice(0, 2)) * 60 + Number(timeFromDateTime(booking.start_at).slice(3))
-                const offset = startMinutes - OPEN_MINUTES
+                const offset = startMinutes - openMinutes
                 const groupSize = dayBookings.filter((item) => (item.booking_group_id || item.id) === (booking.booking_group_id || booking.id)).length
                 const bookingGroupKey = booking.booking_group_id || booking.id
                 const resizeGroupKey = resizeDrag ? (resizeDrag.booking.booking_group_id || resizeDrag.booking.id) : null
@@ -605,9 +611,9 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                 const bookingPhase = bookingPhaseAtVenue(booking, nowAtVenue)
                 const canMove = bookingPhase === 'future'
                 const nowSeconds = Number(nowAtVenue.dateTime.slice(17, 19))
-                const minimumEndMinutes = Math.ceil((nowAtVenue.minutes + (nowSeconds > 0 ? 1 / 60 : 0)) / 30) * 30
-                const minimumResizeDuration = bookingPhase === 'in-progress' ? Math.max(30, minimumEndMinutes - startMinutes) : 30
-                const maximumResizeDuration = Math.min(240, 24 * 60 - startMinutes)
+                const minimumEndMinutes = Math.ceil((nowAtVenue.minutes + (nowSeconds > 0 ? 1 / 60 : 0)) / slotMinutes) * slotMinutes
+                const minimumResizeDuration = bookingPhase === 'in-progress' ? Math.max(minimumBookingDuration, minimumEndMinutes - startMinutes) : minimumBookingDuration
+                const maximumResizeDuration = Math.min(managerMaxMinutes, closeMinutes - startMinutes)
                 const canResize = bookingPhase !== 'ended' && minimumResizeDuration <= maximumResizeDuration
                 const indicatorCount = Number(groupSize > 1) + Number(Boolean(booking.recurrence_series_id))
                 return (
@@ -636,7 +642,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                       setSelectedBooking(null)
                       setPointerDrag({ booking, grabOffset, startX: event.clientX, startY: event.clientY })
                     }}
-                    style={{ '--start': offset / 30, '--span': minutes / 30 }}
+                    style={{ '--start': offset / slotMinutes, '--span': minutes / slotMinutes }}
                     key={booking.id}
                     title={t(canMove ? 'admin.schedule.dragTitle' : bookingPhase === 'in-progress' ? 'admin.schedule.inProgressResizeTitle' : 'admin.schedule.endedReadOnly', { name: booking.customer_name })}
                   >
@@ -688,7 +694,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
         onClose={() => setAuditOpen(false)}
         onRevert={onRevertAudit}
       />
-      {draft && <NewBookingModal draft={draft} busy={busy} onClose={() => setDraft(null)} onSubmit={async (details) => { const result = await onCreate(details); if (result?.saved) setDraft(null); return result }} />}
+      {draft && <NewBookingModal draft={draft} busy={busy} configuration={configuration} onClose={() => setDraft(null)} onSubmit={async (details) => { const result = await onCreate(details); if (result?.saved) setDraft(null); return result }} />}
     </section>
   )
 }

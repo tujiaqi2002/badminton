@@ -8,7 +8,7 @@ import BookingDrawer from './components/BookingDrawer'
 import DateStrip from './components/DateStrip'
 import Header from './components/Header'
 import MyBookings from './components/MyBookings'
-import { addDays, addMinutes, COURTS, demoSchedule, isPastSlot, mondayOfWeek, overlaps, slotDateTime, slotsFromConfiguration, toDateKey, venueNow } from './lib/booking'
+import { addDays, addMinutes, bookingDurations, COURTS, demoSchedule, isPastSlot, mondayOfWeek, openingHoursForDate, overlaps, setVenueTimezone, slotDateTime, slotsFromConfiguration, toDateKey, venueNow } from './lib/booking'
 import { useI18n } from './lib/i18n'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
@@ -60,8 +60,8 @@ const filterDemoAdminOrders = (bookings, filters) => {
   }).sort((left, right) => left.start_at.localeCompare(right.start_at) || left.id.localeCompare(right.id))
 }
 
-const cancellationErrorMessage = (message = '', t) => {
-  if (message.includes('within 12 hours')) return t('errors.cancelWindow')
+const cancellationErrorMessage = (message = '', t, hours = 12) => {
+  if (message.includes('within 12 hours') || message.includes('cancellation window')) return t('errors.cancelWindowDynamic', { hours })
   if (message.includes('does not belong to you')) return t('errors.notOwner')
   if (message.includes('no longer active')) return t('errors.inactive')
   if (message.includes('Manager access required')) return t('errors.managerRequired')
@@ -87,13 +87,15 @@ const validateActiveBookingChange = (booking, startAt, endAt, courtId, t) => {
 }
 
 export default function App() {
-  const { courtName, t } = useI18n()
+  const { courtName, language, t } = useI18n()
   const { themeDefinition } = useTheme()
   const heroKey = themeDefinition.heroKey || 'hero'
   const [view, setView] = useState('book')
   const [dateKey, setDateKey] = useState(todayKey)
   const [schedule, setSchedule] = useState(() => demoSchedule(todayKey()))
   const [bookingConfiguration, setBookingConfiguration] = useState(null)
+  const [venueOperationsConfiguration, setVenueOperationsConfiguration] = useState(null)
+  const [adminScheduleDate, setAdminScheduleDate] = useState(todayKey)
   const [bookings, setBookings] = useState([])
   const [adminBookings, setAdminBookings] = useState([])
   const [adminVenueEvents, setAdminVenueEvents] = useState([])
@@ -167,7 +169,10 @@ export default function App() {
   const fetchBookingConfiguration = useCallback(async () => {
     if (!isSupabaseConfigured || !user) { setBookingConfiguration(null); return }
     const { data, error } = await supabase.rpc('get_venue_booking_configuration', { p_date: dateKey })
-    if (!error) setBookingConfiguration(data)
+    if (!error) {
+      setVenueTimezone(data?.settings?.timezone)
+      setBookingConfiguration(data)
+    }
   }, [dateKey, user])
 
   const fetchBookings = useCallback(async () => {
@@ -209,6 +214,19 @@ export default function App() {
     setIsAdmin(data?.role === 'admin')
     setAdminAccessReady(true)
   }, [user, notify, t])
+
+  const fetchVenueOperationsConfiguration = useCallback(async () => {
+    if (!user || !isAdmin || !isSupabaseConfigured) {
+      setVenueOperationsConfiguration(null)
+      return
+    }
+    const { data, error } = await supabase.rpc('admin_get_venue_operations')
+    if (error) notify(t('errors.schedule'), 'error')
+    else {
+      setVenueTimezone(data?.settings?.timezone)
+      setVenueOperationsConfiguration(data)
+    }
+  }, [isAdmin, notify, t, user])
 
   const fetchAdminBookings = useCallback(async () => {
     if (!user || !isAdmin) {
@@ -397,9 +415,10 @@ export default function App() {
   }, [])
 
   useEffect(() => { fetchSchedule() }, [fetchSchedule])
-  useEffect(() => { if (view === 'book') fetchBookingConfiguration() }, [view, fetchBookingConfiguration])
+  useEffect(() => { if (view === 'book' || view === 'mine') fetchBookingConfiguration() }, [view, fetchBookingConfiguration])
   useEffect(() => { if (view === 'mine') fetchBookings() }, [view, fetchBookings])
   useEffect(() => { fetchAdminAccess() }, [fetchAdminAccess])
+  useEffect(() => { fetchVenueOperationsConfiguration() }, [fetchVenueOperationsConfiguration])
   useEffect(() => { if (view === 'admin' || view === 'capacity') fetchAdminBookings() }, [view, fetchAdminBookings])
   useEffect(() => { if (view === 'admin') fetchAdminOrderBookings() }, [view, fetchAdminOrderBookings])
   useEffect(() => { if (view === 'admin') fetchAdminAuditOperations() }, [view, fetchAdminAuditOperations])
@@ -434,10 +453,11 @@ export default function App() {
       notify(t('errors.pastTime'), 'error')
       return
     }
+    const durations = bookingDurations(bookingConfiguration)
     setSelection({
       ...slot,
       courts: [slot.court],
-      duration: 60,
+      duration: durations.includes(60) ? 60 : durations[0] || 30,
       partySize: 2,
       paymentMethod: 'venue',
       phone: '',
@@ -463,6 +483,22 @@ export default function App() {
     return [...schedule, ...eventBlocks]
   }, [bookingConfiguration, schedule])
   const bookingSlots = useMemo(() => slotsFromConfiguration(bookingConfiguration), [bookingConfiguration])
+  const adminScheduleConfiguration = useMemo(() => ({
+    settings: venueOperationsConfiguration?.settings || {},
+    opening_hours: openingHoursForDate(venueOperationsConfiguration, adminScheduleDate),
+  }), [adminScheduleDate, venueOperationsConfiguration])
+  const venueName = bookingConfiguration?.settings?.[language === 'zh' ? 'name_zh' : 'name_en']
+    || venueOperationsConfiguration?.settings?.[language === 'zh' ? 'name_zh' : 'name_en']
+    || t('venue.name')
+  const configuredHours = bookingConfiguration?.opening_hours
+  const venueHours = configuredHours?.is_closed
+    ? t('board.closed')
+    : configuredHours
+      ? t('board.openingHoursDynamic', {
+        start: `${String(Math.floor(configuredHours.open_minute / 60)).padStart(2, '0')}:${String(configuredHours.open_minute % 60).padStart(2, '0')}`,
+        end: configuredHours.close_minute === 1440 ? '24:00' : `${String(Math.floor(configuredHours.close_minute / 60)).padStart(2, '0')}:${String(configuredHours.close_minute % 60).padStart(2, '0')}`,
+      })
+      : t('venue.hours')
 
   const selectionConflicts = selectedInterval && configuredSchedule.some(
     (item) => (selection.courts || [selection.court]).some((court) => court.id === item.court_id)
@@ -565,7 +601,7 @@ export default function App() {
       return
     }
     const { error } = await supabase.rpc('cancel_booking', { p_booking_id: booking.id })
-    if (error) notify(cancellationErrorMessage(error.message, t), 'error')
+    if (error) notify(cancellationErrorMessage(error.message, t, bookingConfiguration?.settings?.cancellation_notice_hours), 'error')
     else { notify(t('success.cancel')); await Promise.all([fetchSchedule(), fetchBookings()]) }
   }
 
@@ -960,15 +996,15 @@ export default function App() {
                 <span><Radio size={15} /> {t('hero.realtime')}</span>
               </div>
             </div>
-            <div className="venue-note"><MapPin size={16} /><span><strong>{t('venue.name')}</strong><small>{t('venue.hours')}</small></span></div>
+            <div className="venue-note"><MapPin size={16} /><span><strong>{venueName}</strong><small>{venueHours}</small></span></div>
           </section>
 
           <section className="booking-container">
             {!isSupabaseConfigured && (
               <div className="demo-banner"><span>{t('demo.label')}</span> {t('demo.description')}</div>
             )}
-            <DateStrip selected={dateKey} onSelect={setDateKey} />
-            <BookingBoard dateKey={dateKey} schedule={configuredSchedule} loading={loadingSchedule} onSelect={openSelection} slots={bookingSlots} />
+            <DateStrip selected={dateKey} onSelect={setDateKey} bookingWindowDays={bookingConfiguration?.settings?.booking_window_days} />
+            <BookingBoard dateKey={dateKey} schedule={configuredSchedule} loading={loadingSchedule} onSelect={openSelection} slots={bookingSlots} configuration={bookingConfiguration} />
           </section>
 
           <section className="ritual-section">
@@ -1012,12 +1048,16 @@ export default function App() {
           onRevertAudit={adminRevertAuditOperation}
           focusTarget={adminFocus}
           onClearFocus={() => setAdminFocus(null)}
+          configuration={adminScheduleConfiguration}
+          onScheduleDateChange={setAdminScheduleDate}
         />
       ) : view === 'capacity' && isAdmin ? (
         <AdminCapacity
           bookings={adminBookings}
           startDate={adminRange.start}
           onRangeChange={setAdminRange}
+          configuration={venueOperationsConfiguration}
+          events={adminVenueEvents}
           onInspect={(date, time) => {
             const weekStart = mondayOfWeek(date)
             setAdminRange({ start: weekStart, end: toDateKey(addDays(new Date(`${weekStart}T12:00:00`), 6)) })
@@ -1027,10 +1067,13 @@ export default function App() {
         />
       ) : view === 'operations' && isAdmin ? (
         <Suspense fallback={<main className="operations-page"><div className="operations-loading"><Clock3 className="spin" /><span>{t('auth.checkingAccess')}</span></div></main>}>
-          <VenueOperations onNotify={notify} />
+          <VenueOperations onNotify={notify} onConfigurationLoaded={(configuration) => {
+            setVenueTimezone(configuration?.settings?.timezone)
+            setVenueOperationsConfiguration(configuration)
+          }} />
         </Suspense>
       ) : (
-        <MyBookings user={user} bookings={bookings} loading={loadingBookings} onLogin={() => setShowAuth(true)} onCancel={cancelBooking} />
+        <MyBookings user={user} bookings={bookings} loading={loadingBookings} onLogin={() => setShowAuth(true)} onCancel={cancelBooking} configuration={bookingConfiguration || venueOperationsConfiguration} />
       )}
 
       <footer><div className="footer-brand">TIGER <span>{t('footer.subtitle')}</span></div><p>{t('footer.motto')}</p><small>© {new Date().getFullYear()} Tiger Badminton Club</small></footer>
