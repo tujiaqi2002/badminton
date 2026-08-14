@@ -68,6 +68,7 @@ export default function App() {
   const [adminFocus, setAdminFocus] = useState(null)
   const adminDemoHistory = useRef([])
   const authUserIdRef = useRef(null)
+  const adminLandingUserRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState(null)
 
@@ -217,6 +218,19 @@ export default function App() {
   useEffect(() => { if (view === 'mine') fetchBookings() }, [view, fetchBookings])
   useEffect(() => { fetchAdminAccess() }, [fetchAdminAccess])
   useEffect(() => { if (view === 'admin' || view === 'capacity') fetchAdminBookings() }, [view, fetchAdminBookings])
+  useEffect(() => {
+    if (!user) {
+      adminLandingUserRef.current = null
+      return
+    }
+    if (!adminAccessReady || !isAdmin || adminLandingUserRef.current === user.id) return
+    adminLandingUserRef.current = user.id
+    setView('admin')
+  }, [adminAccessReady, isAdmin, user])
+  useEffect(() => {
+    if (view !== 'admin') return
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }))
+  }, [view])
   useEffect(() => {
     if ((view === 'admin' || view === 'capacity') && adminAccessReady && !isAdmin) setView('mine')
   }, [view, isAdmin, adminAccessReady])
