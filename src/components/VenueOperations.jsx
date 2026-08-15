@@ -40,7 +40,7 @@ const COPY = {
     operationsSummary: '今日运营摘要', quickStart: '快速进入', allVenue: '全馆', court: '指定场地', allDays: '每天', allTiers: '所有会员',
     settingsTitle: '基础设置', settingsHelp: '这些值将成为以后预订、财务与通知模块共同使用的唯一配置来源。',
     nameZh: '中文名称', nameEn: '英文名称', timezone: '时区', currency: '币种', bookingWindow: '开放预订天数',
-    slotMinutes: '最小时间刻度', customerMax: '客户最长预订', managerMax: '馆长最长预订', cancelHours: '免费取消提前小时', minutes: '分钟', hoursUnit: '小时', days: '天',
+    slotMinutes: '最小时间刻度', customerMin: '客户最短预订', customerMax: '客户最长预订', managerMax: '馆长最长预订', cancelHours: '免费取消提前小时', minutes: '分钟', hoursUnit: '小时', days: '天',
     hoursTitle: '每周营业时间', hoursHelp: '关闭某一天不会删除历史订单；新的预订会使用这份时间表。', closed: '闭馆', open: '营业', from: '开始', to: '结束', note: '当日说明',
     pricingTitle: '定价规则', pricingHelp: '规则按优先级匹配；星期可多选，场地或会员等级留空时表示全部。', addPrice: '新增定价', ruleNameZh: '规则中文名', ruleNameEn: '规则英文名',
     weekday: '星期', startTime: '开始时间', endTime: '结束时间', hourlyRate: '每小时价格', memberTier: '会员等级', priority: '优先级', active: '启用', effective: '有效日期', noLimit: '不限',
@@ -54,7 +54,7 @@ const COPY = {
     last7: '最近 7 天', last30: '最近 30 天', actor: '操作者', module: '模块', entity: '对象', all: '全部', manager: '馆长', user: '用户', system: '系统',
     operation: '操作', occurred: '发生时间', changed: '更改字段', source: '来源', details: '查看详情', before: '更改前', after: '更改后', metadata: '元数据', operationId: '操作编号',
     page: '第 {{page}} 页', previous: '上一页', next: '下一页', max50: '每页最多 50 条', total: '共 {{count}} 条',
-    empty: '暂无符合条件的记录', loading: '正在读取馆务数据', loadError: '馆务中心加载失败，请重试。', saveError: '保存失败，请检查填写内容。', saved: '馆务设置已保存',
+    empty: '暂无符合条件的记录', loading: '正在读取馆务数据', loadError: '馆务中心加载失败，请重试。', saveError: '保存失败，请检查填写内容。', saved: '馆务设置已保存', customerDurationInvalid: '客户最短预订不能超过客户最长预订',
     confirmDeletePrice: '删除这条定价规则？历史订单价格不会改变。', confirmCancelEvent: '取消这项活动？', conflictConfirm: '这个安排与已有订单冲突。仍然保存，并保留这些订单吗？',
     eventPrefixAll: '全部模块', booking: '预订', venue_settings: '基础设置', opening_hours: '营业时间', pricing_rule: '定价', venue_event: '活动', event_court: '活动场地', member: '会员',
     updatedAt: '最后更新', noEvents: '未来没有特别活动', noMembers: '尚未建立会员资料', unsaved: '有尚未保存的更改',
@@ -68,7 +68,7 @@ const COPY = {
     operationsSummary: 'Today at a glance', quickStart: 'Quick access', allVenue: 'Entire venue', court: 'Specific court', allDays: 'Every day', allTiers: 'All members',
     settingsTitle: 'Venue settings', settingsHelp: 'These values are the shared source of truth for future booking, finance and notification modules.',
     nameZh: 'Chinese name', nameEn: 'English name', timezone: 'Time zone', currency: 'Currency', bookingWindow: 'Booking window',
-    slotMinutes: 'Smallest time step', customerMax: 'Customer maximum', managerMax: 'Manager maximum', cancelHours: 'Free-cancellation notice', minutes: 'min', hoursUnit: 'hours', days: 'days',
+    slotMinutes: 'Smallest time step', customerMin: 'Customer minimum', customerMax: 'Customer maximum', managerMax: 'Manager maximum', cancelHours: 'Free-cancellation notice', minutes: 'min', hoursUnit: 'hours', days: 'days',
     hoursTitle: 'Weekly opening hours', hoursHelp: 'Closing a day keeps historical bookings intact; new bookings use this schedule.', closed: 'Closed', open: 'Open', from: 'From', to: 'To', note: 'Day note',
     pricingTitle: 'Pricing rules', pricingHelp: 'Rules match by priority. Select multiple weekdays; a blank court or member tier means all.', addPrice: 'Add rate', ruleNameZh: 'Chinese rule name', ruleNameEn: 'English rule name',
     weekday: 'Weekday', startTime: 'Start', endTime: 'End', hourlyRate: 'Hourly rate', memberTier: 'Member tier', priority: 'Priority', active: 'Active', effective: 'Effective dates', noLimit: 'No limit',
@@ -82,7 +82,7 @@ const COPY = {
     last7: 'Last 7 days', last30: 'Last 30 days', actor: 'Actor', module: 'Module', entity: 'Entity', all: 'All', manager: 'Manager', user: 'User', system: 'System',
     operation: 'Action', occurred: 'Occurred', changed: 'Changed fields', source: 'Source', details: 'Details', before: 'Before', after: 'After', metadata: 'Metadata', operationId: 'Operation ID',
     page: 'Page {{page}}', previous: 'Previous', next: 'Next', max50: 'Up to 50 per page', total: '{{count}} total',
-    empty: 'No matching records', loading: 'Loading venue operations', loadError: 'Could not load the Operations Center.', saveError: 'Could not save. Check the entered values.', saved: 'Venue operations updated',
+    empty: 'No matching records', loading: 'Loading venue operations', loadError: 'Could not load the Operations Center.', saveError: 'Could not save. Check the entered values.', saved: 'Venue operations updated', customerDurationInvalid: 'Customer minimum cannot exceed the customer maximum.',
     confirmDeletePrice: 'Delete this pricing rule? Historical booking prices will not change.', confirmCancelEvent: 'Cancel this event?', conflictConfirm: 'This event conflicts with active bookings. Save it and keep those bookings?',
     eventPrefixAll: 'All modules', booking: 'Bookings', venue_settings: 'Venue settings', opening_hours: 'Opening hours', pricing_rule: 'Pricing', venue_event: 'Events', event_court: 'Event courts', member: 'Members',
     updatedAt: 'Last updated', noEvents: 'No upcoming special events', noMembers: 'No member records yet', unsaved: 'Unsaved changes',
@@ -319,7 +319,13 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
     return response
   }
 
-  const saveSettings = () => mutate('admin_update_venue_settings', { p_settings: settings })
+  const saveSettings = () => {
+    if (Number(settings?.customer_min_minutes || 60) > Number(settings?.customer_max_minutes || 120)) {
+      notify(c.customerDurationInvalid, 'error')
+      return
+    }
+    mutate('admin_update_venue_settings', { p_settings: settings })
+  }
   const saveHours = () => mutate('admin_replace_opening_hours', { p_hours: hours })
   const savePricing = async (event) => {
     event.preventDefault()
@@ -415,6 +421,7 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
             <label><span>{c.currency}</span><input maxLength="3" value={settings?.currency || ''} onChange={(e) => setSettings({ ...settings, currency: e.target.value.toUpperCase() })} /></label>
             <label><span>{c.bookingWindow}</span><div className="input-unit"><input type="number" min="1" max="365" value={settings?.booking_window_days || 30} onChange={(e) => setSettings({ ...settings, booking_window_days: Number(e.target.value) })} /><small>{c.days}</small></div></label>
             <label><span>{c.slotMinutes}</span><select value={settings?.slot_minutes || 30} onChange={(e) => setSettings({ ...settings, slot_minutes: Number(e.target.value) })}><option value="15">15 {c.minutes}</option><option value="30">30 {c.minutes}</option><option value="60">60 {c.minutes}</option></select></label>
+            <label><span>{c.customerMin}</span><div className="input-unit"><input type="number" step="30" min="30" max="480" value={settings?.customer_min_minutes || 60} onChange={(e) => setSettings({ ...settings, customer_min_minutes: Number(e.target.value) })} /><small>{c.minutes}</small></div></label>
             <label><span>{c.customerMax}</span><div className="input-unit"><input type="number" step="30" min="30" max="480" value={settings?.customer_max_minutes || 120} onChange={(e) => setSettings({ ...settings, customer_max_minutes: Number(e.target.value) })} /><small>{c.minutes}</small></div></label>
             <label><span>{c.managerMax}</span><div className="input-unit"><input type="number" step="30" min="30" max="720" value={settings?.manager_max_minutes || 240} onChange={(e) => setSettings({ ...settings, manager_max_minutes: Number(e.target.value) })} /><small>{c.minutes}</small></div></label>
             <label><span>{c.cancelHours}</span><div className="input-unit"><input type="number" min="0" max="168" value={settings?.cancellation_notice_hours ?? 12} onChange={(e) => setSettings({ ...settings, cancellation_notice_hours: Number(e.target.value) })} /><small>{c.hoursUnit}</small></div></label>
