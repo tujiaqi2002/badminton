@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, CalendarClock, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, History, Link2, MessageSquareText, Pencil, PhoneCall, Repeat2, Save, Trash2, X } from 'lucide-react'
 import { addDays, bookingDurations, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
-import { customerToneForBooking } from '../lib/bookingColors'
+import { createCustomerColorMap, customerColorForBooking } from '../lib/bookingColors'
 import { useI18n } from '../lib/i18n'
 import AdminAuditDrawer from './AdminAuditDrawer'
 
@@ -198,6 +198,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const dayBookings = useMemo(() => bookings.filter((booking) => (
     booking.start_at.startsWith(dateKey) && ['held', 'confirmed'].includes(booking.status)
   )), [bookings, dateKey])
+  const customerColorMap = useMemo(() => createCustomerColorMap(dayBookings), [dayBookings])
   const dayEvents = useMemo(() => events.filter((item) => (
     item.status === 'scheduled'
       && item.starts_at < `${dateKey}T24:00:00`
@@ -617,7 +618,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                 const maximumResizeDuration = Math.min(managerMaxMinutes, closeMinutes - startMinutes)
                 const canResize = bookingPhase !== 'ended' && minimumResizeDuration <= maximumResizeDuration
                 const indicatorCount = Number(groupSize > 1) + Number(Boolean(booking.recurrence_series_id))
-                const customerTone = customerToneForBooking(booking)
+                const customerColor = customerColorForBooking(booking, customerColorMap)
                 return (
                   <article
                     className={`admin-schedule-booking ${bookingPhase} ${minutes <= 60 ? 'short' : ''} ${minutes === 30 ? 'half-hour' : ''} ${indicatorCount ? 'has-indicators' : ''} ${indicatorCount > 1 ? 'has-two-indicators' : ''} ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
@@ -644,8 +645,8 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                       setSelectedBooking(null)
                       setPointerDrag({ booking, grabOffset, startX: event.clientX, startY: event.clientY })
                     }}
-                    style={{ '--start': offset / slotMinutes, '--span': minutes / slotMinutes, '--customer-tone': `${customerTone.lightness}%`, '--customer-hue-shift': customerTone.hue, '--customer-saturation': `${customerTone.saturation}%` }}
-                    data-customer-tone={customerTone.index}
+                    style={{ '--start': offset / slotMinutes, '--span': minutes / slotMinutes, '--customer-color-start': customerColor.start, '--customer-color-end': customerColor.end }}
+                    data-customer-color={customerColor.index}
                     key={booking.id}
                     title={t(canMove ? 'admin.schedule.dragTitle' : bookingPhase === 'in-progress' ? 'admin.schedule.inProgressResizeTitle' : 'admin.schedule.endedReadOnly', { name: booking.customer_name })}
                   >
