@@ -111,7 +111,8 @@ export const bookingDurations = (configuration, manager = false) => {
   const settings = configuration?.settings || configuration || {}
   const maximum = Number(manager ? settings.manager_max_minutes : settings.customer_max_minutes) || (manager ? 240 : 120)
   const step = Number(settings.slot_minutes || 30)
-  const minimum = Math.ceil(30 / step) * step
+  const configuredMinimum = manager ? 30 : Number(settings.customer_min_minutes || 60)
+  const minimum = Math.ceil(configuredMinimum / step) * step
   const durations = []
   for (let minutes = minimum; minutes <= maximum; minutes += step) durations.push(minutes)
   return [...new Set(durations)].sort((left, right) => left - right)
