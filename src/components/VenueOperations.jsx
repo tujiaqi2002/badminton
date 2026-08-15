@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarDays,
   CalendarClock,
+  Check,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
@@ -19,6 +20,7 @@ import {
   Search,
   Trash2,
   UserRoundSearch,
+  UserPlus,
   UsersRound,
   X,
 } from 'lucide-react'
@@ -50,13 +52,15 @@ const COPY = {
     scheduled: '已排期', draft: '草稿', completed: '已完成', cancelled: '已取消', special_event: '特别活动', tournament: '比赛', maintenance: '维护', private_event: '包场', promotion: '推广活动', closure: '闭馆',
     membersTitle: '会员查询', membersHelp: '会员资料与登录账号分离，未来可继续接入积分、套餐、余额和门禁。', addMember: '新增会员', searchMember: '搜索姓名、会员号、电话或邮箱', allStatuses: '全部状态',
     memberNumber: '会员号', memberName: '姓名', contact: '联系方式', tier: '等级', discount: '折扣', joined: '加入日期', expires: '到期日期', statusLabel: '状态', memberNotes: '会员备注', paused: '暂停', expired: '已过期',
+    quickMember: '快速添加会员', quickMemberHelp: '只填姓名并选择等级即可建档；电话和邮箱可稍后补充。', createMember: '立即建档', quickContact: '电话或邮箱至少建议填写一项',
+    tierSystem: '会员等级体系', tierSystemHelp: '等级统一控制默认折扣、有效期与权益；单个会员仍可设置例外。', addTier: '新增等级', editTier: '编辑等级', tierCode: '等级代码', tierNameZh: '中文等级名', tierNameEn: '英文等级名', validity: '默认有效期', permanent: '长期有效', memberCount: '{{count}} 位会员', tierBenefits: '权益（每行一项）', rank: '排序', tierColor: '标记颜色', useTierDiscount: '使用等级默认折扣', customDiscount: '个人折扣例外', activeTier: '启用等级',
     auditTitle: '操作记录查询', auditHelp: '日志只追加、不修改。可按时间、操作者、模块和对象筛选，查看每次更改前后的完整数据。', searchAudit: '搜索邮箱、操作、对象 ID 或操作编号',
     last7: '最近 7 天', last30: '最近 30 天', actor: '操作者', module: '模块', entity: '对象', all: '全部', manager: '馆长', user: '用户', system: '系统',
     operation: '操作', occurred: '发生时间', changed: '更改字段', source: '来源', details: '查看详情', before: '更改前', after: '更改后', metadata: '元数据', operationId: '操作编号',
     page: '第 {{page}} 页', previous: '上一页', next: '下一页', max50: '每页最多 50 条', total: '共 {{count}} 条',
     empty: '暂无符合条件的记录', loading: '正在读取馆务数据', loadError: '馆务中心加载失败，请重试。', saveError: '保存失败，请检查填写内容。', saved: '馆务设置已保存', customerDurationInvalid: '客户最短预订不能超过客户最长预订',
     confirmDeletePrice: '删除这条定价规则？历史订单价格不会改变。', confirmCancelEvent: '取消这项活动？', conflictConfirm: '这个安排与已有订单冲突。仍然保存，并保留这些订单吗？',
-    eventPrefixAll: '全部模块', booking: '预订', venue_settings: '基础设置', opening_hours: '营业时间', pricing_rule: '定价', venue_event: '活动', event_court: '活动场地', member: '会员',
+    eventPrefixAll: '全部模块', booking: '预订', venue_settings: '基础设置', opening_hours: '营业时间', pricing_rule: '定价', venue_event: '活动', event_court: '活动场地', member: '会员', member_tier: '会员等级',
     updatedAt: '最后更新', noEvents: '未来没有特别活动', noMembers: '尚未建立会员资料', unsaved: '有尚未保存的更改',
     mon: '周一', tue: '周二', wed: '周三', thu: '周四', fri: '周五', sat: '周六', sun: '周日',
   },
@@ -78,13 +82,15 @@ const COPY = {
     scheduled: 'Scheduled', draft: 'Draft', completed: 'Completed', cancelled: 'Cancelled', special_event: 'Special event', tournament: 'Tournament', maintenance: 'Maintenance', private_event: 'Private event', promotion: 'Promotion', closure: 'Closure',
     membersTitle: 'Member directory', membersHelp: 'Member records stay separate from login accounts and can later support passes, points, balances and access control.', addMember: 'Add member', searchMember: 'Search name, member number, phone or email', allStatuses: 'All statuses',
     memberNumber: 'Member no.', memberName: 'Name', contact: 'Contact', tier: 'Tier', discount: 'Discount', joined: 'Joined', expires: 'Expires', statusLabel: 'Status', memberNotes: 'Member notes', paused: 'Paused', expired: 'Expired',
+    quickMember: 'Quick member add', quickMemberHelp: 'A name and tier are enough to create the profile; contact details can be completed later.', createMember: 'Create member', quickContact: 'A phone number or email is recommended',
+    tierSystem: 'Membership tiers', tierSystemHelp: 'Tiers define the default discount, validity and benefits while allowing per-member exceptions.', addTier: 'Add tier', editTier: 'Edit tier', tierCode: 'Tier code', tierNameZh: 'Chinese tier name', tierNameEn: 'English tier name', validity: 'Default validity', permanent: 'No expiry', memberCount: '{{count}} members', tierBenefits: 'Benefits (one per line)', rank: 'Order', tierColor: 'Marker colour', useTierDiscount: 'Use tier discount', customDiscount: 'Member discount override', activeTier: 'Active tier',
     auditTitle: 'Audit log query', auditHelp: 'The ledger is append-only. Filter by time, actor, module and entity, then inspect complete before/after data.', searchAudit: 'Search email, action, entity ID or operation ID',
     last7: 'Last 7 days', last30: 'Last 30 days', actor: 'Actor', module: 'Module', entity: 'Entity', all: 'All', manager: 'Manager', user: 'User', system: 'System',
     operation: 'Action', occurred: 'Occurred', changed: 'Changed fields', source: 'Source', details: 'Details', before: 'Before', after: 'After', metadata: 'Metadata', operationId: 'Operation ID',
     page: 'Page {{page}}', previous: 'Previous', next: 'Next', max50: 'Up to 50 per page', total: '{{count}} total',
     empty: 'No matching records', loading: 'Loading venue operations', loadError: 'Could not load the Operations Center.', saveError: 'Could not save. Check the entered values.', saved: 'Venue operations updated', customerDurationInvalid: 'Customer minimum cannot exceed the customer maximum.',
     confirmDeletePrice: 'Delete this pricing rule? Historical booking prices will not change.', confirmCancelEvent: 'Cancel this event?', conflictConfirm: 'This event conflicts with active bookings. Save it and keep those bookings?',
-    eventPrefixAll: 'All modules', booking: 'Bookings', venue_settings: 'Venue settings', opening_hours: 'Opening hours', pricing_rule: 'Pricing', venue_event: 'Events', event_court: 'Event courts', member: 'Members',
+    eventPrefixAll: 'All modules', booking: 'Bookings', venue_settings: 'Venue settings', opening_hours: 'Opening hours', pricing_rule: 'Pricing', venue_event: 'Events', event_court: 'Event courts', member: 'Members', member_tier: 'Member tiers',
     updatedAt: 'Last updated', noEvents: 'No upcoming special events', noMembers: 'No member records yet', unsaved: 'Unsaved changes',
     mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
   },
@@ -123,8 +129,14 @@ const emptyEvent = () => {
 }
 const emptyMember = () => ({
   member_number: '', display_name: '', email: '', phone: '', tier: 'standard', status: 'active',
-  discount_percent: 0, joined_on: dateInput(), expires_on: '', notes: '', metadata: {},
+  discount_percent: 0, discount_override_percent: null, joined_on: dateInput(), expires_on: '', notes: '', metadata: {},
 })
+const emptyQuickMember = () => ({ display_name: '', email: '', phone: '', tier: 'standard' })
+const emptyMemberTier = (rank = 50) => ({
+  code: '', name_zh: '', name_en: '', description_zh: '', description_en: '', rank,
+  discount_percent: 0, default_validity_days: 365, color: 'ink', benefits: [], is_active: true,
+})
+const MEMBER_TIER_COLORS = ['ink', 'jade', 'silver', 'gold', 'cinnabar']
 
 function PanelHeader({ eyebrow, title, help, action }) {
   return <header className="operations-panel-header">
@@ -231,6 +243,9 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
   const [pricingForm, setPricingForm] = useState(null)
   const [eventForm, setEventForm] = useState(null)
   const [memberForm, setMemberForm] = useState(null)
+  const [tierForm, setTierForm] = useState(null)
+  const [quickMember, setQuickMember] = useState(emptyQuickMember)
+  const [memberTiers, setMemberTiers] = useState([])
   const [members, setMembers] = useState({ items: [], total: 0, has_more: false, next_cursor: null, tiers: [] })
   const [memberFilters, setMemberFilters] = useState({ query: '', status: 'all', tier: 'all' })
   const [memberCursorStack, setMemberCursorStack] = useState([null])
@@ -259,13 +274,17 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
       return
     }
     setLoading(true)
-    const { data: result, error: requestError } = await supabase.rpc('admin_get_venue_operations')
+    const [{ data: result, error: requestError }, { data: tierResult, error: tierError }] = await Promise.all([
+      supabase.rpc('admin_get_venue_operations'),
+      supabase.rpc('admin_get_member_tiers'),
+    ])
     setLoading(false)
-    if (requestError) { setError(c.loadError); return }
+    if (requestError || tierError) { setError(c.loadError); return }
     setError('')
     setData(result)
     setSettings(result.settings)
     setHours(result.hours || [])
+    setMemberTiers(tierResult || [])
     configurationLoadedRef.current?.(result)
   }, [c.loadError])
 
@@ -358,8 +377,32 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
   }
   const saveMember = async (event) => {
     event.preventDefault()
-    const response = await mutate('admin_upsert_member', { p_member: memberForm }, () => queryMembers(null, 1))
+    const payload = { ...memberForm }
+    // A blank expiry on a new member means "use this tier's default". Existing
+    // members can still deliberately clear the field to create no expiry.
+    if (!payload.id && !payload.expires_on) delete payload.expires_on
+    const response = await mutate('admin_upsert_member', { p_member: payload }, () => queryMembers(null, 1))
     if (!response.error) setMemberForm(null)
+  }
+  const saveQuickMember = async (event) => {
+    event.preventDefault()
+    const response = await mutate('admin_upsert_member', {
+      p_member: { ...quickMember, status: 'active', joined_on: dateInput(), metadata: { created_from: 'quick_add' } },
+    }, () => queryMembers(null, 1))
+    if (!response.error) setQuickMember(emptyQuickMember())
+  }
+  const saveMemberTier = async (event) => {
+    event.preventDefault()
+    const payload = {
+      ...tierForm,
+      benefits: Array.isArray(tierForm.benefits) ? tierForm.benefits : String(tierForm.benefits || '').split('\n').map((item) => item.trim()).filter(Boolean),
+    }
+    const response = await mutate('admin_upsert_member_tier', { p_tier: payload }, async () => {
+      const { data: tiers } = await supabase.rpc('admin_get_member_tiers')
+      setMemberTiers(tiers || [])
+      await queryMembers(null, 1)
+    })
+    if (!response.error) setTierForm(null)
   }
 
   const todayDow = new Date(`${venueNow().dateKey}T12:00:00`).getDay()
@@ -377,6 +420,8 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
     return days === null ? c.allDays : days.map((day) => c[DAY_KEYS[day]]).join(language === 'zh' ? '、' : ', ')
   }
   const courtLabel = (courtId) => courtId ? (COURTS.find((court) => court.id === courtId)?.[language === 'zh' ? 'name' : 'english'] || c.court) : c.allVenue
+  const tierLabel = (tier) => language === 'zh' ? tier.name_zh : tier.name_en
+  const selectedMemberTier = (code) => memberTiers.find((tier) => tier.code === code)
   const togglePricingDay = (day) => setPricingForm((current) => {
     const selected = pricingDays(current)
     if (selected === null) return { ...current, days_of_week: [day], day_of_week: day }
@@ -474,13 +519,31 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
 
     {tab === 'members' && <section className="operations-panel">
       <PanelHeader eyebrow={c.members} title={c.membersTitle} help={c.membersHelp} action={<button className="operations-primary" onClick={() => setMemberForm(emptyMember())}><Plus size={15} />{c.addMember}</button>} />
+      <div className="member-command-center">
+        <form className="quick-member-card" onSubmit={saveQuickMember}>
+          <header><span><UserPlus size={17} /></span><div><h3>{c.quickMember}</h3><p>{c.quickMemberHelp}</p></div></header>
+          <div className="quick-member-fields">
+            <label><span>{c.memberName}</span><input required value={quickMember.display_name} onChange={(event) => setQuickMember({ ...quickMember, display_name: event.target.value })} /></label>
+            <label><span>Phone</span><input value={quickMember.phone} onChange={(event) => setQuickMember({ ...quickMember, phone: event.target.value })} /></label>
+            <label><span>Email</span><input type="email" value={quickMember.email} onChange={(event) => setQuickMember({ ...quickMember, email: event.target.value })} /></label>
+          </div>
+          <fieldset className="quick-tier-picker"><legend>{c.tier}</legend>{memberTiers.filter((tier) => tier.is_active).map((tier) => <button type="button" className={`${tier.color} ${quickMember.tier === tier.code ? 'selected' : ''}`} onClick={() => setQuickMember({ ...quickMember, tier: tier.code })} key={tier.code}><i /> <span><strong>{tierLabel(tier)}</strong><small>{tier.discount_percent}%</small></span>{quickMember.tier === tier.code && <Check size={14} />}</button>)}</fieldset>
+          <footer><small>{c.quickContact}</small><button className="operations-primary" disabled={busy}><Plus size={14} />{busy ? c.saving : c.createMember}</button></footer>
+        </form>
+        <section className="member-tier-system">
+          <header><div><h3>{c.tierSystem}</h3><p>{c.tierSystemHelp}</p></div><button type="button" onClick={() => setTierForm(emptyMemberTier((memberTiers.at(-1)?.rank || 40) + 10))}><Plus size={14} />{c.addTier}</button></header>
+          <div className="member-tier-cards">{memberTiers.map((tier) => <button type="button" className={`${tier.color} ${tier.is_active ? '' : 'inactive'}`} onClick={() => setTierForm({ ...tier })} key={tier.code}>
+            <i /><span><small>{tier.code}</small><strong>{tierLabel(tier)}</strong><em>{c.memberCount.replace('{{count}}', tier.member_count || 0)}</em></span><b>{tier.discount_percent}%</b><Pencil size={13} />
+          </button>)}</div>
+        </section>
+      </div>
       <div className="operations-query-bar">
         <label className="query-search"><Search size={15} /><input value={memberFilters.query} onChange={(e) => setMemberFilters({ ...memberFilters, query: e.target.value })} placeholder={c.searchMember} /></label>
         <label><Filter size={14} /><select value={memberFilters.status} onChange={(e) => setMemberFilters({ ...memberFilters, status: e.target.value })}><option value="all">{c.allStatuses}</option>{MEMBER_STATUSES.map((status) => <option key={status} value={status}>{eventLabel(status)}</option>)}</select></label>
-        <label><select value={memberFilters.tier} onChange={(e) => setMemberFilters({ ...memberFilters, tier: e.target.value })}><option value="all">{c.allTiers}</option>{(members.tiers || []).map((tier) => <option key={tier} value={tier}>{tier}</option>)}</select></label>
+        <label><select value={memberFilters.tier} onChange={(e) => setMemberFilters({ ...memberFilters, tier: e.target.value })}><option value="all">{c.allTiers}</option>{memberTiers.map((tier) => <option key={tier.code} value={tier.code}>{tierLabel(tier)}</option>)}</select></label>
       </div>
       <div className="operations-table-wrap"><table className="operations-table members-table"><thead><tr><th>{c.memberNumber}</th><th>{c.memberName}</th><th>{c.contact}</th><th>{c.tier}</th><th>{c.discount}</th><th>{c.expires}</th><th>{c.statusLabel}</th><th /></tr></thead><tbody>
-        {(members.items || []).map((member) => <tr key={member.id}><td><strong>{member.member_number}</strong></td><td>{member.display_name}</td><td><span>{member.phone || '—'}</span><small>{member.email || '—'}</small></td><td>{member.tier}</td><td>{member.discount_percent}%</td><td>{formatDate(member.expires_on)}</td><td><span className={`status-chip ${member.status}`}>{eventLabel(member.status)}</span></td><td><button className="row-edit" onClick={() => setMemberForm(member)}><Pencil size={14} /></button></td></tr>)}
+        {(members.items || []).map((member) => <tr key={member.id}><td><strong>{member.member_number}</strong></td><td>{member.display_name}</td><td><span>{member.phone || '—'}</span><small>{member.email || '—'}</small></td><td><span className={`member-tier-chip ${member.tier_color || 'ink'}`}>{language === 'zh' ? member.tier_name_zh : member.tier_name_en}</span></td><td>{member.discount_percent}%{member.discount_override_percent !== null && <small>{c.customDiscount}</small>}</td><td>{formatDate(member.expires_on)}</td><td><span className={`status-chip ${member.status}`}>{eventLabel(member.status)}</span></td><td><button className="row-edit" onClick={() => setMemberForm(member)}><Pencil size={14} /></button></td></tr>)}
       </tbody></table></div>
       {!members.items?.length && <div className="operations-empty"><UserRoundSearch /><span>{c.noMembers}</span></div>}
       <div className="operations-pagination"><span>{c.total.replace('{{count}}', members.total || 0)} · {c.max50}</span><div><button disabled={memberPage === 1} onClick={() => { const page = memberPage - 1; queryMembers(memberCursorStack[page - 1], page) }}><ChevronLeft />{c.previous}</button><b>{c.page.replace('{{page}}', memberPage)}</b><button disabled={!members.has_more} onClick={() => { const next = members.next_cursor; setMemberCursorStack((stack) => [...stack.slice(0, memberPage), next]); queryMembers(next, memberPage + 1) }}>{c.next}<ChevronRight /></button></div></div>
@@ -493,7 +556,7 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
         <label><span>{c.from}</span><input type="date" value={auditFilters.start} max={auditFilters.end} onChange={(e) => setAuditFilters({ ...auditFilters, start: e.target.value })} /></label>
         <label><span>{c.to}</span><input type="date" value={auditFilters.end} min={auditFilters.start} onChange={(e) => setAuditFilters({ ...auditFilters, end: e.target.value })} /></label>
         <label className="query-search"><Search size={15} /><input value={auditFilters.query} onChange={(e) => setAuditFilters({ ...auditFilters, query: e.target.value })} placeholder={c.searchAudit} /></label>
-        <label><span>{c.module}</span><select value={auditFilters.eventPrefix} onChange={(e) => setAuditFilters({ ...auditFilters, eventPrefix: e.target.value })}><option value="all">{c.eventPrefixAll}</option>{['booking', 'venue_settings', 'opening_hours', 'pricing_rule', 'venue_event', 'event_court', 'member'].map((prefix) => <option key={prefix} value={prefix}>{c[prefix] || prefix}</option>)}</select></label>
+        <label><span>{c.module}</span><select value={auditFilters.eventPrefix} onChange={(e) => setAuditFilters({ ...auditFilters, eventPrefix: e.target.value })}><option value="all">{c.eventPrefixAll}</option>{['booking', 'venue_settings', 'opening_hours', 'pricing_rule', 'venue_event', 'event_court', 'member', 'member_tier'].map((prefix) => <option key={prefix} value={prefix}>{c[prefix] || prefix}</option>)}</select></label>
         <label><span>{c.actor}</span><select value={auditFilters.actorKind} onChange={(e) => setAuditFilters({ ...auditFilters, actorKind: e.target.value })}><option value="all">{c.all}</option><option value="manager">{c.manager}</option><option value="user">{c.user}</option><option value="system">{c.system}</option></select></label>
       </div>
       <div className="audit-list-table">
@@ -514,7 +577,7 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
           {DAY_KEYS.map((day, index) => <button type="button" key={day} className={pricingDays(pricingForm)?.includes(index) ? 'active' : ''} aria-pressed={Boolean(pricingDays(pricingForm)?.includes(index))} onClick={() => togglePricingDay(index)}>{c[day]}</button>)}
         </div></fieldset>
         <label><span>{c.startTime}</span><input type="time" required value={minuteToTime(pricingForm.start_minute)} onChange={(e) => setPricingForm({ ...pricingForm, start_minute: timeToMinute(e.target.value) })} /></label><label><span>{c.endTime}</span><select value={pricingForm.end_minute} onChange={(e) => setPricingForm({ ...pricingForm, end_minute: Number(e.target.value) })}>{Array.from({ length: 48 }, (_, i) => (i + 1) * 30).filter((minute) => minute > pricingForm.start_minute).map((minute) => <option key={minute} value={minute}>{minuteToTime(minute)}</option>)}</select></label>
-        <label><span>{c.hourlyRate}</span><input type="number" min="0" step="0.01" required value={pricingForm.hourly_rate} onChange={(e) => setPricingForm({ ...pricingForm, hourly_rate: Number(e.target.value) })} /></label><label><span>{c.memberTier}</span><input value={pricingForm.member_tier || ''} onChange={(e) => setPricingForm({ ...pricingForm, member_tier: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })} placeholder={c.allTiers} /></label>
+        <label><span>{c.hourlyRate}</span><input type="number" min="0" step="0.01" required value={pricingForm.hourly_rate} onChange={(e) => setPricingForm({ ...pricingForm, hourly_rate: Number(e.target.value) })} /></label><label><span>{c.memberTier}</span><select value={pricingForm.member_tier || ''} onChange={(e) => setPricingForm({ ...pricingForm, member_tier: e.target.value })}><option value="">{c.allTiers}</option>{memberTiers.filter((tier) => tier.is_active).map((tier) => <option key={tier.code} value={tier.code}>{tierLabel(tier)}</option>)}</select></label>
         <label><span>{c.priority}</span><input type="number" min="0" max="32767" value={pricingForm.priority} onChange={(e) => setPricingForm({ ...pricingForm, priority: Number(e.target.value) })} /></label><label className="check-field"><input type="checkbox" checked={pricingForm.is_active} onChange={(e) => setPricingForm({ ...pricingForm, is_active: e.target.checked })} /><span>{c.active}</span></label>
         <label><span>{c.from}</span><input type="date" value={pricingForm.valid_from || ''} onChange={(e) => setPricingForm({ ...pricingForm, valid_from: e.target.value })} /></label><label><span>{c.to}</span><input type="date" value={pricingForm.valid_to || ''} onChange={(e) => setPricingForm({ ...pricingForm, valid_to: e.target.value })} /></label>
       </div><footer><button type="button" onClick={() => setPricingForm(null)}>{c.cancel}</button><button className="operations-primary" disabled={busy}><Save size={14} />{busy ? c.saving : c.save}</button></footer>
@@ -534,10 +597,24 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
     {memberForm && <Modal title={memberForm.id ? c.edit : c.addMember} onClose={() => setMemberForm(null)}><form className="operations-form" onSubmit={saveMember}>
       <div className="operations-form-grid"><label><span>{c.memberName}</span><input required value={memberForm.display_name} onChange={(e) => setMemberForm({ ...memberForm, display_name: e.target.value })} /></label><label><span>{c.memberNumber}</span><input value={memberForm.member_number || ''} onChange={(e) => setMemberForm({ ...memberForm, member_number: e.target.value.toUpperCase() })} placeholder="Auto" /></label>
         <label><span>Email</span><input type="email" value={memberForm.email || ''} onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })} /></label><label><span>Phone</span><input value={memberForm.phone || ''} onChange={(e) => setMemberForm({ ...memberForm, phone: e.target.value })} /></label>
-        <label><span>{c.tier}</span><input required value={memberForm.tier} onChange={(e) => setMemberForm({ ...memberForm, tier: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })} /></label><label><span>{c.statusLabel}</span><select value={memberForm.status} onChange={(e) => setMemberForm({ ...memberForm, status: e.target.value })}>{MEMBER_STATUSES.map((status) => <option key={status} value={status}>{eventLabel(status)}</option>)}</select></label>
-        <label><span>{c.discount}</span><div className="input-unit"><input type="number" min="0" max="100" step="0.01" value={memberForm.discount_percent} onChange={(e) => setMemberForm({ ...memberForm, discount_percent: Number(e.target.value) })} /><small>%</small></div></label><label><span>{c.joined}</span><input type="date" value={memberForm.joined_on || ''} onChange={(e) => setMemberForm({ ...memberForm, joined_on: e.target.value })} /></label>
+        <label><span>{c.tier}</span><select required value={memberForm.tier} onChange={(e) => setMemberForm({ ...memberForm, tier: e.target.value, discount_percent: selectedMemberTier(e.target.value)?.discount_percent || 0, discount_override_percent: null })}>{memberTiers.filter((tier) => tier.is_active || tier.code === memberForm.tier).map((tier) => <option key={tier.code} value={tier.code}>{tierLabel(tier)}</option>)}</select></label><label><span>{c.statusLabel}</span><select value={memberForm.status} onChange={(e) => setMemberForm({ ...memberForm, status: e.target.value })}>{MEMBER_STATUSES.map((status) => <option key={status} value={status}>{eventLabel(status)}</option>)}</select></label>
+        <div className="member-discount-field"><span>{c.discount}</span><label className="inline-check"><input type="checkbox" checked={memberForm.discount_override_percent === null || memberForm.discount_override_percent === undefined} onChange={(e) => setMemberForm({ ...memberForm, discount_override_percent: e.target.checked ? null : Number(memberForm.discount_percent || selectedMemberTier(memberForm.tier)?.discount_percent || 0) })} /><span>{c.useTierDiscount}</span></label><div className="input-unit"><input type="number" min="0" max="100" step="0.01" disabled={memberForm.discount_override_percent === null || memberForm.discount_override_percent === undefined} value={memberForm.discount_override_percent ?? selectedMemberTier(memberForm.tier)?.discount_percent ?? memberForm.discount_percent ?? 0} onChange={(e) => setMemberForm({ ...memberForm, discount_override_percent: Number(e.target.value) })} /><small>%</small></div></div><label><span>{c.joined}</span><input type="date" value={memberForm.joined_on || ''} onChange={(e) => setMemberForm({ ...memberForm, joined_on: e.target.value })} /></label>
         <label><span>{c.expires}</span><input type="date" min={memberForm.joined_on} value={memberForm.expires_on || ''} onChange={(e) => setMemberForm({ ...memberForm, expires_on: e.target.value })} /></label><label className="full"><span>{c.memberNotes}</span><textarea rows="4" value={memberForm.notes || ''} onChange={(e) => setMemberForm({ ...memberForm, notes: e.target.value })} /></label>
       </div><footer><button type="button" onClick={() => setMemberForm(null)}>{c.cancel}</button><button className="operations-primary" disabled={busy}><Save size={14} />{busy ? c.saving : c.save}</button></footer>
+    </form></Modal>}
+
+    {tierForm && <Modal title={tierForm.created_at ? c.editTier : c.addTier} onClose={() => setTierForm(null)}><form className="operations-form" onSubmit={saveMemberTier}>
+      <div className="operations-form-grid">
+        <label><span>{c.tierCode}</span><input required disabled={Boolean(tierForm.created_at)} value={tierForm.code} onChange={(event) => setTierForm({ ...tierForm, code: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })} placeholder="gold" /></label>
+        <label><span>{c.rank}</span><input required type="number" min="1" max="999" value={tierForm.rank} onChange={(event) => setTierForm({ ...tierForm, rank: Number(event.target.value) })} /></label>
+        <label><span>{c.tierNameZh}</span><input required value={tierForm.name_zh} onChange={(event) => setTierForm({ ...tierForm, name_zh: event.target.value })} /></label>
+        <label><span>{c.tierNameEn}</span><input required value={tierForm.name_en} onChange={(event) => setTierForm({ ...tierForm, name_en: event.target.value })} /></label>
+        <label><span>{c.discount}</span><div className="input-unit"><input required type="number" min="0" max="100" step="0.01" value={tierForm.discount_percent} onChange={(event) => setTierForm({ ...tierForm, discount_percent: Number(event.target.value) })} /><small>%</small></div></label>
+        <label><span>{c.validity}</span><div className="input-unit"><input type="number" min="1" max="3650" value={tierForm.default_validity_days ?? ''} onChange={(event) => setTierForm({ ...tierForm, default_validity_days: event.target.value ? Number(event.target.value) : '' })} placeholder={c.permanent} /><small>{c.days}</small></div></label>
+        <fieldset className="tier-color-picker full"><legend>{c.tierColor}</legend>{MEMBER_TIER_COLORS.map((color) => <label className={`${color} ${tierForm.color === color ? 'selected' : ''}`} key={color}><input type="radio" name="tier-color" checked={tierForm.color === color} value={color} onChange={(event) => setTierForm({ ...tierForm, color: event.target.value })} /><i /></label>)}</fieldset>
+        <label className="full"><span>{c.tierBenefits}</span><textarea rows="4" value={(tierForm.benefits || []).join('\n')} onChange={(event) => setTierForm({ ...tierForm, benefits: event.target.value.split('\n') })} /></label>
+        <label className="check-field full"><input type="checkbox" checked={tierForm.is_active} onChange={(event) => setTierForm({ ...tierForm, is_active: event.target.checked })} /><span>{c.activeTier}</span></label>
+      </div><footer><button type="button" onClick={() => setTierForm(null)}>{c.cancel}</button><button className="operations-primary" disabled={busy}><Save size={14} />{busy ? c.saving : c.save}</button></footer>
     </form></Modal>}
 
     {auditDetail && <Modal title={auditDetail.event_type} onClose={() => setAuditDetail(null)} wide><div className="audit-detail">
