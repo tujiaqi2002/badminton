@@ -144,6 +144,17 @@ a { color: inherit; text-decoration: none; }
 .settings-theme-grid strong, .settings-theme-grid small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .settings-theme-grid strong { font-size: 0.625rem; } .settings-theme-grid small { color: var(--ink-soft); font-size: 0.5rem; }
 .settings-theme-grid .theme-preview { width: 64px; height: 48px; border-radius: 5px; }
+.settings-booking-colors-card { grid-template-columns: minmax(190px,.78fr) minmax(290px,1.22fr); }
+.booking-color-options { min-width: 0; display: grid; gap: 8px; }
+.booking-color-options > button { min-width: 0; min-height: 66px; padding: 9px 10px; display: grid; grid-template-columns: 116px minmax(0,1fr) 16px; align-items: center; gap: 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: rgba(255,255,255,.38); text-align: left; cursor: pointer; }
+.booking-color-options > button:hover { border-color: rgba(34,36,33,.36); background: rgba(255,255,255,.72); }
+.booking-color-options > button.selected { border-color: var(--ink); background: rgba(255,255,255,.88); box-shadow: inset 0 0 0 1px var(--ink); }
+.booking-color-options > button > span { min-width: 0; display: grid; gap: 3px; }
+.booking-color-options strong, .booking-color-options small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.booking-color-options strong { font-size: 0.625rem; }
+.booking-color-options small { color: var(--ink-soft); font-size: 0.5rem; }
+.booking-palette-preview { height: 34px; display: grid; grid-template-columns: repeat(5,1fr); overflow: hidden; border: 1px solid rgba(34,36,33,.14); border-radius: 6px; box-shadow: 0 4px 10px rgba(34,36,33,.08); }
+.booking-palette-preview span { min-width: 0; }
 .settings-profile-card { min-height: 155px; padding: 25px; display: flex; align-items: center; gap: 20px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.5); }
 .settings-profile-avatar { width: 70px; height: 70px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--ink); font: 1.75rem/1 "Songti SC",serif; }
 .settings-profile-card small { color: var(--red); font-size: 0.5rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
@@ -584,7 +595,7 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-event strong { font-size: 0.5625rem; }
 .admin-schedule-event span { font-size: 0.5rem; opacity: .78; }
 .admin-schedule-event small { font-size: 0.4375rem; font-weight: 700; letter-spacing: .03em; }
-.admin-schedule-booking { position: absolute; z-index: 2; top: calc(var(--start) * var(--slot-height) + 2px); left: 5px; right: 5px; height: calc(var(--span) * var(--slot-height) - 4px); min-height: 0; max-height: calc(var(--span) * var(--slot-height) - 4px); padding: 7px 8px 7px 5px; display: flex; align-items: start; gap: 5px; border: 1px solid rgba(255,255,255,.48); background: var(--customer-color-start,var(--ink)); background-image: linear-gradient(118deg,rgba(255,255,255,.13),transparent 43%),linear-gradient(145deg,var(--customer-color-start,var(--ink)),var(--customer-color-end,var(--ink))); color: #fffdf8; text-shadow: 0 1px 1px rgba(24,25,23,.2); box-shadow: 0 7px 17px rgba(34,36,33,.17); cursor: grab; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; touch-action: none; }
+.admin-schedule-booking { position: absolute; z-index: 2; top: calc(var(--start) * var(--slot-height) + 2px); left: 5px; right: 5px; height: calc(var(--span) * var(--slot-height) - 4px); min-height: 0; max-height: calc(var(--span) * var(--slot-height) - 4px); padding: 7px 8px 7px 5px; display: flex; align-items: start; gap: 5px; border: 1px solid rgba(255,255,255,.48); background: var(--customer-color-start,var(--ink)); background-image: linear-gradient(118deg,rgba(255,255,255,.13),transparent 43%),linear-gradient(145deg,var(--customer-color-start,var(--ink)),var(--customer-color-end,var(--ink))); color: var(--customer-color-ink,#fffdf8); text-shadow: var(--customer-text-shadow,0 1px 1px rgba(24,25,23,.2)); box-shadow: 0 7px 17px rgba(34,36,33,.17); cursor: grab; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; touch-action: none; }
 .admin-schedule-booking:active { cursor: grabbing; }
 .admin-schedule-booking.has-indicators { padding-right: 31px; }
 .admin-schedule-booking.has-two-indicators { padding-right: 54px; }
@@ -627,7 +638,7 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-booking.half-hour .admin-booking-indicators { top: 3px; right: 3px; gap: 2px; }
 .admin-schedule-booking.half-hour .admin-booking-indicator { width: 16px; height: 16px; }
 .admin-schedule-booking.half-hour .admin-booking-indicator svg { width: 10px; height: 10px; }
-.admin-resize-handle { position: absolute; right: 1px; bottom: 1px; width: 18px; height: 14px; padding: 0; border: 0; border-right: 3px solid rgba(255,255,255,.82); border-bottom: 3px solid rgba(255,255,255,.82); background: transparent; cursor: ns-resize; }
+.admin-resize-handle { position: absolute; right: 1px; bottom: 1px; width: 18px; height: 14px; padding: 0; border: 0; border-right: 3px solid var(--customer-color-ink,rgba(255,255,255,.82)); border-bottom: 3px solid var(--customer-color-ink,rgba(255,255,255,.82)); background: transparent; cursor: ns-resize; }
 .admin-range-preview { position: absolute; z-index: 3; pointer-events: none; top: calc(var(--start) * var(--slot-height) + 1px); left: 4px; right: 4px; height: calc(var(--span) * var(--slot-height) - 2px); min-height: 0; padding: 5px 8px; display: grid; align-content: center; gap: 2px; overflow: hidden; color: var(--red-dark); border: 2px dashed var(--red); background: rgba(255,255,255,.9); }
 .admin-range-preview strong { font-size: 0.625rem; }
 .admin-range-preview span { font-size: 0.5rem; }
@@ -795,6 +806,8 @@ footer small { text-align: right; }
   .settings-card { padding: 15px; grid-template-columns: 1fr; gap: 15px; }
   .settings-theme-grid { grid-template-columns: 1fr; }
   .settings-theme-grid > button { min-height: 69px; }
+  .settings-booking-colors-card { grid-template-columns: 1fr; }
+  .booking-color-options > button { grid-template-columns: 96px minmax(0,1fr) 16px; }
   .settings-profile-card { min-height: 125px; padding: 19px; }
   .settings-profile-avatar { width: 57px; height: 57px; font-size: 1.375rem; }
   .settings-danger-card { align-items: flex-start; flex-direction: column; gap: 14px; }

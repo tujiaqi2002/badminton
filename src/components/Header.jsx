@@ -35,7 +35,7 @@ export default function Header({ user, isAdmin, view, onViewChange, onAuth, onSi
 
       <div className="header-actions">
         {user ? (
-          <DisplaySettings user={user} guest={guest} onSignOut={onSignOut} />
+          <DisplaySettings user={user} guest={guest} isAdmin={isAdmin} onSignOut={onSignOut} />
         ) : (
           <button className="outline-button header-login" onClick={onAuth}>{t('account.login')}</button>
         )}
