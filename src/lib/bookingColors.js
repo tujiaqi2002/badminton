@@ -13,17 +13,17 @@ const MINERAL_PALETTE = [
   { name: 'umber', start: '#725A43', end: '#544230' },
 ]
 
-// Bright, high-separation colours based on the supplied Coolors palette.
-// Deeper endpoints calm long cards while preserving the exact source colours.
-const SIGNAL_PALETTE = [
-  { name: 'pink', start: '#EF476F', end: '#A72F4E', foreground: '#102E3A', textShadow: 'none' },
-  { name: 'yellow', start: '#FFD166', end: '#D6A12E', foreground: '#102E3A', textShadow: 'none' },
-  { name: 'green', start: '#06D6A0', end: '#04936F', foreground: '#102E3A', textShadow: 'none' },
-  { name: 'blue', start: '#118AB2', end: '#0B5F7C', foreground: '#FFFDF8', textShadow: '0 1px 1px rgba(7,59,76,.28)' },
-  { name: 'navy', start: '#073B4C', end: '#041F29', foreground: '#FFFDF8', textShadow: '0 1px 1px rgba(0,0,0,.28)' },
+// Low-saturation warmth keeps large booking cards comfortable to scan while
+// terracotta, caramel, ochre, sage and stone remain easy to distinguish.
+const WARM_PALETTE = [
+  { name: 'terracotta', start: '#A85D48', end: '#7E4435', foreground: '#FFF9F1', textShadow: '0 1px 1px rgba(63,34,27,.28)' },
+  { name: 'caramel', start: '#C48A5A', end: '#A8754C', foreground: '#211D17', textShadow: '0 1px 1px rgba(255,249,241,.18)' },
+  { name: 'ochre', start: '#9A8A57', end: '#817449', foreground: '#211D17', textShadow: '0 1px 1px rgba(255,249,241,.16)' },
+  { name: 'sage', start: '#687A61', end: '#4D5B48', foreground: '#FFF9F1', textShadow: '0 1px 1px rgba(30,38,28,.28)' },
+  { name: 'stone', start: '#66717A', end: '#4B545B', foreground: '#FFF9F1', textShadow: '0 1px 1px rgba(25,31,36,.28)' },
 ]
 
-const PALETTES = { mineral: MINERAL_PALETTE, signal: SIGNAL_PALETTE }
+const PALETTES = { mineral: MINERAL_PALETTE, signal: WARM_PALETTE }
 
 export const DEFAULT_BOOKING_COLOR_SCHEME = 'mineral'
 
@@ -38,7 +38,7 @@ export const BOOKING_COLOR_SCHEMES = [
     id: 'signal',
     nameKey: 'settings.bookingColorsSignal',
     noteKey: 'settings.bookingColorsSignalNote',
-    swatches: ['#EF476F', '#FFD166', '#06D6A0', '#118AB2', '#073B4C'],
+    swatches: ['#A85D48', '#C48A5A', '#9A8A57', '#687A61', '#66717A'],
   },
 ]
 
