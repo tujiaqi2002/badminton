@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight, Gauge, PhoneCall } from 'lucide-react'
 import { addDays, addMinutes, COURTS, isPastSlot, mondayOfWeek, openingHoursForDate, overlaps, slotDateTime, toDateKey } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
+const CAPACITY_SLOT_MINUTES = 60
+
 export default function WeeklyCapacityMonitor({ bookings, events = [], weekDate, onWeekChange, onInspect, configuration }) {
   const { locale, t } = useI18n()
   const [now, setNow] = useState(() => new Date())
@@ -11,7 +13,7 @@ export default function WeeklyCapacityMonitor({ bookings, events = [], weekDate,
     return () => window.clearInterval(timer)
   }, [])
   const monday = mondayOfWeek(weekDate)
-  const slotMinutes = Number(configuration?.settings?.slot_minutes || 60)
+  const slotMinutes = CAPACITY_SLOT_MINUTES
   const openDays = (configuration?.hours || []).filter((item) => !item.is_closed)
   const firstMinute = openDays.length ? Math.min(...openDays.map((item) => Number(item.open_minute))) : 600
   const lastMinute = openDays.length ? Math.max(...openDays.map((item) => Number(item.close_minute))) : 1440
