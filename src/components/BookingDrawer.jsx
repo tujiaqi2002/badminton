@@ -17,9 +17,6 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
   const memberName = locale.startsWith('zh')
     ? priceBreakdown.member?.name_zh
     : priceBreakdown.member?.name_en
-  const ruleNames = [...new Set(priceBreakdown.rules.map((rule) => (
-    locale.startsWith('zh') ? rule.name_zh : rule.name_en
-  )).filter(Boolean))]
   const endMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) + duration
   const endTime = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
 
@@ -92,7 +89,6 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
         <div className="price-breakdown">
           <div><span>{t('drawer.rulePrice')}</span><strong>{formatMoney(priceBreakdown.subtotal, locale, currency, true)}</strong></div>
           {priceBreakdown.discountPercent > 0 && <div className="member-price-discount"><span>{t('drawer.memberDiscount', { tier: memberName || priceBreakdown.member?.tier || t('drawer.member'), discount: priceBreakdown.discountPercent })}</span><strong>−{formatMoney(priceBreakdown.discountAmount, locale, currency, true)}</strong></div>}
-          {ruleNames.length > 0 && <small>{t('drawer.rateRule', { rule: ruleNames.join(' + ') })}</small>}
         </div>
         <div className="price-row"><span>{t('drawer.fee')}</span><strong>{formatMoney(price, locale, currency, true)}</strong></div>
         <p className="booking-policy"><Clock3 size={15} /> {t('drawer.policyDynamic', { hours: cancellationHours })}</p>
