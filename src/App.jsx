@@ -71,6 +71,7 @@ const cancellationErrorMessage = (message = '', t, hours = 12) => {
 
 const rescheduleErrorMessage = (message = '', t) => {
   if (message.includes('already booked')) return t('errors.slotTaken')
+  if (message.includes('No pricing rule covers')) return t('errors.noPricing')
   if (message.includes('already started') || message.includes('start time and court are locked')) return t('errors.inProgressMove')
   if (message.includes('at least 30 minutes') || message.includes('end after the current time')) return t('errors.inProgressEnd')
   if (message.includes('already ended')) return t('errors.endedBooking')
@@ -573,7 +574,7 @@ export default function App() {
 
     if (error) {
       setBusy(false)
-      notify(t(error.message.includes('already booked') ? 'errors.slotTaken' : 'errors.booking'), 'error')
+      notify(t(error.message.includes('already booked') ? 'errors.slotTaken' : error.message.includes('No pricing rule covers') ? 'errors.noPricing' : 'errors.booking'), 'error')
       await fetchSchedule()
       return
     }
@@ -720,7 +721,7 @@ export default function App() {
       : basePayload)
     setAdminScheduleBusy(false)
     if (error) {
-      notify(t(error.message.includes('already booked') ? 'errors.slotTaken' : 'errors.adminCreate'), 'error')
+      notify(t(error.message.includes('already booked') ? 'errors.slotTaken' : error.message.includes('No pricing rule covers') ? 'errors.noPricing' : 'errors.adminCreate'), 'error')
       return error.message.includes('unavailable') ? { conflicts: [{ startAt, courtIds: basePayload.p_court_ids }] } : false
     }
     if ((createdRows?.length || 0) > 0) rememberAdminAction()

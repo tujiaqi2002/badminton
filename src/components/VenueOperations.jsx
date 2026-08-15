@@ -296,7 +296,13 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
     setBusy(true)
     const response = await supabase.rpc(rpc, payload)
     setBusy(false)
-    if (response.error) { notify(response.error.message || c.saveError, 'error'); return response }
+    if (response.error) {
+      const message = response.error.message?.includes('Pricing rules must cover every open court and time slot')
+        ? (language === 'zh' ? '定价规则必须覆盖所有营业中的场地与时段' : 'Pricing must cover every open court and time slot.')
+        : response.error.message || c.saveError
+      notify(message, 'error')
+      return response
+    }
     notify(c.saved)
     await loadOverview()
     if (after) await after(response.data)
