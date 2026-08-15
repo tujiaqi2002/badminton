@@ -86,46 +86,71 @@ a { color: inherit; text-decoration: none; }
 .theme-preview.inkplay::after { width: 53px; height: 18px; left: 3px; bottom: 2px; border: solid rgba(101,87,70,.52); border-width: 1px 0 0 1px; transform: skewY(-8deg); }
 .language-switch { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.34); color: var(--ink-soft); cursor: pointer; font-size: 0.625rem; letter-spacing: .04em; }
 .language-switch:hover { color: var(--ink); background: rgba(255,255,255,.78); }
-.display-settings { position: relative; }
-.display-settings > summary { list-style: none; }
-.display-settings > summary::-webkit-details-marker { display: none; }
 .account-button { min-height: 37px; padding: 3px 4px 3px 3px; border: 1px solid transparent; border-radius: 999px; background: transparent; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink-soft); }
-.account-button:hover, .display-settings[open] > .account-button { color: var(--ink); border-color: var(--line); background: rgba(255,255,255,.62); }
-.display-settings[open] > .account-button > svg { transform: rotate(180deg); }
+.account-button:hover, .account-button[aria-expanded="true"] { color: var(--ink); border-color: var(--line); background: rgba(255,255,255,.62); }
+.account-button[aria-expanded="true"] > svg { transform: rotate(180deg); }
 .avatar { width: 29px; height: 29px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: white; font-size: 0.75rem; }
 .account-label { max-width: 110px; overflow: hidden; text-overflow: ellipsis; font-size: 0.75rem; }
-.display-settings-panel { width: min(420px, calc(100vw - 28px)); max-height: calc(100vh - 82px); position: absolute; z-index: 160; top: calc(100% + 10px); right: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--line); background: var(--paper-light); box-shadow: 0 28px 90px rgba(26,27,25,.2); animation: themeMenuIn .18s ease; }
-.display-settings-panel > header { min-height: 70px; padding: 15px 17px; display: flex; align-items: center; gap: 11px; border-bottom: 1px solid var(--line); }
-.display-settings-panel > header > span { width: 33px; height: 33px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--ink); }
-.display-settings-panel > header div { min-width: 0; display: grid; gap: 3px; }
-.display-settings-panel > header strong { font: 1.0625rem/1.2 "Songti SC",serif; }
-.display-settings-panel > header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); font-size: 0.5625rem; }
-.settings-section { padding: 14px 17px 16px; border-bottom: 1px solid var(--line); }
-.settings-section-title { min-height: 20px; margin-bottom: 9px; display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 0.5625rem; font-weight: 700; letter-spacing: .07em; }
-.settings-section-title small { margin-left: auto; color: var(--ink); font-size: 0.5rem; letter-spacing: .08em; }
-.font-size-options, .language-options { display: grid; border: 1px solid var(--line); background: rgba(255,255,255,.36); }
+.display-settings-backdrop { position: fixed; z-index: 400; inset: 0; padding: 32px; display: grid; place-items: center; background: rgba(24,25,23,.42); -webkit-backdrop-filter: blur(13px); backdrop-filter: blur(13px); animation: fadeIn .18s ease; }
+.settings-center { width: min(960px,calc(100vw - 64px)); height: min(720px,calc(100dvh - 64px)); min-height: 540px; display: grid; grid-template-columns: 260px minmax(0,1fr); overflow: hidden; border: 1px solid rgba(34,36,33,.18); border-radius: 16px; background: var(--paper-light); box-shadow: 0 38px 120px rgba(20,21,19,.28); animation: modalIn .22s ease; }
+.settings-sidebar { min-width: 0; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--line); background: color-mix(in srgb,var(--paper) 92%,white); }
+.settings-sidebar > header { min-height: 72px; padding: 13px 15px; display: flex; align-items: center; gap: 11px; border-bottom: 1px solid var(--line); }
+.settings-sidebar > header > div { min-width: 0; display: flex; align-items: center; gap: 9px; }
+.settings-sidebar > header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 1rem/1.2 "Songti SC",serif; }
+.settings-close { width: 38px; height: 38px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,.42); color: var(--ink-soft); cursor: pointer; }
+.settings-close:hover { color: var(--ink); border-color: var(--ink); background: white; }
+.settings-close-desktop { display: none; }
+.settings-search { min-height: 40px; margin: 15px 14px 8px; padding: 0 11px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.56); color: var(--ink-soft); }
+.settings-search:focus-within { border-color: var(--ink); background: white; }
+.settings-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 0.6875rem; }
+.settings-search input::placeholder { color: var(--ink-soft); }
+.settings-sidebar nav { min-height: 0; padding: 4px 8px 12px; display: grid; align-content: start; gap: 3px; overflow-y: auto; }
+.settings-sidebar nav button { width: 100%; min-height: 59px; padding: 8px 10px; display: grid; grid-template-columns: 22px minmax(0,1fr); align-items: center; gap: 9px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--ink-soft); text-align: left; cursor: pointer; }
+.settings-sidebar nav button:hover { color: var(--ink); background: rgba(255,255,255,.56); }
+.settings-sidebar nav button.active { color: var(--ink); border-color: rgba(34,36,33,.08); background: rgba(34,36,33,.075); }
+.settings-sidebar nav button > span { min-width: 0; display: grid; gap: 3px; }
+.settings-sidebar nav strong, .settings-sidebar nav small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-sidebar nav strong { font-size: 0.6875rem; } .settings-sidebar nav small { color: var(--ink-soft); font-size: 0.5rem; }
+.settings-sidebar > footer { min-height: 65px; margin-top: auto; padding: 12px 17px; display: grid; align-content: center; gap: 3px; border-top: 1px solid var(--line); }
+.settings-sidebar > footer strong, .settings-sidebar > footer small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-sidebar > footer strong { font-size: 0.625rem; } .settings-sidebar > footer small { color: var(--ink-soft); font-size: 0.5rem; }
+.settings-no-results { margin: 20px 14px; color: var(--ink-soft); font-size: 0.5625rem; text-align: center; }
+.settings-content { min-width: 0; overflow-y: auto; overscroll-behavior: contain; background: color-mix(in srgb,var(--paper-light) 94%,white); }
+.settings-content > header { min-height: 122px; padding: 25px 30px 22px; position: sticky; z-index: 4; top: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--line); background: color-mix(in srgb,var(--paper-light) 92%,transparent); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+.settings-content > header h2 { margin: 10px 0 6px; font: 1.875rem/1 "Songti SC",serif; }
+.settings-content > header p { margin: 0; color: var(--ink-soft); font-size: 0.625rem; }
+.settings-page { padding: 26px 30px 34px; display: grid; gap: 17px; }
+.settings-card { padding: 19px; display: grid; grid-template-columns: minmax(190px,.78fr) minmax(290px,1.22fr); align-items: center; gap: 22px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.46); }
+.settings-card-heading { min-width: 0; display: grid; grid-template-columns: 35px minmax(0,1fr); gap: 11px; align-items: start; }
+.settings-card-heading > span { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--ink); }
+.settings-card-heading h3, .settings-profile-card h3, .settings-danger-card h3 { margin: 1px 0 6px; font: 1.0625rem/1.15 "Songti SC",serif; }
+.settings-card-heading p, .settings-profile-card p, .settings-danger-card p { margin: 0; color: var(--ink-soft); font-size: 0.5625rem; line-height: 1.55; }
+.font-size-options, .language-options { display: grid; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: rgba(255,255,255,.38); }
 .font-size-options { grid-template-columns: repeat(3,1fr); }
 .language-options { grid-template-columns: repeat(2,1fr); }
-.font-size-options button, .language-options button { min-height: 47px; padding: 6px 8px; border: 0; border-left: 1px solid var(--line); display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--ink-soft); background: transparent; cursor: pointer; font-size: 0.625rem; }
+.font-size-options button, .language-options button { min-height: 56px; padding: 7px 10px; border: 0; border-left: 1px solid var(--line); display: flex; align-items: center; justify-content: center; gap: 7px; color: var(--ink-soft); background: transparent; cursor: pointer; font-size: 0.625rem; }
 .font-size-options button:first-child, .language-options button:first-child { border-left: 0; }
 .font-size-options button:hover, .language-options button:hover { color: var(--ink); background: rgba(34,36,33,.045); }
 .font-size-options button.selected, .language-options button.selected { color: white; background: var(--ink); }
 .font-preview { width: 19px; display: inline-grid; place-items: center; font-family: "Songti SC",serif; font-weight: 400; }
 .font-preview-0 { font-size: 0.6875rem; } .font-preview-1 { font-size: 0.9375rem; } .font-preview-2 { font-size: 1.1875rem; }
-.settings-theme-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
-.settings-theme-grid > button { min-width: 0; min-height: 54px; padding: 6px; display: grid; grid-template-columns: 49px minmax(0,1fr) 14px; align-items: center; gap: 7px; border: 1px solid transparent; color: var(--ink); background: rgba(255,255,255,.25); text-align: left; cursor: pointer; }
-.settings-theme-grid > button:hover { border-color: var(--line); background: rgba(255,255,255,.55); }
-.settings-theme-grid > button.selected { border-color: var(--ink); background: rgba(255,255,255,.72); }
+.settings-current-theme { min-height: 53px; padding: 11px 15px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-left: 3px solid var(--red); background: rgba(199,70,54,.045); }
+.settings-current-theme span { color: var(--ink-soft); font-size: 0.5625rem; } .settings-current-theme strong { font: 1rem/1 "Songti SC",serif; }
+.settings-theme-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+.settings-theme-grid > button { min-width: 0; min-height: 76px; padding: 10px; display: grid; grid-template-columns: 64px minmax(0,1fr) 16px; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: rgba(255,255,255,.36); text-align: left; cursor: pointer; }
+.settings-theme-grid > button:hover { border-color: rgba(34,36,33,.36); background: rgba(255,255,255,.7); }
+.settings-theme-grid > button.selected { border-color: var(--ink); background: rgba(255,255,255,.86); box-shadow: inset 0 0 0 1px var(--ink); }
 .settings-theme-grid > button > span { min-width: 0; display: grid; gap: 3px; }
 .settings-theme-grid strong, .settings-theme-grid small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.settings-theme-grid strong { font-size: 0.5625rem; } .settings-theme-grid small { color: var(--ink-soft); font-size: 0.4375rem; }
-.settings-theme-grid .theme-preview { width: 49px; height: 36px; }
-.display-settings-panel > footer { min-height: 61px; padding: 11px 17px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.display-settings-panel > footer div { min-width: 0; display: grid; gap: 3px; }
-.display-settings-panel > footer strong, .display-settings-panel > footer small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.display-settings-panel > footer strong { font-size: 0.625rem; } .display-settings-panel > footer small { max-width: 220px; color: var(--ink-soft); font-size: 0.5rem; }
-.display-settings-panel > footer button { min-height: 33px; padding: 0 11px; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: transparent; color: var(--red-dark); cursor: pointer; font-size: 0.5625rem; }
-.display-settings-panel > footer button:hover { color: white; border-color: var(--red-dark); background: var(--red-dark); }
+.settings-theme-grid strong { font-size: 0.625rem; } .settings-theme-grid small { color: var(--ink-soft); font-size: 0.5rem; }
+.settings-theme-grid .theme-preview { width: 64px; height: 48px; border-radius: 5px; }
+.settings-profile-card { min-height: 155px; padding: 25px; display: flex; align-items: center; gap: 20px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.5); }
+.settings-profile-avatar { width: 70px; height: 70px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--ink); font: 1.75rem/1 "Songti SC",serif; }
+.settings-profile-card small { color: var(--red); font-size: 0.5rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.settings-profile-card h3 { margin-top: 8px; font-size: 1.5rem; }
+.settings-danger-card { min-height: 96px; padding: 19px 21px; display: flex; align-items: center; justify-content: space-between; gap: 25px; border: 1px solid rgba(159,49,39,.2); border-radius: 12px; background: rgba(199,70,54,.035); }
+.settings-danger-card button { min-height: 39px; padding: 0 14px; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--red-dark); border-radius: 6px; color: var(--red-dark); background: transparent; cursor: pointer; font-size: 0.625rem; }
+.settings-danger-card button:hover { color: white; background: var(--red-dark); }
 
 .primary-button, .outline-button {
   min-height: 45px; border-radius: 3px; padding: 0 20px; display: inline-flex; align-items: center; justify-content: center; gap: 9px;
@@ -696,6 +721,13 @@ footer small { text-align: right; }
   .admin-schedule-inspector, .admin-schedule-side-right { height: min(792px, calc(100vh - 16px)); }
 }
 
+@media (max-width: 900px) and (min-width: 761px) {
+  .settings-center { grid-template-columns: 225px minmax(0,1fr); }
+  .settings-content > header { padding-inline: 24px; }
+  .settings-page { padding-inline: 24px; }
+  .settings-card { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 760px) {
   .admin-order-pagination { grid-template-columns: 1fr auto 1fr; gap: 0; }
   .admin-order-pagination button { min-height: 64px; padding: 0 10px; font-size: 0.625rem; }
@@ -747,12 +779,30 @@ footer small { text-align: right; }
   .header-actions { gap: 6px; }
   .desktop-nav, .account-button .account-label, .account-button > svg, .header-login { display: none; }
   .account-button { margin-left: auto; }
-  .display-settings-panel { width: min(342px, calc(100vw - 48px)); max-height: calc(100dvh - 74px); position: absolute; top: calc(100% + 9px); right: 0; bottom: auto; left: auto; border-radius: 5px 5px 14px 14px; }
-  .display-settings-panel > header { min-height: 64px; padding: 13px 15px; }
-  .settings-section { padding: 12px 15px 14px; }
+  .display-settings-backdrop { padding: 0; place-items: stretch; }
+  .settings-center { width: 100%; height: 100dvh; min-height: 0; grid-template-columns: 1fr; grid-template-rows: auto minmax(0,1fr); border: 0; border-radius: 0; }
+  .settings-sidebar { overflow: visible; border-right: 0; border-bottom: 1px solid var(--line); }
+  .settings-sidebar > header { min-height: 55px; padding: 8px 14px; }
+  .settings-sidebar > header > div { margin: 0 auto 0 0; }
+  .settings-sidebar > header .avatar { display: none; }
+  .settings-search { min-height: 37px; margin: 8px 14px; }
+  .settings-sidebar nav { padding: 2px 12px 10px; display: flex; overflow-x: auto; scrollbar-width: none; }
+  .settings-sidebar nav::-webkit-scrollbar { display: none; }
+  .settings-sidebar nav button { width: auto; min-width: max-content; min-height: 40px; padding: 7px 11px; grid-template-columns: 17px auto; border-radius: 999px; }
+  .settings-sidebar nav button > span { display: block; }
+  .settings-sidebar nav small { display: none; }
+  .settings-sidebar > footer { display: none; }
+  .settings-no-results { margin: 12px; }
+  .settings-content > header { min-height: 91px; padding: 17px 18px 15px; }
+  .settings-content > header h2 { margin-top: 7px; font-size: 1.5rem; }
+  .settings-content > header .eyebrow { font-size: 0.5625rem; }
+  .settings-page { padding: 16px 15px calc(28px + env(safe-area-inset-bottom)); gap: 13px; }
+  .settings-card { padding: 15px; grid-template-columns: 1fr; gap: 15px; }
   .settings-theme-grid { grid-template-columns: 1fr; }
-  .settings-theme-grid > button { min-height: 50px; }
-  .display-settings-panel > footer { padding: 10px 15px; }
+  .settings-theme-grid > button { min-height: 69px; }
+  .settings-profile-card { min-height: 125px; padding: 19px; }
+  .settings-profile-avatar { width: 57px; height: 57px; font-size: 1.375rem; }
+  .settings-danger-card { align-items: flex-start; flex-direction: column; gap: 14px; }
   .brand strong { font-size: 0.8125rem; }
   .brand small { display: none; }
   .theme-switcher summary, .language-switch { padding-inline: 8px; }
