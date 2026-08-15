@@ -75,8 +75,8 @@ export const mondayOfWeek = (dateKey) => {
 
 export const overlaps = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && aEnd > bStart
 
-export const formatMoney = (amount, locale = 'zh-CN', currency = 'CAD') => new Intl.NumberFormat(locale, {
-  style: 'currency', currency, maximumFractionDigits: 0,
+export const formatMoney = (amount, locale = 'zh-CN', currency = 'CAD', showCents = false) => new Intl.NumberFormat(locale, {
+  style: 'currency', currency, minimumFractionDigits: showCents ? 2 : 0, maximumFractionDigits: showCents ? 2 : 0,
 }).format(amount)
 
 export const priceFor = (time, duration) => {
@@ -134,30 +134,75 @@ export const bookingDurations = (configuration, manager = false) => {
   return [...new Set(durations)].sort((left, right) => left - right)
 }
 
-export const priceFromConfiguration = (configuration, courtIds, time, duration) => {
-  if (!configuration?.pricing_rules?.length) return priceFor(time, duration) * courtIds.length
+const ruleDateBounds = (rule) => Number(Boolean(rule.valid_from)) + Number(Boolean(rule.valid_to))
+const ruleDateSpan = (rule) => {
+  if (!rule.valid_from || !rule.valid_to) return Number.MAX_SAFE_INTEGER
+  return Math.max(0, Math.round((new Date(`${rule.valid_to}T12:00:00`) - new Date(`${rule.valid_from}T12:00:00`)) / 86_400_000))
+}
+
+export const comparePricingRuleMatch = (left, right) => {
+  const leftDateScoped = Number(Boolean(left.valid_from || left.valid_to))
+  const rightDateScoped = Number(Boolean(right.valid_from || right.valid_to))
+  return rightDateScoped - leftDateScoped
+    || ruleDateBounds(right) - ruleDateBounds(left)
+    || ruleDateSpan(left) - ruleDateSpan(right)
+    || Number(Boolean(right.member_tier)) - Number(Boolean(left.member_tier))
+    || Number(Boolean(right.court_id)) - Number(Boolean(left.court_id))
+    || Number(Array.isArray(right.days_of_week)) - Number(Array.isArray(left.days_of_week))
+    || (left.days_of_week?.length ?? 8) - (right.days_of_week?.length ?? 8)
+    || (left.end_minute - left.start_minute) - (right.end_minute - right.start_minute)
+    || String(right.updated_at || right.created_at || '').localeCompare(String(left.updated_at || left.created_at || ''))
+    || String(right.id || '').localeCompare(String(left.id || ''))
+}
+
+const fallbackRate = (minute) => minute >= 17 * 60 ? 36 : 28
+const roundMoney = (amount) => Math.round((amount + Number.EPSILON) * 100) / 100
+
+export const priceBreakdownFromConfiguration = (configuration, courtIds, time, duration) => {
   const startMinute = Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
-  const step = configuration.settings?.slot_minutes || 30
-  const tier = configuration.member?.tier || null
-  const discount = Math.min(100, Math.max(0, Number(configuration.member?.discount_percent || 0)))
+  const step = configuration?.settings?.slot_minutes || 30
+  const tier = configuration?.member?.tier || null
+  const discount = Math.min(100, Math.max(0, Number(configuration?.member?.discount_percent || 0)))
+  const matchedRules = new Map()
   const amount = courtIds.reduce((courtTotal, courtId) => {
     let courtAmount = 0
     for (let offset = 0; offset < duration; offset += step) {
       const minute = startMinute + offset
-      const rule = configuration.pricing_rules
+      const slotMinutes = Math.min(step, duration - offset)
+      const rule = (configuration?.pricing_rules || [])
         .filter((item) => (!item.court_id || item.court_id === courtId)
           && (!item.member_tier || item.member_tier === tier)
           && minute >= item.start_minute && minute < item.end_minute)
-        .sort((left, right) => Number(right.priority || 0) - Number(left.priority || 0)
-          || Number(Boolean(right.court_id)) - Number(Boolean(left.court_id))
-          || Number(Boolean(right.member_tier)) - Number(Boolean(left.member_tier)))[0]
-      if (!rule) return courtTotal + priceFor(time, duration)
-      courtAmount += Number(rule.hourly_rate) * Math.min(step, duration - offset) / 60
+        .sort(comparePricingRuleMatch)[0]
+      const hourlyRate = Number(rule?.hourly_rate ?? fallbackRate(minute))
+      const key = rule?.id || `fallback-${hourlyRate}`
+      const previous = matchedRules.get(key)
+      matchedRules.set(key, {
+        id: key,
+        name_zh: rule?.name_zh || '标准场地价',
+        name_en: rule?.name_en || 'Standard venue rate',
+        hourly_rate: hourlyRate,
+        minutes: (previous?.minutes || 0) + slotMinutes,
+      })
+      courtAmount += hourlyRate * slotMinutes / 60
     }
     return courtTotal + courtAmount
   }, 0)
-  return Math.round(amount * (1 - discount / 100) * 100) / 100
+  const subtotal = roundMoney(amount)
+  const discountAmount = roundMoney(subtotal * discount / 100)
+  return {
+    subtotal,
+    discountPercent: discount,
+    discountAmount,
+    total: roundMoney(subtotal - discountAmount),
+    rules: [...matchedRules.values()],
+    member: configuration?.member || null,
+  }
 }
+
+export const priceFromConfiguration = (configuration, courtIds, time, duration) => (
+  priceBreakdownFromConfiguration(configuration || {}, courtIds, time, duration).total
+)
 
 export const demoSchedule = (dateKey) => [
   { id: 'demo-1', booking_group_id: 'demo-1', court_id: COURTS[0].id, start_at: slotDateTime(dateKey, '10:00'), end_at: slotDateTime(dateKey, '12:00'), status: 'confirmed' },

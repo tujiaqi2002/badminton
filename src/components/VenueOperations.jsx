@@ -24,7 +24,7 @@ import {
   UsersRound,
   X,
 } from 'lucide-react'
-import { addDays, COURTS, toDateKey, venueNow } from '../lib/booking'
+import { addDays, comparePricingRuleMatch, COURTS, toDateKey, venueNow } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 
@@ -44,8 +44,9 @@ const COPY = {
     nameZh: '中文名称', nameEn: '英文名称', timezone: '时区', currency: '币种', bookingWindow: '开放预订天数',
     slotMinutes: '最小时间刻度', customerMin: '客户最短预订', customerMax: '客户最长预订', managerMax: '馆长最长预订', cancelHours: '免费取消提前小时', minutes: '分钟', hoursUnit: '小时', days: '天',
     hoursTitle: '每周营业时间', hoursHelp: '关闭某一天不会删除历史订单；新的预订会使用这份时间表。', closed: '闭馆', open: '营业', from: '开始', to: '结束', note: '当日说明',
-    pricingTitle: '定价规则', pricingHelp: '规则按优先级匹配；星期可多选，场地或会员等级留空时表示全部。', addPrice: '新增定价', ruleNameZh: '规则中文名', ruleNameEn: '规则英文名',
-    weekday: '星期', startTime: '开始时间', endTime: '结束时间', hourlyRate: '每小时价格', memberTier: '会员等级', priority: '优先级', active: '启用', effective: '有效日期', noLimit: '不限',
+    pricingTitle: '定价规则', pricingHelp: '不再计算优先级数字。系统自动选择范围最具体的规则：限时日期 → 会员专属 → 指定场地 → 指定星期 → 基础价；同层级选择覆盖更窄的时段。', addPrice: '新增定价', ruleNameZh: '规则中文名', ruleNameEn: '规则英文名',
+    weekday: '星期', startTime: '开始时间', endTime: '结束时间', hourlyRate: '每小时价格', memberTier: '会员等级', matchOrder: '自动匹配', active: '启用', effective: '有效日期', noLimit: '不限',
+    priceSpecial: '限时日期', priceMember: '会员专属', priceCourt: '指定场地', priceWeekday: '指定星期', priceBase: '基础补位', automatic: '系统自动', autoMatchTitle: '系统自动决定匹配顺序', autoMatchHelp: '你只需要设置适用日期、会员、场地和星期；限制越具体，越先采用。无需再猜 0、80 或 100。',
     eventsTitle: '活动与特殊安排', eventsHelp: '可记录比赛、维护、包场和闭馆；阻止预订的活动会检查已有订单冲突。', addEvent: '新增活动',
     titleZh: '中文标题', titleEn: '英文标题', description: '说明', eventType: '类型', status: '状态', startsAt: '开始', endsAt: '结束', blocksBooking: '阻止新的预订', eventCourts: '适用场地（不选代表全馆）', conflicts: '与 {{count}} 笔有效预订冲突',
     eventFormHelp: '安排比赛、包场、维护或闭馆，并同步显示在预定管理日历中。', chooseDate: '选择日期', chooseTime: '选择时间', previousMonth: '上个月', nextMonth: '下个月', today: '今天', color: '标记颜色',
@@ -74,8 +75,9 @@ const COPY = {
     nameZh: 'Chinese name', nameEn: 'English name', timezone: 'Time zone', currency: 'Currency', bookingWindow: 'Booking window',
     slotMinutes: 'Smallest time step', customerMin: 'Customer minimum', customerMax: 'Customer maximum', managerMax: 'Manager maximum', cancelHours: 'Free-cancellation notice', minutes: 'min', hoursUnit: 'hours', days: 'days',
     hoursTitle: 'Weekly opening hours', hoursHelp: 'Closing a day keeps historical bookings intact; new bookings use this schedule.', closed: 'Closed', open: 'Open', from: 'From', to: 'To', note: 'Day note',
-    pricingTitle: 'Pricing rules', pricingHelp: 'Rules match by priority. Select multiple weekdays; a blank court or member tier means all.', addPrice: 'Add rate', ruleNameZh: 'Chinese rule name', ruleNameEn: 'English rule name',
-    weekday: 'Weekday', startTime: 'Start', endTime: 'End', hourlyRate: 'Hourly rate', memberTier: 'Member tier', priority: 'Priority', active: 'Active', effective: 'Effective dates', noLimit: 'No limit',
+    pricingTitle: 'Pricing rules', pricingHelp: 'No numeric priority is needed. The most specific match wins: dated rule → member → court → weekday → base rate; narrower windows win within a level.', addPrice: 'Add rate', ruleNameZh: 'Chinese rule name', ruleNameEn: 'English rule name',
+    weekday: 'Weekday', startTime: 'Start', endTime: 'End', hourlyRate: 'Hourly rate', memberTier: 'Member tier', matchOrder: 'Automatic match', active: 'Active', effective: 'Effective dates', noLimit: 'No limit',
+    priceSpecial: 'Dated rate', priceMember: 'Member rate', priceCourt: 'Court rate', priceWeekday: 'Weekday rate', priceBase: 'Base fallback', automatic: 'Automatic', autoMatchTitle: 'Match order is automatic', autoMatchHelp: 'Set the applicable dates, member, court and weekdays. A more specific scope wins, so there are no 0, 80 or 100 values to guess.',
     eventsTitle: 'Events and exceptions', eventsHelp: 'Track tournaments, maintenance, private events and closures. Blocking events are checked against live bookings.', addEvent: 'Add event',
     titleZh: 'Chinese title', titleEn: 'English title', description: 'Description', eventType: 'Type', status: 'Status', startsAt: 'Starts', endsAt: 'Ends', blocksBooking: 'Block new bookings', eventCourts: 'Courts (none means entire venue)', conflicts: 'Conflicts with {{count}} active bookings',
     eventFormHelp: 'Schedule tournaments, private events, maintenance or closures and show them on the booking calendar.', chooseDate: 'Choose date', chooseTime: 'Choose time', previousMonth: 'Previous month', nextMonth: 'Next month', today: 'Today', color: 'Marker color',
@@ -111,7 +113,7 @@ const dateInput = (date = new Date()) => {
 }
 const emptyPricingRule = () => ({
   name_zh: '', name_en: '', court_id: '', day_of_week: '', days_of_week: null, start_minute: 600,
-  end_minute: 1440, hourly_rate: 28, member_tier: '', valid_from: '', valid_to: '', priority: 100, is_active: true,
+  end_minute: 1440, hourly_rate: 28, member_tier: '', valid_from: '', valid_to: '', is_active: true,
 })
 const pricingDays = (rule) => {
   if (Array.isArray(rule?.days_of_week)) {
@@ -122,7 +124,18 @@ const pricingDays = (rule) => {
   }
   return null
 }
-const pricingRuleForForm = (rule) => ({ ...rule, days_of_week: pricingDays(rule) })
+const pricingRuleForForm = (rule) => {
+  const copy = { ...rule, days_of_week: pricingDays(rule) }
+  delete copy.priority
+  return copy
+}
+const pricingRuleLevel = (rule) => {
+  if (rule?.valid_from || rule?.valid_to) return 'priceSpecial'
+  if (rule?.member_tier) return 'priceMember'
+  if (rule?.court_id) return 'priceCourt'
+  if (pricingDays(rule) !== null) return 'priceWeekday'
+  return 'priceBase'
+}
 const emptyEvent = () => {
   const tomorrow = toDateKey(addDays(new Date(`${venueNow().dateKey}T12:00:00`), 1))
   return { title_zh: '', title_en: '', description: '', event_type: 'special_event', status: 'scheduled', starts_at: `${tomorrow}T10:00`, ends_at: `${tomorrow}T12:00`, blocks_booking: false, color: 'ink', court_ids: [] }
@@ -349,12 +362,14 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
   const savePricing = async (event) => {
     event.preventDefault()
     const selectedDays = pricingDays(pricingForm)
+    const rulePayload = {
+      ...pricingForm,
+      days_of_week: selectedDays,
+      day_of_week: selectedDays?.length === 1 ? selectedDays[0] : '',
+    }
+    delete rulePayload.priority
     const response = await mutate('admin_upsert_pricing_rule', {
-      p_rule: {
-        ...pricingForm,
-        days_of_week: selectedDays,
-        day_of_week: selectedDays?.length === 1 ? selectedDays[0] : '',
-      },
+      p_rule: rulePayload,
     })
     if (!response.error) setPricingForm(null)
   }
@@ -409,6 +424,7 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
   const todayHours = data?.hours?.find((item) => item.day_of_week === todayDow)
   const upcoming = (data?.events || []).filter((item) => item.status === 'scheduled' && item.ends_at?.slice(0, 19) >= venueNow().dateTime)
   const activeRules = (data?.pricing_rules || []).filter((item) => item.is_active)
+  const pricingRules = useMemo(() => [...(data?.pricing_rules || [])].sort(comparePricingRuleMatch), [data?.pricing_rules])
   const formatDateTime = (value) => value ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '—'
   const formatDate = (value) => value ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(`${value}T12:00:00`)) : '—'
   const formatCurrency = (value) => new Intl.NumberFormat(locale, { style: 'currency', currency: settings?.currency || 'CAD' }).format(value || 0)
@@ -497,9 +513,9 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
 
     {tab === 'pricing' && <section className="operations-panel">
       <PanelHeader eyebrow={c.pricing} title={c.pricingTitle} help={c.pricingHelp} action={<button className="operations-primary" onClick={() => setPricingForm(emptyPricingRule())}><Plus size={15} />{c.addPrice}</button>} />
-      <div className="operations-table-wrap"><table className="operations-table pricing-table"><thead><tr><th>{c.operation}</th><th>{c.court}</th><th>{c.weekday}</th><th>{c.startTime}—{c.endTime}</th><th>{c.memberTier}</th><th>{c.hourlyRate}</th><th>{c.priority}</th><th /></tr></thead><tbody>
-        {(data?.pricing_rules || []).map((rule) => <tr key={rule.id} className={!rule.is_active ? 'muted' : ''}>
-          <td><strong>{priceTitle(rule)}</strong><small>{rule.is_active ? c.active : c.cancelled}</small></td><td>{courtLabel(rule.court_id)}</td><td>{dayLabel(rule)}</td><td>{minuteToTime(rule.start_minute)}—{minuteToTime(rule.end_minute)}</td><td>{rule.member_tier || c.allTiers}</td><td className="money">{formatCurrency(rule.hourly_rate)}</td><td>{rule.priority}</td>
+      <div className="operations-table-wrap"><table className="operations-table pricing-table"><thead><tr><th>{c.operation}</th><th>{c.court}</th><th>{c.weekday}</th><th>{c.startTime}—{c.endTime}</th><th>{c.memberTier}</th><th>{c.hourlyRate}</th><th>{c.matchOrder}</th><th /></tr></thead><tbody>
+        {pricingRules.map((rule) => <tr key={rule.id} className={!rule.is_active ? 'muted' : ''}>
+          <td><strong>{priceTitle(rule)}</strong><small>{rule.is_active ? c.active : c.cancelled}</small></td><td>{courtLabel(rule.court_id)}</td><td>{dayLabel(rule)}</td><td>{minuteToTime(rule.start_minute)}—{minuteToTime(rule.end_minute)}</td><td>{rule.member_tier || c.allTiers}</td><td className="money">{formatCurrency(rule.hourly_rate)}</td><td><span className={`pricing-match-level ${pricingRuleLevel(rule)}`}>{c[pricingRuleLevel(rule)]}</span><small>{c.automatic}</small></td>
           <td><div className="row-actions"><button onClick={() => setPricingForm(pricingRuleForForm(rule))} aria-label={c.edit}><Pencil size={14} /></button><button className="danger" onClick={() => deletePricing(rule)} aria-label={c.delete}><Trash2 size={14} /></button></div></td>
         </tr>)}
       </tbody></table></div>
@@ -570,7 +586,7 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
     </section>}
 
     {pricingForm && <Modal title={pricingForm.id ? c.edit : c.addPrice} onClose={() => setPricingForm(null)}><form className="operations-form" onSubmit={savePricing}>
-      <div className="operations-form-grid"><label><span>{c.ruleNameZh}</span><input required value={pricingForm.name_zh} onChange={(e) => setPricingForm({ ...pricingForm, name_zh: e.target.value })} /></label><label><span>{c.ruleNameEn}</span><input required value={pricingForm.name_en} onChange={(e) => setPricingForm({ ...pricingForm, name_en: e.target.value })} /></label>
+      <div className="operations-form-grid"><div className="pricing-order-preview full"><BadgeDollarSign size={18} /><div><strong>{c.autoMatchTitle}</strong><p>{c.autoMatchHelp}</p></div><span className={`pricing-match-level ${pricingRuleLevel(pricingForm)}`}>{c[pricingRuleLevel(pricingForm)]}</span></div><label><span>{c.ruleNameZh}</span><input required value={pricingForm.name_zh} onChange={(e) => setPricingForm({ ...pricingForm, name_zh: e.target.value })} /></label><label><span>{c.ruleNameEn}</span><input required value={pricingForm.name_en} onChange={(e) => setPricingForm({ ...pricingForm, name_en: e.target.value })} /></label>
         <label><span>{c.court}</span><select value={pricingForm.court_id || ''} onChange={(e) => setPricingForm({ ...pricingForm, court_id: e.target.value })}><option value="">{c.allVenue}</option>{COURTS.map((court) => <option key={court.id} value={court.id}>{language === 'zh' ? court.name : court.english}</option>)}</select></label>
         <fieldset className="pricing-weekday-field"><legend>{c.weekday}</legend><div className="pricing-weekday-options">
           <button type="button" className={pricingDays(pricingForm) === null ? 'active' : ''} aria-pressed={pricingDays(pricingForm) === null} onClick={() => setPricingForm({ ...pricingForm, days_of_week: null, day_of_week: '' })}>{c.allDays}</button>
@@ -578,7 +594,7 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
         </div></fieldset>
         <label><span>{c.startTime}</span><input type="time" required value={minuteToTime(pricingForm.start_minute)} onChange={(e) => setPricingForm({ ...pricingForm, start_minute: timeToMinute(e.target.value) })} /></label><label><span>{c.endTime}</span><select value={pricingForm.end_minute} onChange={(e) => setPricingForm({ ...pricingForm, end_minute: Number(e.target.value) })}>{Array.from({ length: 48 }, (_, i) => (i + 1) * 30).filter((minute) => minute > pricingForm.start_minute).map((minute) => <option key={minute} value={minute}>{minuteToTime(minute)}</option>)}</select></label>
         <label><span>{c.hourlyRate}</span><input type="number" min="0" step="0.01" required value={pricingForm.hourly_rate} onChange={(e) => setPricingForm({ ...pricingForm, hourly_rate: Number(e.target.value) })} /></label><label><span>{c.memberTier}</span><select value={pricingForm.member_tier || ''} onChange={(e) => setPricingForm({ ...pricingForm, member_tier: e.target.value })}><option value="">{c.allTiers}</option>{memberTiers.filter((tier) => tier.is_active).map((tier) => <option key={tier.code} value={tier.code}>{tierLabel(tier)}</option>)}</select></label>
-        <label><span>{c.priority}</span><input type="number" min="0" max="32767" value={pricingForm.priority} onChange={(e) => setPricingForm({ ...pricingForm, priority: Number(e.target.value) })} /></label><label className="check-field"><input type="checkbox" checked={pricingForm.is_active} onChange={(e) => setPricingForm({ ...pricingForm, is_active: e.target.checked })} /><span>{c.active}</span></label>
+        <label className="check-field"><input type="checkbox" checked={pricingForm.is_active} onChange={(e) => setPricingForm({ ...pricingForm, is_active: e.target.checked })} /><span>{c.active}</span></label>
         <label><span>{c.from}</span><input type="date" value={pricingForm.valid_from || ''} onChange={(e) => setPricingForm({ ...pricingForm, valid_from: e.target.value })} /></label><label><span>{c.to}</span><input type="date" value={pricingForm.valid_to || ''} onChange={(e) => setPricingForm({ ...pricingForm, valid_to: e.target.value })} /></label>
       </div><footer><button type="button" onClick={() => setPricingForm(null)}>{c.cancel}</button><button className="operations-primary" disabled={busy}><Save size={14} />{busy ? c.saving : c.save}</button></footer>
     </form></Modal>}
