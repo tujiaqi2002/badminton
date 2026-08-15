@@ -1,9 +1,9 @@
-import { Building2, CalendarDays, Gauge, Globe2, LogOut, ShieldCheck, UserRound } from 'lucide-react'
+import { Building2, CalendarDays, Gauge, ShieldCheck, UserRound } from 'lucide-react'
 import { useI18n } from '../lib/i18n'
-import ThemeSwitcher from './ThemeSwitcher'
+import DisplaySettings from './DisplaySettings'
 
 export default function Header({ user, isAdmin, view, onViewChange, onAuth, onSignOut }) {
-  const { t, toggleLanguage } = useI18n()
+  const { t } = useI18n()
   const guest = t('account.guest')
 
   return (
@@ -34,17 +34,8 @@ export default function Header({ user, isAdmin, view, onViewChange, onAuth, onSi
       </nav>
 
       <div className="header-actions">
-        <ThemeSwitcher />
-        <button className="language-switch" onClick={toggleLanguage} aria-label={t('language.switch')} title={t('language.switch')}>
-          <Globe2 size={14} /><span>{t('language.switchShort')}</span>
-        </button>
-
         {user ? (
-          <button className="account-button" onClick={onSignOut} title={t('account.signOut')}>
-            <span className="avatar">{(user.email || guest).slice(0, 1).toUpperCase()}</span>
-            <span className="account-label">{user.email?.split('@')[0] || guest}</span>
-            <LogOut size={15} />
-          </button>
+          <DisplaySettings user={user} guest={guest} onSignOut={onSignOut} />
         ) : (
           <button className="outline-button header-login" onClick={onAuth}>{t('account.login')}</button>
         )}
