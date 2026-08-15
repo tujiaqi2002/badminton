@@ -55,6 +55,18 @@ const PALETTES = {
   cream: CREAM_PALETTE,
 }
 
+// A theme's swatches are anchors, not a hard limit. The schedule derives a
+// large, deterministic colour field from them so busy days are not reduced to
+// five repeating cards. 4093 is prime, which makes the probing sequence visit
+// every slot before it repeats.
+const GENERATED_COLOR_SLOTS = 4093
+const COLOR_CANDIDATES_PER_CUSTOMER = 32
+const COLOR_PROBE_STEP = 1597
+const LIGHT_INK = '#FFF9F1'
+const DARK_INK = '#211D17'
+// Leave a small margin because the final HSL values are rounded to 8-bit hex.
+const MINIMUM_TEXT_CONTRAST = 4.6
+
 export const DEFAULT_BOOKING_COLOR_SCHEME = 'mineral'
 
 export const BOOKING_COLOR_SCHEMES = [
@@ -92,6 +104,183 @@ export const BOOKING_COLOR_SCHEMES = [
 
 const paletteFor = (scheme) => PALETTES[scheme] || PALETTES[DEFAULT_BOOKING_COLOR_SCHEME]
 
+const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value))
+
+const hexToRgb = (hex) => {
+  const normalized = hex.replace('#', '')
+  const value = Number.parseInt(normalized, 16)
+  return {
+    r: (value >> 16) & 255,
+    g: (value >> 8) & 255,
+    b: value & 255,
+  }
+}
+
+const rgbToHex = ({ r, g, b }) => `#${[r, g, b]
+  .map((channel) => Math.round(clamp(channel, 0, 255)).toString(16).padStart(2, '0'))
+  .join('')}`.toUpperCase()
+
+const rgbToHsl = ({ r, g, b }) => {
+  const red = r / 255
+  const green = g / 255
+  const blue = b / 255
+  const maximum = Math.max(red, green, blue)
+  const minimum = Math.min(red, green, blue)
+  const lightness = (maximum + minimum) / 2
+  const delta = maximum - minimum
+
+  if (delta === 0) return { h: 0, s: 0, l: lightness * 100 }
+
+  const saturation = delta / (1 - Math.abs(2 * lightness - 1))
+  let hue
+  if (maximum === red) hue = 60 * (((green - blue) / delta) % 6)
+  else if (maximum === green) hue = 60 * ((blue - red) / delta + 2)
+  else hue = 60 * ((red - green) / delta + 4)
+
+  return { h: (hue + 360) % 360, s: saturation * 100, l: lightness * 100 }
+}
+
+const hslToRgb = ({ h, s, l }) => {
+  const saturation = s / 100
+  const lightness = l / 100
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation
+  const section = ((h % 360) + 360) % 360 / 60
+  const secondary = chroma * (1 - Math.abs((section % 2) - 1))
+  const [red, green, blue] = section < 1 ? [chroma, secondary, 0]
+    : section < 2 ? [secondary, chroma, 0]
+      : section < 3 ? [0, chroma, secondary]
+        : section < 4 ? [0, secondary, chroma]
+          : section < 5 ? [secondary, 0, chroma]
+            : [chroma, 0, secondary]
+  const match = lightness - chroma / 2
+
+  return { r: (red + match) * 255, g: (green + match) * 255, b: (blue + match) * 255 }
+}
+
+const radicalInverse = (index, base) => {
+  let value = 0
+  let denominator = 1
+  let remaining = index
+  while (remaining > 0) {
+    denominator *= base
+    value += (remaining % base) / denominator
+    remaining = Math.floor(remaining / base)
+  }
+  return value
+}
+
+const relativeLuminance = (rgb) => {
+  const channels = [rgb.r, rgb.g, rgb.b].map((channel) => {
+    const value = channel / 255
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+}
+
+const contrastRatio = (first, second) => {
+  const lighter = Math.max(relativeLuminance(first), relativeLuminance(second))
+  const darker = Math.min(relativeLuminance(first), relativeLuminance(second))
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+// OKLab is used only for spacing colours. Unlike raw RGB/HSL distance, it
+// tracks how different two colours actually look to a person.
+const rgbToOklab = ({ r, g, b }) => {
+  const linearize = (channel) => {
+    const value = channel / 255
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  }
+  const red = linearize(r)
+  const green = linearize(g)
+  const blue = linearize(b)
+  const l = Math.cbrt(0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue)
+  const m = Math.cbrt(0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue)
+  const s = Math.cbrt(0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue)
+  return {
+    l: 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    a: 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    b: 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  }
+}
+
+const oklabDistance = (left, right) => Math.sqrt(
+  ((left.l - right.l) * 1.35) ** 2
+  + (left.a - right.a) ** 2
+  + (left.b - right.b) ** 2,
+)
+
+const readableCardPair = (startRgb, endRgb) => {
+  const variants = [
+    { foreground: LIGHT_INK, direction: -1 },
+    { foreground: DARK_INK, direction: 1 },
+  ].map(({ foreground, direction }) => {
+    const foregroundRgb = hexToRgb(foreground)
+    const startHsl = rgbToHsl(startRgb)
+    const endHsl = rgbToHsl(endRgb)
+    let adjustment = 0
+    let adjustedStart = startRgb
+    let adjustedEnd = endRgb
+    let minimumContrast = Math.min(contrastRatio(adjustedStart, foregroundRgb), contrastRatio(adjustedEnd, foregroundRgb))
+
+    while (minimumContrast < MINIMUM_TEXT_CONTRAST && adjustment < 36) {
+      adjustment += 1
+      adjustedStart = hslToRgb({ ...startHsl, l: clamp(startHsl.l + adjustment * direction, 18, 78) })
+      adjustedEnd = hslToRgb({ ...endHsl, l: clamp(endHsl.l + adjustment * direction, 18, 78) })
+      minimumContrast = Math.min(contrastRatio(adjustedStart, foregroundRgb), contrastRatio(adjustedEnd, foregroundRgb))
+    }
+
+    return { foreground, startRgb: adjustedStart, endRgb: adjustedEnd, adjustment, minimumContrast }
+  })
+
+  return variants.sort((left, right) => left.adjustment - right.adjustment || right.minimumContrast - left.minimumContrast)[0]
+}
+
+const generatedColorForSlot = (palette, slot) => {
+  const anchorIndex = slot % palette.length
+  const tier = Math.floor(slot / palette.length)
+  const anchor = palette[anchorIndex]
+
+  if (tier === 0) {
+    const readable = readableCardPair(hexToRgb(anchor.start), hexToRgb(anchor.end))
+    return {
+      name: anchor.name,
+      start: rgbToHex(readable.startRgb),
+      end: rgbToHex(readable.endRgb),
+      foreground: readable.foreground,
+      textShadow: readable.foreground === LIGHT_INK ? '0 1px 1px rgba(24,25,23,.24)' : '0 1px 1px rgba(255,249,241,.18)',
+      lab: rgbToOklab(readable.startRgb),
+    }
+  }
+
+  const anchorHsl = rgbToHsl(hexToRgb(anchor.start))
+  const sequenceIndex = tier + 1
+  const hueShift = (radicalInverse(sequenceIndex, 2) * 2 - 1) * 15
+  const saturationShift = (radicalInverse(sequenceIndex, 3) * 2 - 1) * 14
+  const lightnessShift = (radicalInverse(sequenceIndex, 5) * 2 - 1) * 13
+  const startHsl = {
+    h: (anchorHsl.h + hueShift + 360) % 360,
+    s: clamp(anchorHsl.s + saturationShift, 24, 58),
+    l: clamp(anchorHsl.l + lightnessShift, 35, 62),
+  }
+  const endHsl = {
+    h: (startHsl.h + (radicalInverse(sequenceIndex, 7) * 4 - 2) + 360) % 360,
+    s: clamp(startHsl.s + 2, 24, 60),
+    l: clamp(startHsl.l - 10, 27, 52),
+  }
+  const startRgb = hslToRgb(startHsl)
+  const endRgb = hslToRgb(endHsl)
+  const readable = readableCardPair(startRgb, endRgb)
+
+  return {
+    name: `${anchor.name}-${tier}`,
+    start: rgbToHex(readable.startRgb),
+    end: rgbToHex(readable.endRgb),
+    foreground: readable.foreground,
+    textShadow: readable.foreground === LIGHT_INK ? '0 1px 1px rgba(24,25,23,.24)' : '0 1px 1px rgba(255,249,241,.18)',
+    lab: rgbToOklab(readable.startRgb),
+  }
+}
+
 const stableHash = (value) => {
   let hash = 2166136261
   for (let index = 0; index < value.length; index += 1) {
@@ -117,27 +306,48 @@ export const createCustomerColorMap = (bookings, scheme = DEFAULT_BOOKING_COLOR_
   const palette = paletteFor(scheme)
   const identities = [...new Set(bookings.map(customerIdentityForBooking))]
     .sort((left, right) => stableHash(left) - stableHash(right) || left.localeCompare(right))
-  const occupied = new Set()
+  const occupiedSlots = new Set()
+  const occupiedColors = new Set()
+  const selectedColors = []
   const colorMap = new Map()
 
-  identities.forEach((identity, position) => {
-    const preferred = stableHash(identity) % palette.length
-    let paletteIndex = preferred
+  identities.forEach((identity) => {
+    const preferred = stableHash(identity) % GENERATED_COLOR_SLOTS
+    let bestCandidate = null
 
-    if (occupied.size < palette.length) {
-      for (let offset = 0; offset < palette.length; offset += 1) {
-        const candidate = (preferred + offset) % palette.length
-        if (!occupied.has(candidate)) {
-          paletteIndex = candidate
+    for (let attempt = 0; attempt < COLOR_CANDIDATES_PER_CUSTOMER; attempt += 1) {
+      const slot = (preferred + attempt * COLOR_PROBE_STEP) % GENERATED_COLOR_SLOTS
+      if (occupiedSlots.has(slot)) continue
+      const color = generatedColorForSlot(palette, slot)
+      const colorKey = `${color.start}-${color.end}`
+      if (occupiedColors.has(colorKey)) continue
+      const minimumDistance = selectedColors.length
+        ? Math.min(...selectedColors.map((selected) => oklabDistance(color.lab, selected.lab)))
+        : Number.POSITIVE_INFINITY
+      // A tiny probe penalty keeps the stable, identity-derived slot when it is
+      // already sufficiently distinct, while still resolving close neighbours.
+      const score = minimumDistance - attempt * 0.00015
+      if (!bestCandidate || score > bestCandidate.score) bestCandidate = { slot, color, colorKey, score }
+    }
+
+    if (!bestCandidate) {
+      for (let offset = 0; offset < GENERATED_COLOR_SLOTS; offset += 1) {
+        const slot = (preferred + offset) % GENERATED_COLOR_SLOTS
+        if (occupiedSlots.has(slot)) continue
+        const color = generatedColorForSlot(palette, slot)
+        const colorKey = `${color.start}-${color.end}`
+        if (!occupiedColors.has(colorKey)) {
+          bestCandidate = { slot, color, colorKey }
           break
         }
       }
-      occupied.add(paletteIndex)
-    } else {
-      paletteIndex = (preferred + Math.floor(position / palette.length)) % palette.length
     }
 
-    colorMap.set(identity, paletteIndex)
+    const assigned = bestCandidate || { slot: preferred, color: generatedColorForSlot(palette, preferred) }
+    occupiedSlots.add(assigned.slot)
+    occupiedColors.add(assigned.colorKey || `${assigned.color.start}-${assigned.color.end}`)
+    selectedColors.push(assigned.color)
+    colorMap.set(identity, assigned.slot)
   })
 
   return colorMap
@@ -146,11 +356,11 @@ export const createCustomerColorMap = (bookings, scheme = DEFAULT_BOOKING_COLOR_
 export const customerColorForBooking = (booking, colorMap, scheme = DEFAULT_BOOKING_COLOR_SCHEME) => {
   const palette = paletteFor(scheme)
   const identity = customerIdentityForBooking(booking)
-  const paletteIndex = colorMap?.get(identity) ?? stableHash(identity) % palette.length
+  const colorSlot = colorMap?.get(identity) ?? stableHash(identity) % GENERATED_COLOR_SLOTS
+  const generated = generatedColorForSlot(palette, colorSlot)
   return {
-    index: paletteIndex + 1,
-    foreground: '#FFFDF8',
-    textShadow: '0 1px 1px rgba(24,25,23,.2)',
-    ...palette[paletteIndex],
+    index: colorSlot + 1,
+    ...generated,
+    lab: undefined,
   }
 }
