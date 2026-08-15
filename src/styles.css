@@ -313,7 +313,7 @@ a { color: inherit; text-decoration: none; }
 .booking-policy { color: var(--ink-soft); font-size: 0.5625rem; display: flex; align-items: center; gap: 7px; }
 .confirm-button { width: 100%; margin-top: 15px; }
 
-.modal-backdrop { display: grid; place-items: center; padding: 20px; }
+.modal-backdrop { z-index: 160; display: grid; place-items: center; padding: 20px; }
 .auth-modal { width: min(430px, 100%); position: relative; background: var(--paper-light); padding: 45px 42px 36px; box-shadow: var(--shadow); animation: modalIn .25s ease; }
 .auth-seal { width: 47px; height: 47px; margin-bottom: 24px; border-radius: 50%; background: var(--red); color: white; display: grid; place-items: center; font: 1.375rem/1 "Songti SC", serif; }
 .auth-modal form { margin-top: 25px; }
@@ -687,7 +687,7 @@ a { color: inherit; text-decoration: none; }
 .court-multi-picker button svg { position: absolute; top: 4px; right: 4px; }
 .court-multi-picker small, .drawer-help { color: inherit; opacity: .72; font-size: 0.5rem; }
 .admin-court-picker { display: grid; gap: 7px; }
-.admin-create-modal { position: relative; width: min(490px,calc(100vw - 28px)); padding: 34px; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: modalIn .22s ease; }
+.admin-create-modal { position: relative; width: min(520px,calc(100vw - 28px)); max-height: calc(100vh - 24px); padding: 34px; overflow-y: auto; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: modalIn .22s ease; }
 .admin-create-modal h2 { margin: 9px 0 8px; font: 1.9375rem/1.1 "Songti SC",serif; }
 .admin-create-modal > p { margin: 0 0 23px; color: var(--ink-soft); font-size: 0.625rem; }
 .admin-create-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
@@ -696,6 +696,32 @@ a { color: inherit; text-decoration: none; }
 .admin-create-fields span { color: var(--ink-soft); font-size: 0.5625rem; }
 .admin-create-fields input, .admin-create-fields select, .admin-create-fields textarea { min-height: 42px; padding: 9px 11px; border: 1px solid var(--line); background: rgba(255,255,255,.72); color: var(--ink); outline: 0; resize: vertical; }
 .admin-create-modal > .primary-button { width: 100%; margin-top: 18px; }
+.admin-price-confirmation { grid-column: 1/-1; margin-top: 3px; padding: 15px 16px; border: 1px solid var(--line); background: rgba(255,255,255,.42); }
+.admin-price-confirmation.editing { border-color: rgba(199,70,54,.34); background: rgba(199,70,54,.035); }
+.admin-price-confirmation > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.admin-price-confirmation > header > span { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); font-weight: 700; letter-spacing: .04em; }
+.admin-price-confirmation > header svg { color: var(--red); }
+.admin-price-confirmation > header button { padding: 0; display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; color: var(--red-dark); cursor: pointer; font-size: .5625rem; }
+.admin-price-state { min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--ink-soft); font-size: .5625rem; }
+.admin-price-state.error { color: var(--red-dark); }
+.admin-price-spinner { width: 13px; height: 13px; border: 1px solid var(--line); border-top-color: var(--red); border-radius: 50%; animation: spin .75s linear infinite; }
+.admin-price-courts { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit,minmax(115px,1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.admin-price-courts > div { min-width: 0; padding: 8px 9px; display: grid; gap: 3px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.admin-price-courts span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-price-courts strong { font: .875rem/1.2 "Songti SC",serif; }
+.admin-price-member { margin-top: 9px; width: max-content; max-width: 100%; padding: 4px 7px; color: #31593e; background: rgba(65,111,76,.1); font-size: .5rem; }
+.admin-price-override { margin-top: 12px; }
+.admin-price-override > div { display: grid; grid-template-columns: auto 1fr; align-items: center; border: 1px solid rgba(199,70,54,.34); background: rgba(255,255,255,.72); }
+.admin-price-override b { padding: 0 10px; color: var(--ink-soft); border-right: 1px solid var(--line); font-size: .5625rem; }
+.admin-price-override input { min-height: 40px; border: 0; background: transparent; font: 1rem/1 "Songti SC",serif; }
+.admin-price-override small { color: var(--red-dark); font-size: .5rem; }
+.admin-price-total, .admin-price-series { margin-top: 12px; display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.admin-price-total > div { display: flex; align-items: baseline; gap: 8px; }
+.admin-price-total del { color: var(--ink-soft); font-size: .625rem; }
+.admin-price-total strong { color: var(--red-dark); font: 1.5rem/1 "Songti SC",serif; }
+.admin-price-series { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.admin-price-series strong { font: .9375rem/1 "Songti SC",serif; }
+.admin-price-confirmation > p { margin: 9px 0 0; color: var(--ink-soft); font-size: .5rem; line-height: 1.55; }
 .admin-recurring-toggle { min-height: 46px; padding: 11px 12px; display: flex !important; grid-template-columns: auto 1fr; align-items: center; border: 1px solid var(--line); background: rgba(199,70,54,.035); cursor: pointer; }
 .admin-recurring-toggle input { width: 16px; min-height: 16px; padding: 0; accent-color: var(--red); }
 .admin-recurring-toggle span { display: flex; align-items: center; gap: 7px; color: var(--ink); }

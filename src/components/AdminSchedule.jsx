@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CalendarClock, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, History, Link2, MessageSquareText, Pencil, PhoneCall, Repeat2, Save, Trash2, X } from 'lucide-react'
+import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, History, Link2, MessageSquareText, Pencil, PhoneCall, Repeat2, RotateCcw, Save, Trash2, X } from 'lucide-react'
 import { addDays, bookingDurations, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { createCustomerColorMap, customerColorForBooking } from '../lib/bookingColors'
 import { useDisplay } from '../lib/display'
@@ -109,19 +109,84 @@ function ScheduleDatePicker({ dateKey, dayLabel, locale, todayKey, onSelect, t }
   )
 }
 
-function NewBookingModal({ draft, busy, onClose, onSubmit, configuration }) {
-  const { courtTitle, t } = useI18n()
+function NewBookingModal({ draft, busy, onClose, onSubmit, onPreviewPrice, configuration }) {
+  const { courtTitle, locale, t } = useI18n()
   const durations = bookingDurations(configuration, true)
   const closeMinute = Number(configuration?.opening_hours?.close_minute || 1440)
   const initialDuration = draft.duration || (durations.includes(60) ? 60 : durations[0] || 30)
   const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '', duration: initialDuration, partySize: 2, courts: draft.courts || [draft.court], recurring: false, weekCount: 4 })
   const [conflicts, setConflicts] = useState([])
+  const [pricePreview, setPricePreview] = useState(null)
+  const [priceLoading, setPriceLoading] = useState(true)
+  const [priceError, setPriceError] = useState('')
+  const [priceEditing, setPriceEditing] = useState(false)
+  const [priceOverride, setPriceOverride] = useState('')
+  const priceRequest = useRef(0)
+  const priceInputKey = `${draft.dateKey}|${draft.time}|${form.duration}|${form.courts.map((court) => court.id).sort().join(',')}|${form.email.trim().toLowerCase()}|${form.phone.trim()}|${form.recurring ? form.weekCount : 1}`
+  const priceQuoteInput = useMemo(() => ({
+    dateKey: draft.dateKey,
+    time: draft.time,
+    court: draft.court,
+    duration: form.duration,
+    courts: form.courts,
+    email: form.email,
+    phone: form.phone,
+    recurring: form.recurring,
+    weekCount: form.weekCount,
+  }), [draft.dateKey, draft.time, draft.court, form.duration, form.courts, form.email, form.phone, form.recurring, form.weekCount])
+  const firstOccurrence = pricePreview?.occurrences?.[0]
+  const currency = pricePreview?.currency || configuration?.settings?.currency || 'CAD'
+  const systemTotal = Number(pricePreview?.first_occurrence_total || 0)
+  const overrideNumber = priceOverride === '' ? Number.NaN : Number(priceOverride)
+  const overrideValid = !priceEditing || (Number.isFinite(overrideNumber) && overrideNumber >= 0 && overrideNumber < 1_000_000)
+  const effectiveTotal = priceEditing && overrideValid ? overrideNumber : systemTotal
+
+  useEffect(() => {
+    setPriceEditing(false)
+    setPriceOverride('')
+  }, [priceInputKey])
+
+  useEffect(() => {
+    const requestId = priceRequest.current + 1
+    priceRequest.current = requestId
+    setPriceLoading(true)
+    setPriceError('')
+    const timeout = window.setTimeout(async () => {
+      try {
+        const preview = await onPreviewPrice(priceQuoteInput)
+        if (priceRequest.current !== requestId) return
+        setPricePreview(preview)
+      } catch (error) {
+        if (priceRequest.current !== requestId) return
+        setPricePreview(null)
+        setPriceError(error?.message || t('admin.schedule.priceUnavailable'))
+      } finally {
+        if (priceRequest.current === requestId) setPriceLoading(false)
+      }
+    }, 220)
+    return () => window.clearTimeout(timeout)
+  }, [onPreviewPrice, priceQuoteInput, t])
 
   const submit = async (event) => {
     event.preventDefault()
+    if (!pricePreview || priceLoading || !overrideValid) return
     setConflicts([])
-    const result = await onSubmit({ ...draft, ...form })
+    const result = await onSubmit({
+      ...draft,
+      ...form,
+      priceOverrideTotal: priceEditing ? overrideNumber : null,
+    })
     if (result?.conflicts) setConflicts(result.conflicts)
+  }
+
+  const startEditingPrice = () => {
+    setPriceOverride(systemTotal.toFixed(2))
+    setPriceEditing(true)
+  }
+
+  const resetPrice = () => {
+    setPriceOverride('')
+    setPriceEditing(false)
   }
 
   return (
@@ -141,15 +206,50 @@ function NewBookingModal({ draft, busy, onClose, onSubmit, configuration }) {
           {form.recurring && <label className="wide admin-week-count"><span>{t('admin.schedule.repeatFor')}</span><select value={form.weekCount} onChange={(event) => { setConflicts([]); setForm((current) => ({ ...current, weekCount: Number(event.target.value) })) }}>{Array.from({ length: 11 }, (_, index) => index + 2).map((weeks) => <option value={weeks} key={weeks}>{t('admin.schedule.weekCount', { count: weeks })}</option>)}</select></label>}
           <label className="wide"><span>{t('admin.schedule.customerNotesOptional')}</span><textarea maxLength="2000" rows="3" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} /></label>
           <div className="wide admin-court-picker"><span>{t('drawer.courts')}</span><div className="court-multi-picker">{COURTS.map((court) => { const selected = form.courts.some((item) => item.id === court.id); return <button type="button" className={selected ? 'selected' : ''} key={court.id} onClick={() => setForm((current) => { const courts = selected ? current.courts.filter((item) => item.id !== court.id) : [...current.courts, court]; return courts.length ? { ...current, courts } : current })}><strong>{court.name}</strong><small>{court.english}</small></button> })}</div></div>
+          <section className={`admin-price-confirmation ${priceEditing ? 'editing' : ''}`} aria-live="polite">
+            <header>
+              <span><BadgeDollarSign size={15} /> {t('admin.schedule.priceTitle')}</span>
+              {!priceLoading && pricePreview && !priceEditing && <button type="button" onClick={startEditingPrice}><Pencil size={13} /> {t('admin.schedule.priceEdit')}</button>}
+              {priceEditing && <button type="button" onClick={resetPrice}><RotateCcw size={13} /> {t('admin.schedule.priceReset')}</button>}
+            </header>
+            {priceLoading ? (
+              <div className="admin-price-state"><span className="admin-price-spinner" /> {t('admin.schedule.priceLoading')}</div>
+            ) : priceError ? (
+              <div className="admin-price-state error"><AlertTriangle size={15} /> {t('admin.schedule.priceUnavailable')}</div>
+            ) : (
+              <>
+                <div className="admin-price-courts">
+                  {(firstOccurrence?.courts || []).map((item) => {
+                    const court = COURTS.find((candidate) => candidate.id === item.court_id)
+                    return <div key={item.court_id}><span>{court ? courtTitle(court) : item.name_en}</span><strong>{formatMoney(Number(item.amount || 0), locale, currency, true)}</strong></div>
+                  })}
+                </div>
+                {firstOccurrence?.member?.tier && <div className="admin-price-member">{t('admin.schedule.priceMemberDiscount', { tier: firstOccurrence.member.name_zh || firstOccurrence.member.name_en || firstOccurrence.member.tier, discount: Number(firstOccurrence.member.discount_percent || 0) })}</div>}
+                {priceEditing && (
+                  <label className="admin-price-override">
+                    <span>{t('admin.schedule.priceOverrideLabel')}</span>
+                    <div><b>{currency}</b><input type="number" min="0" max="999999.99" step="0.01" inputMode="decimal" value={priceOverride} onChange={(event) => setPriceOverride(event.target.value)} /></div>
+                    {!overrideValid && <small>{t('admin.schedule.priceInvalid')}</small>}
+                  </label>
+                )}
+                <div className="admin-price-total">
+                  <span>{priceEditing ? t('admin.schedule.priceOverrideActive') : t('admin.schedule.priceSystem')}</span>
+                  <div>{priceEditing && <del>{formatMoney(systemTotal, locale, currency, true)}</del>}<strong>{formatMoney(effectiveTotal, locale, currency, true)}</strong></div>
+                </div>
+                {form.recurring && <div className="admin-price-series"><span>{t('admin.schedule.priceSeries', { count: form.weekCount })}</span><strong>{formatMoney(priceEditing ? effectiveTotal * form.weekCount : Number(pricePreview.series_total || 0), locale, currency, true)}</strong></div>}
+                {priceEditing && <p>{t('admin.schedule.priceOverrideHelp')}</p>}
+              </>
+            )}
+          </section>
         </div>
         {conflicts.length > 0 && <div className="admin-recurring-conflicts" role="alert"><AlertTriangle size={17} /><div><strong>{t('admin.schedule.recurringUnavailable')}</strong><span>{t('admin.schedule.recurringUnavailableHelp')}</span><ul>{conflicts.map((conflict) => <li key={`${conflict.startAt}-${conflict.courtIds.join('-')}`}>{conflict.startAt.slice(0, 10).replaceAll('-', '.')} · {conflict.startAt.slice(11, 16)} · {conflict.courtIds.map((id) => courtTitle(COURTS.find((court) => court.id === id) || COURTS[0])).join(' + ')}</li>)}</ul></div></div>}
-        <button className="primary-button" disabled={busy || !form.courts.length}>{busy ? t('admin.schedule.saving') : t('admin.schedule.create')}</button>
+        <button className="primary-button" disabled={busy || !form.courts.length || priceLoading || !pricePreview || !overrideValid}>{busy ? t('admin.schedule.saving') : t('admin.schedule.createWithPrice', { price: formatMoney(effectiveTotal, locale, currency, true) })}</button>
       </form>
     </div>
   )
 }
 
-export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onReschedule, onRescheduleGroup, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onRevertAudit, configuration }) {
+export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onRevertAudit, configuration }) {
   const { bookingColorScheme } = useDisplay()
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
@@ -700,7 +800,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
         onClose={() => setAuditOpen(false)}
         onRevert={onRevertAudit}
       />
-      {draft && <NewBookingModal draft={draft} busy={busy} configuration={configuration} onClose={() => setDraft(null)} onSubmit={async (details) => { const result = await onCreate(details); if (result?.saved) setDraft(null); return result }} />}
+      {draft && <NewBookingModal draft={draft} busy={busy} configuration={configuration} onPreviewPrice={onPreviewPrice} onClose={() => setDraft(null)} onSubmit={async (details) => { const result = await onCreate(details); if (result?.saved) setDraft(null); return result }} />}
     </section>
   )
 }

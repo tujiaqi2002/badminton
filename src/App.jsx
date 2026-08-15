@@ -8,7 +8,7 @@ import BookingDrawer from './components/BookingDrawer'
 import DateStrip from './components/DateStrip'
 import Header from './components/Header'
 import MyBookings from './components/MyBookings'
-import { addDays, addMinutes, bookingDurations, COURTS, customerSlotsFromConfiguration, demoSchedule, isPastSlot, mondayOfWeek, openingHoursForDate, overlaps, setVenueTimezone, slotDateTime, toDateKey, venueNow } from './lib/booking'
+import { addDays, addMinutes, bookingDurations, COURTS, customerSlotsFromConfiguration, demoSchedule, isPastSlot, mondayOfWeek, openingHoursForDate, overlaps, priceBreakdownFromConfiguration, setVenueTimezone, slotDateTime, toDateKey, venueNow } from './lib/booking'
 import { useI18n } from './lib/i18n'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
@@ -499,6 +499,7 @@ export default function App() {
   const adminScheduleConfiguration = useMemo(() => ({
     settings: venueOperationsConfiguration?.settings || {},
     opening_hours: openingHoursForDate(venueOperationsConfiguration, adminScheduleDate),
+    pricing_rules: venueOperationsConfiguration?.pricing_rules || [],
   }), [adminScheduleDate, venueOperationsConfiguration])
   const venueName = bookingConfiguration?.settings?.[language === 'zh' ? 'name_zh' : 'name_en']
     || venueOperationsConfiguration?.settings?.[language === 'zh' ? 'name_zh' : 'name_en']
@@ -649,6 +650,50 @@ export default function App() {
     await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchSchedule(), fetchBookings(), fetchAdminAuditOperations()])
   }
 
+  const adminPreviewBookingPrice = useCallback(async (details) => {
+    const startAt = slotDateTime(details.dateKey, details.time)
+    const endAt = addMinutes(startAt, details.duration)
+    const courtIds = (details.courts || [details.court]).map((court) => court.id)
+    const weekCount = details.recurring ? Number(details.weekCount || 2) : 1
+
+    if (!isSupabaseConfigured) {
+      const occurrences = Array.from({ length: weekCount }, (_, index) => {
+        const breakdown = priceBreakdownFromConfiguration(
+          adminScheduleConfiguration,
+          courtIds,
+          details.time,
+          details.duration,
+        )
+        const perCourt = courtIds.length ? breakdown.total / courtIds.length : 0
+        return {
+          week: index + 1,
+          start_at: addMinutes(startAt, index * 7 * 24 * 60),
+          end_at: addMinutes(endAt, index * 7 * 24 * 60),
+          member: breakdown.member || { tier: null, discount_percent: 0 },
+          courts: courtIds.map((courtId) => ({ court_id: courtId, amount: perCourt })),
+          total: breakdown.total,
+        }
+      })
+      return {
+        currency: adminScheduleConfiguration?.settings?.currency || 'CAD',
+        occurrences,
+        first_occurrence_total: occurrences[0]?.total || 0,
+        series_total: occurrences.reduce((sum, occurrence) => sum + Number(occurrence.total || 0), 0),
+      }
+    }
+
+    const { data, error } = await supabase.rpc('admin_preview_booking_price', {
+      p_court_ids: courtIds,
+      p_start_at: startAt,
+      p_end_at: endAt,
+      p_customer_email: details.email || null,
+      p_customer_phone: details.phone || null,
+      p_week_count: weekCount,
+    })
+    if (error) throw error
+    return data
+  }, [adminScheduleConfiguration])
+
   const adminCreateBooking = async (details) => {
     const startAt = slotDateTime(details.dateKey, details.time)
     const endAt = addMinutes(startAt, details.duration)
@@ -685,7 +730,13 @@ export default function App() {
           customer_name: details.name, customer_email: details.email || null, customer_phone: details.phone || null,
           customer_notes: details.notes || null, start_at: occurrenceStart, end_at: occurrenceEnd,
           status: 'confirmed', payment_status: 'pay_at_venue', payment_method: 'venue',
-          total_amount: 28 * details.duration / 60, party_size: details.partySize,
+          total_amount: details.priceOverrideTotal ?? 28 * details.duration / 60,
+          system_calculated_amount: 28 * details.duration / 60,
+          price_source: details.priceOverrideTotal == null ? 'system' : 'manager_override',
+          price_override_amount: details.priceOverrideTotal == null
+            ? null
+            : Number(details.priceOverrideTotal) / (details.courts || [details.court]).length,
+          party_size: details.partySize,
           created_at: new Date().toISOString(),
         }))
       }).flat()
@@ -705,6 +756,7 @@ export default function App() {
       p_customer_phone: details.phone || null,
       p_customer_notes: details.notes || null,
       p_party_size: details.partySize,
+      p_price_override_total: details.priceOverrideTotal == null ? null : Number(details.priceOverrideTotal),
     }
     if (details.recurring) {
       const preview = await supabase.rpc('admin_preview_weekly_booking', {
@@ -723,7 +775,7 @@ export default function App() {
         return { conflicts: preview.data.map((item) => ({ startAt: item.occurrence_start_at, courtIds: item.unavailable_court_ids })) }
       }
     }
-    const { data: createdRows, error } = await supabase.rpc(details.recurring ? 'admin_create_weekly_booking' : 'admin_create_multi_booking', details.recurring
+    const { data: createdRows, error } = await supabase.rpc(details.recurring ? 'admin_create_weekly_booking_with_price' : 'admin_create_multi_booking_with_price', details.recurring
       ? { ...basePayload, p_week_count: Number(details.weekCount) }
       : basePayload)
     setAdminScheduleBusy(false)
@@ -1049,6 +1101,7 @@ export default function App() {
           cancellingId={adminCancellingId}
           scheduleBusy={adminScheduleBusy}
           onCreate={adminCreateBooking}
+          onPreviewPrice={adminPreviewBookingPrice}
           onReschedule={adminRescheduleBooking}
           onRescheduleGroup={adminRescheduleBookingGroup}
           onUndo={adminUndoBookingChange}

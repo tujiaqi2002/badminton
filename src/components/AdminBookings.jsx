@@ -40,6 +40,7 @@ export default function AdminBookings({
   cancellingId,
   scheduleBusy,
   onCreate,
+  onPreviewPrice,
   onReschedule,
   onRescheduleGroup,
   onUndo,
@@ -142,6 +143,7 @@ export default function AdminBookings({
         initialDate={scheduleDate}
         busy={scheduleBusy}
         onCreate={onCreate}
+        onPreviewPrice={onPreviewPrice}
         onReschedule={onReschedule}
         onRescheduleGroup={onRescheduleGroup}
         onUpdateDetails={onUpdateDetails}
