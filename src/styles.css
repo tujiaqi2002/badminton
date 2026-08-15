@@ -1226,6 +1226,14 @@ html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96
 .operations-form-grid input:focus, .operations-form-grid select:focus, .operations-form-grid textarea:focus, .hours-editor input:focus, .hours-editor select:focus { border-color: var(--ink); box-shadow: 0 0 0 2px rgba(34,36,33,.05); }
 .operations-form-grid textarea { resize: vertical; }
 .operations-form-grid .full { grid-column: 1/-1; }
+.pricing-weekday-field { min-width: 0; margin: 0; padding: 0; display: grid; gap: 6px; border: 0; }
+.pricing-weekday-field legend { padding: 0; }
+.pricing-weekday-options { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border: 1px solid var(--line); background: rgba(255,255,255,.4); }
+.pricing-weekday-options button { min-width: 0; min-height: 31px; padding: 0 5px; border: 0; border-left: 1px solid var(--line); border-top: 1px solid var(--line); background: transparent; color: var(--ink-soft); cursor: pointer; font-size: 8px; }
+.pricing-weekday-options button:nth-child(-n+4) { border-top: 0; }
+.pricing-weekday-options button:nth-child(4n+1) { border-left: 0; }
+.pricing-weekday-options button:hover, .pricing-weekday-options button:focus-visible { color: var(--ink); background: rgba(34,36,33,.055); outline: 0; }
+.pricing-weekday-options button.active { color: white; background: var(--ink); }
 .event-form-intro { min-height: 72px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); background: linear-gradient(135deg, rgba(34,36,33,.045), rgba(255,255,255,.38)); }
 .event-form-intro > span { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--ink); }
 .event-form-intro strong { font: 16px/1.15 "Songti SC",serif; }
