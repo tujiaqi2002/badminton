@@ -8,7 +8,7 @@ import BookingDrawer from './components/BookingDrawer'
 import DateStrip from './components/DateStrip'
 import Header from './components/Header'
 import MyBookings from './components/MyBookings'
-import { addDays, addMinutes, bookingDurations, COURTS, demoSchedule, isPastSlot, mondayOfWeek, openingHoursForDate, overlaps, setVenueTimezone, slotDateTime, slotsFromConfiguration, toDateKey, venueNow } from './lib/booking'
+import { addDays, addMinutes, bookingDurations, COURTS, customerSlotsFromConfiguration, demoSchedule, isPastSlot, mondayOfWeek, openingHoursForDate, overlaps, setVenueTimezone, slotDateTime, toDateKey, venueNow } from './lib/booking'
 import { useI18n } from './lib/i18n'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
@@ -150,11 +150,14 @@ export default function App() {
       })
       return
     }
+    setLoadingSchedule(true)
     if (!isAdmin) {
-      setSchedule([])
+      const { data, error } = await supabase.rpc('get_customer_court_slots', { p_date: dateKey })
+      setLoadingSchedule(false)
+      if (error) notify(t('errors.schedule'), 'error')
+      else setSchedule((data || []).map((slot, index) => ({ ...slot, id: `busy-${dateKey}-${index}`, status: 'confirmed' })))
       return
     }
-    setLoadingSchedule(true)
     const { data, error } = await supabase
       .from('court_slots')
       .select('id, court_id, start_at, end_at, status')
@@ -446,13 +449,17 @@ export default function App() {
   }, [view, isAdmin, adminAccessReady])
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !isAdmin) return
+    if (!isSupabaseConfigured || !user) return undefined
+    if (!isAdmin) {
+      const timer = window.setInterval(fetchSchedule, 30_000)
+      return () => window.clearInterval(timer)
+    }
     const channel = supabase
       .channel('public-court-schedule')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'court_slots' }, fetchSchedule)
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [fetchSchedule, isAdmin])
+  }, [fetchSchedule, isAdmin, user])
 
   const openSelection = (slot) => {
     if (isPastSlot(slot.dateKey, slot.time)) {
@@ -463,7 +470,7 @@ export default function App() {
     setSelection({
       ...slot,
       courts: [slot.court],
-      duration: durations.includes(60) ? 60 : durations[0] || 30,
+      duration: durations[0] || 60,
       partySize: 2,
       paymentMethod: 'venue',
       phone: '',
@@ -488,7 +495,7 @@ export default function App() {
     })
     return [...schedule, ...eventBlocks]
   }, [bookingConfiguration, schedule])
-  const bookingSlots = useMemo(() => slotsFromConfiguration(bookingConfiguration), [bookingConfiguration])
+  const bookingSlots = useMemo(() => customerSlotsFromConfiguration(bookingConfiguration), [bookingConfiguration])
   const adminScheduleConfiguration = useMemo(() => ({
     settings: venueOperationsConfiguration?.settings || {},
     opening_hours: openingHoursForDate(venueOperationsConfiguration, adminScheduleDate),

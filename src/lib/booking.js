@@ -98,6 +98,22 @@ export const slotsFromConfiguration = (configuration) => {
   return slots.length ? slots : SLOTS
 }
 
+export const customerSlotsFromConfiguration = (configuration) => {
+  const hours = configuration?.opening_hours
+  if (!hours || hours.is_closed) return hours?.is_closed ? [] : SLOTS
+  const first = Number(hours.open_minute)
+  const last = Number(hours.close_minute)
+  // The customer monitor and the database validator share this setting. The
+  // operational 30-minute grid remains available to managers, while customers
+  // only see start blocks large enough for their configured minimum booking.
+  const step = Math.max(30, Number(configuration?.settings?.customer_min_minutes || 60))
+  const slots = []
+  for (let minute = first; minute + step <= last; minute += step) {
+    slots.push(`${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`)
+  }
+  return slots
+}
+
 export const openingHoursForDate = (configuration, dateKey) => {
   if (!configuration) return { day_of_week: new Date(`${dateKey}T12:00:00`).getDay(), open_minute: 600, close_minute: 1440, is_closed: false }
   if (configuration.opening_hours && !Array.isArray(configuration.opening_hours)) return configuration.opening_hours

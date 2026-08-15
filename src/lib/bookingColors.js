@@ -47,6 +47,21 @@ const CREAM_PALETTE = [
   { name: 'dusty-mauve', start: '#847083', end: '#6F5E6E', foreground: '#FFF9F1', textShadow: '0 1px 1px rgba(34,27,34,.26)' },
 ]
 
+// Court-first spectrum inspired by the five elemental pigments in the venue
+// artwork. These are only hue anchors: party size controls the visible depth
+// band, while the stable customer slot creates small variations inside that
+// court's colour family. It therefore scales far beyond five customers without
+// losing the instant "which court is this?" cue.
+const COURT_ORIGIN_BASES = [
+  { name: 'ivory', hex: '#C9BFA8', saturation: [12, 30], lightness: [44, 82] },
+  { name: 'cyan', hex: '#3B8A91', saturation: [32, 58], lightness: [28, 68] },
+  { name: 'ink', hex: '#3D4142', saturation: [3, 32], lightness: [17, 62] },
+  { name: 'cinnabar', hex: '#A84A3F', saturation: [38, 64], lightness: [27, 68] },
+  { name: 'amber', hex: '#B88A36', saturation: [38, 68], lightness: [30, 72] },
+]
+
+const COURT_ORIGIN_SCHEME = 'court-origins'
+
 const PALETTES = {
   mineral: MINERAL_PALETTE,
   signal: WARM_PALETTE,
@@ -70,6 +85,12 @@ const MINIMUM_TEXT_CONTRAST = 4.6
 export const DEFAULT_BOOKING_COLOR_SCHEME = 'mineral'
 
 export const BOOKING_COLOR_SCHEMES = [
+  {
+    id: COURT_ORIGIN_SCHEME,
+    nameKey: 'settings.bookingColorsCourtOrigins',
+    noteKey: 'settings.bookingColorsCourtOriginsNote',
+    swatches: COURT_ORIGIN_BASES.map(({ hex }) => hex),
+  },
   {
     id: 'mineral',
     nameKey: 'settings.bookingColorsMineral',
@@ -290,6 +311,60 @@ const stableHash = (value) => {
   return hash >>> 0
 }
 
+const courtIndexForBooking = (booking) => {
+  const match = String(booking?.court_id || '').match(/([1-5])$/)
+  if (match) return Number(match[1]) - 1
+  return stableHash(String(booking?.court_id || 'court')) % COURT_ORIGIN_BASES.length
+}
+
+const partyDepthForBooking = (booking) => {
+  const people = Math.max(1, Number(booking?.party_size || 2))
+  if (people <= 1) return 0
+  if (people <= 2) return 1
+  if (people <= 4) return 2
+  if (people <= 6) return 3
+  return 4
+}
+
+const generatedCourtOriginColor = (booking, slot) => {
+  const base = COURT_ORIGIN_BASES[courtIndexForBooking(booking)]
+  const baseHsl = rgbToHsl(hexToRgb(base.hex))
+  const depth = partyDepthForBooking(booking)
+  // Large, ordered lightness bands make party size readable at a glance.
+  // Low-discrepancy customer offsets then create thousands of stable variants
+  // without allowing neighbouring bands to collapse into one another.
+  const depthShift = [15, 8, 1, -6, -13][depth]
+  const sequence = slot + 1
+  // Neutral ink needs a wider chroma window than the coloured families;
+  // otherwise many generated HSL values round to the same RGB swatch.
+  const hueWindow = base.name === 'ink' ? 16 : 8
+  const saturationWindow = base.name === 'ink' ? 14 : 8
+  const lightnessWindow = base.name === 'ink' ? 5.8 : 2.8
+  const hueJitter = (radicalInverse(sequence, 2) * 2 - 1) * hueWindow
+  const saturationJitter = (radicalInverse(sequence, 3) * 2 - 1) * saturationWindow
+  const lightnessJitter = (radicalInverse(sequence, 5) * 2 - 1) * lightnessWindow
+  const startHsl = {
+    h: (baseHsl.h + hueJitter + 360) % 360,
+    s: clamp(baseHsl.s + saturationJitter, base.saturation[0], base.saturation[1]),
+    l: clamp(baseHsl.l + depthShift + lightnessJitter, base.lightness[0], base.lightness[1]),
+  }
+  const endHsl = {
+    h: (startHsl.h + (radicalInverse(sequence, 7) * 3 - 1.5) + 360) % 360,
+    s: clamp(startHsl.s + 2, base.saturation[0], base.saturation[1]),
+    l: clamp(startHsl.l - 8, base.lightness[0] - 2, base.lightness[1] - 3),
+  }
+  const readable = readableCardPair(hslToRgb(startHsl), hslToRgb(endHsl))
+  return {
+    name: `${base.name}-people-${depth + 1}-${slot}`,
+    start: rgbToHex(readable.startRgb),
+    end: rgbToHex(readable.endRgb),
+    foreground: readable.foreground,
+    textShadow: readable.foreground === LIGHT_INK
+      ? '0 1px 1px rgba(24,25,23,.24)'
+      : '0 1px 1px rgba(255,249,241,.18)',
+  }
+}
+
 export const customerIdentityForBooking = (booking) => String([
   booking.customer_email,
   booking.customer_phone,
@@ -303,6 +378,17 @@ export const customerIdentityForBooking = (booking) => String([
 // Resolve collisions within the visible day so two customers do not become
 // visually indistinguishable just because their hashes land on the same slot.
 export const createCustomerColorMap = (bookings, scheme = DEFAULT_BOOKING_COLOR_SCHEME) => {
+  if (scheme === COURT_ORIGIN_SCHEME) {
+    const identities = [...new Set(bookings.map(customerIdentityForBooking))]
+      .sort((left, right) => stableHash(left) - stableHash(right) || left.localeCompare(right))
+    const occupied = new Set()
+    return new Map(identities.map((identity) => {
+      let slot = stableHash(identity) % GENERATED_COLOR_SLOTS
+      while (occupied.has(slot)) slot = (slot + COLOR_PROBE_STEP) % GENERATED_COLOR_SLOTS
+      occupied.add(slot)
+      return [identity, slot]
+    }))
+  }
   const palette = paletteFor(scheme)
   const identities = [...new Set(bookings.map(customerIdentityForBooking))]
     .sort((left, right) => stableHash(left) - stableHash(right) || left.localeCompare(right))
@@ -354,9 +440,12 @@ export const createCustomerColorMap = (bookings, scheme = DEFAULT_BOOKING_COLOR_
 }
 
 export const customerColorForBooking = (booking, colorMap, scheme = DEFAULT_BOOKING_COLOR_SCHEME) => {
-  const palette = paletteFor(scheme)
   const identity = customerIdentityForBooking(booking)
   const colorSlot = colorMap?.get(identity) ?? stableHash(identity) % GENERATED_COLOR_SLOTS
+  if (scheme === COURT_ORIGIN_SCHEME) {
+    return { index: colorSlot + 1, ...generatedCourtOriginColor(booking, colorSlot) }
+  }
+  const palette = paletteFor(scheme)
   const generated = generatedColorForSlot(palette, colorSlot)
   return {
     index: colorSlot + 1,
