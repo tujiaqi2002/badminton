@@ -1,6 +1,7 @@
-import { Check, ChevronDown, Languages, LogOut, Palette, Search, Settings2, Type, UserRound, X } from 'lucide-react'
+import { Check, ChevronDown, Languages, LogOut, Palette, Search, Settings2, SwatchBook, Type, UserRound, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { BOOKING_COLOR_SCHEMES } from '../lib/bookingColors'
 import { DISPLAY_SIZES, useDisplay } from '../lib/display'
 import { useI18n } from '../lib/i18n'
 import { THEMES, useTheme } from '../lib/theme'
@@ -11,8 +12,8 @@ const SETTINGS_SECTIONS = [
   { id: 'account', titleKey: 'settings.account', descriptionKey: 'settings.accountSubtitle', icon: UserRound },
 ]
 
-export default function DisplaySettings({ user, guest, onSignOut }) {
-  const { displaySize, setDisplaySize } = useDisplay()
+export default function DisplaySettings({ user, guest, isAdmin, onSignOut }) {
+  const { displaySize, setDisplaySize, bookingColorScheme, setBookingColorScheme } = useDisplay()
   const { language, setLanguage, t } = useI18n()
   const { theme, setTheme, themeDefinition } = useTheme()
   const [open, setOpen] = useState(false)
@@ -24,12 +25,12 @@ export default function DisplaySettings({ user, guest, onSignOut }) {
     const normalizedQuery = query.trim().toLocaleLowerCase()
     if (!normalizedQuery) return SETTINGS_SECTIONS
     return SETTINGS_SECTIONS.filter((section) => {
-      const themeTerms = section.id === 'appearance' ? THEMES.flatMap((item) => [t(item.nameKey), t(item.noteKey)]).join(' ') : ''
+      const themeTerms = section.id === 'appearance' ? `${THEMES.flatMap((item) => [t(item.nameKey), t(item.noteKey)]).join(' ')} ${isAdmin ? BOOKING_COLOR_SCHEMES.flatMap((item) => [t(item.nameKey), t(item.noteKey)]).join(' ') : ''}` : ''
       const displayTerms = section.id === 'display' ? `${t('settings.fontSize')} ${t('settings.language')} ${t('settings.fontSmall')} ${t('settings.fontStandard')} ${t('settings.fontLarge')}` : ''
       const accountTerms = section.id === 'account' ? `${username} ${user.email || ''} ${t('account.signOut')}` : ''
       return `${t(section.titleKey)} ${t(section.descriptionKey)} ${themeTerms} ${displayTerms} ${accountTerms}`.toLocaleLowerCase().includes(normalizedQuery)
     })
-  }, [query, t, user.email, username])
+  }, [isAdmin, query, t, user.email, username])
 
   useEffect(() => {
     if (!open) return undefined
@@ -138,6 +139,20 @@ export default function DisplaySettings({ user, guest, onSignOut }) {
                       </button>
                     ))}
                   </div>
+                  {isAdmin && (
+                    <section className="settings-card settings-booking-colors-card">
+                      <div className="settings-card-heading"><span><SwatchBook size={17} /></span><div><h3>{t('settings.bookingColors')}</h3><p>{t('settings.bookingColorsHelp')}</p></div></div>
+                      <div className="booking-color-options" role="group" aria-label={t('settings.bookingColors')}>
+                        {BOOKING_COLOR_SCHEMES.map((item) => (
+                          <button type="button" className={bookingColorScheme === item.id ? 'selected' : ''} aria-pressed={bookingColorScheme === item.id} onClick={() => setBookingColorScheme(item.id)} key={item.id}>
+                            <i className="booking-palette-preview" aria-hidden="true">{item.swatches.map((color) => <span style={{ background: color }} key={color} />)}</i>
+                            <span><strong>{t(item.nameKey)}</strong><small>{t(item.noteKey)}</small></span>
+                            {bookingColorScheme === item.id && <Check size={15} aria-hidden="true" />}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  )}
                 </div>
               )}
 
