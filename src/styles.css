@@ -15,7 +15,9 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; font-size: 16px; }
+html[data-font-size="small"] { font-size: 14.4px; }
+html[data-font-size="large"] { font-size: 17.92px; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--paper); }
 button, input, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
@@ -37,29 +39,29 @@ a { color: inherit; text-decoration: none; }
 .brand { display: flex; align-items: center; gap: 11px; border: 0; background: none; cursor: pointer; padding: 0; }
 .brand-mark {
   width: 38px; height: 38px; display: grid; place-items: center; color: var(--paper-light);
-  background: var(--ink); border-radius: 50%; font: 19px/1 "Songti SC", "SimSun", serif;
+  background: var(--ink); border-radius: 50%; font: 1.1875rem/1 "Songti SC", "SimSun", serif;
   box-shadow: inset -6px -5px 0 rgba(255,255,255,.08);
 }
 .brand > span:last-child { display: flex; align-items: baseline; gap: 8px; }
-.brand strong { font-size: 15px; letter-spacing: .22em; }
-.brand small { color: var(--ink-soft); font: 12px/1 "Songti SC", serif; letter-spacing: .12em; }
+.brand strong { font-size: 0.9375rem; letter-spacing: .22em; }
+.brand small { color: var(--ink-soft); font: 0.75rem/1 "Songti SC", serif; letter-spacing: .12em; }
 .desktop-nav { display: flex; align-items: center; gap: 2px; background: rgba(255,255,255,.34); border: 1px solid rgba(34,36,33,.08); padding: 4px; border-radius: 999px; }
-.desktop-nav button { display: flex; gap: 7px; align-items: center; border: 0; background: transparent; color: var(--ink-soft); padding: 9px 14px; border-radius: 999px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+.desktop-nav button { display: flex; gap: 7px; align-items: center; border: 0; background: transparent; color: var(--ink-soft); padding: 9px 14px; border-radius: 999px; cursor: pointer; font-size: 0.75rem; white-space: nowrap; }
 .desktop-nav button.active { color: var(--ink); background: rgba(255,255,255,.92); box-shadow: 0 4px 15px rgba(34,36,33,.06); }
 .header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .theme-switcher { position: relative; }
-.theme-switcher summary { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.34); color: var(--ink-soft); cursor: pointer; font-size: 10px; font-weight: 700; letter-spacing: .04em; list-style: none; }
+.theme-switcher summary { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.34); color: var(--ink-soft); cursor: pointer; font-size: 0.625rem; font-weight: 700; letter-spacing: .04em; list-style: none; }
 .theme-switcher summary::-webkit-details-marker { display: none; }
 .theme-switcher summary:hover, .theme-switcher[open] summary { color: var(--ink); background: rgba(255,255,255,.78); }
 .theme-menu { width: min(310px, calc(100vw - 28px)); max-height: calc(100vh - 92px); overflow-y: auto; overscroll-behavior: contain; position: absolute; z-index: 80; top: calc(100% + 11px); right: 0; padding: 10px; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: themeMenuIn .18s ease; }
-.theme-menu > header { height: 32px; padding: 0 4px 8px; display: flex; align-items: center; justify-content: space-between; color: var(--ink-soft); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+.theme-menu > header { height: 32px; padding: 0 4px 8px; display: flex; align-items: center; justify-content: space-between; color: var(--ink-soft); font-size: 0.5625rem; letter-spacing: .1em; text-transform: uppercase; }
 .theme-menu > header small { opacity: .62; }
 .theme-menu > button { width: 100%; min-height: 66px; padding: 7px; display: grid; grid-template-columns: 64px 1fr 18px; align-items: center; gap: 11px; border: 1px solid transparent; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
 .theme-menu > button:hover { background: rgba(255,255,255,.48); border-color: var(--line); }
 .theme-menu > button.selected { background: rgba(255,255,255,.72); border-color: var(--ink); }
 .theme-menu > button > span { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-.theme-menu strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
-.theme-menu small { color: var(--ink-soft); font-size: 9px; }
+.theme-menu strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.6875rem; }
+.theme-menu small { color: var(--ink-soft); font-size: 0.5625rem; }
 .theme-preview { width: 64px; height: 48px; position: relative; overflow: hidden; display: block; border: 1px solid rgba(34,36,33,.16); background: #f3f0e9; }
 .theme-preview::before, .theme-preview::after, .theme-preview span { content: ""; position: absolute; display: block; }
 .theme-preview.classic::before { width: 50px; height: 24px; right: -4px; top: 5px; border-radius: 50%; border-top: 8px solid #252722; transform: rotate(-16deg); opacity: .78; }
@@ -82,15 +84,52 @@ a { color: inherit; text-decoration: none; }
 .theme-preview.inkplay { background: #eee0c6; }
 .theme-preview.inkplay::before { width: 37px; height: 21px; right: 4px; top: 11px; border-radius: 55% 45% 48% 52%; background: #716354; box-shadow: -17px 12px 0 -8px #547f8b, -10px -9px 0 -8px #607759, 8px 13px 0 -8px #755f80, 13px -8px 0 -8px #9b5348; }
 .theme-preview.inkplay::after { width: 53px; height: 18px; left: 3px; bottom: 2px; border: solid rgba(101,87,70,.52); border-width: 1px 0 0 1px; transform: skewY(-8deg); }
-.language-switch { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.34); color: var(--ink-soft); cursor: pointer; font-size: 10px; letter-spacing: .04em; }
+.language-switch { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.34); color: var(--ink-soft); cursor: pointer; font-size: 0.625rem; letter-spacing: .04em; }
 .language-switch:hover { color: var(--ink); background: rgba(255,255,255,.78); }
-.account-button { border: 0; background: transparent; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink-soft); }
-.avatar { width: 29px; height: 29px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: white; font-size: 12px; }
-.account-label { max-width: 110px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+.display-settings { position: relative; }
+.display-settings > summary { list-style: none; }
+.display-settings > summary::-webkit-details-marker { display: none; }
+.account-button { min-height: 37px; padding: 3px 4px 3px 3px; border: 1px solid transparent; border-radius: 999px; background: transparent; display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink-soft); }
+.account-button:hover, .display-settings[open] > .account-button { color: var(--ink); border-color: var(--line); background: rgba(255,255,255,.62); }
+.display-settings[open] > .account-button > svg { transform: rotate(180deg); }
+.avatar { width: 29px; height: 29px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: white; font-size: 0.75rem; }
+.account-label { max-width: 110px; overflow: hidden; text-overflow: ellipsis; font-size: 0.75rem; }
+.display-settings-panel { width: min(420px, calc(100vw - 28px)); max-height: calc(100vh - 82px); position: absolute; z-index: 160; top: calc(100% + 10px); right: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--line); background: var(--paper-light); box-shadow: 0 28px 90px rgba(26,27,25,.2); animation: themeMenuIn .18s ease; }
+.display-settings-panel > header { min-height: 70px; padding: 15px 17px; display: flex; align-items: center; gap: 11px; border-bottom: 1px solid var(--line); }
+.display-settings-panel > header > span { width: 33px; height: 33px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--ink); }
+.display-settings-panel > header div { min-width: 0; display: grid; gap: 3px; }
+.display-settings-panel > header strong { font: 1.0625rem/1.2 "Songti SC",serif; }
+.display-settings-panel > header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); font-size: 0.5625rem; }
+.settings-section { padding: 14px 17px 16px; border-bottom: 1px solid var(--line); }
+.settings-section-title { min-height: 20px; margin-bottom: 9px; display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 0.5625rem; font-weight: 700; letter-spacing: .07em; }
+.settings-section-title small { margin-left: auto; color: var(--ink); font-size: 0.5rem; letter-spacing: .08em; }
+.font-size-options, .language-options { display: grid; border: 1px solid var(--line); background: rgba(255,255,255,.36); }
+.font-size-options { grid-template-columns: repeat(3,1fr); }
+.language-options { grid-template-columns: repeat(2,1fr); }
+.font-size-options button, .language-options button { min-height: 47px; padding: 6px 8px; border: 0; border-left: 1px solid var(--line); display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--ink-soft); background: transparent; cursor: pointer; font-size: 0.625rem; }
+.font-size-options button:first-child, .language-options button:first-child { border-left: 0; }
+.font-size-options button:hover, .language-options button:hover { color: var(--ink); background: rgba(34,36,33,.045); }
+.font-size-options button.selected, .language-options button.selected { color: white; background: var(--ink); }
+.font-preview { width: 19px; display: inline-grid; place-items: center; font-family: "Songti SC",serif; font-weight: 400; }
+.font-preview-0 { font-size: 0.6875rem; } .font-preview-1 { font-size: 0.9375rem; } .font-preview-2 { font-size: 1.1875rem; }
+.settings-theme-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
+.settings-theme-grid > button { min-width: 0; min-height: 54px; padding: 6px; display: grid; grid-template-columns: 49px minmax(0,1fr) 14px; align-items: center; gap: 7px; border: 1px solid transparent; color: var(--ink); background: rgba(255,255,255,.25); text-align: left; cursor: pointer; }
+.settings-theme-grid > button:hover { border-color: var(--line); background: rgba(255,255,255,.55); }
+.settings-theme-grid > button.selected { border-color: var(--ink); background: rgba(255,255,255,.72); }
+.settings-theme-grid > button > span { min-width: 0; display: grid; gap: 3px; }
+.settings-theme-grid strong, .settings-theme-grid small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-theme-grid strong { font-size: 0.5625rem; } .settings-theme-grid small { color: var(--ink-soft); font-size: 0.4375rem; }
+.settings-theme-grid .theme-preview { width: 49px; height: 36px; }
+.display-settings-panel > footer { min-height: 61px; padding: 11px 17px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.display-settings-panel > footer div { min-width: 0; display: grid; gap: 3px; }
+.display-settings-panel > footer strong, .display-settings-panel > footer small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.display-settings-panel > footer strong { font-size: 0.625rem; } .display-settings-panel > footer small { max-width: 220px; color: var(--ink-soft); font-size: 0.5rem; }
+.display-settings-panel > footer button { min-height: 33px; padding: 0 11px; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: transparent; color: var(--red-dark); cursor: pointer; font-size: 0.5625rem; }
+.display-settings-panel > footer button:hover { color: white; border-color: var(--red-dark); background: var(--red-dark); }
 
 .primary-button, .outline-button {
   min-height: 45px; border-radius: 3px; padding: 0 20px; display: inline-flex; align-items: center; justify-content: center; gap: 9px;
-  cursor: pointer; border: 1px solid var(--ink); font-weight: 650; font-size: 13px; letter-spacing: .02em; transition: .2s ease;
+  cursor: pointer; border: 1px solid var(--ink); font-weight: 650; font-size: 0.8125rem; letter-spacing: .02em; transition: .2s ease;
 }
 .primary-button { background: var(--ink); color: white; }
 .primary-button:hover { background: #050605; transform: translateY(-1px); }
@@ -103,27 +142,27 @@ a { color: inherit; text-decoration: none; }
 .hero::before { content: ""; position: absolute; inset: 20px 22px 0; background: rgba(255,255,255,.28); border: 1px solid rgba(34,36,33,.08); }
 .hero-art { position: absolute; inset: 20px 22px 0; background-image: linear-gradient(90deg, rgba(243,240,233,.36) 0%, rgba(243,240,233,0) 45%), url('./assets/tiger-ink-hero.webp'); background-size: cover; background-position: center; opacity: .88; mix-blend-mode: multiply; }
 .hero-content { position: relative; z-index: 2; max-width: 570px; margin-top: -10px; }
-.eyebrow { color: var(--red); display: inline-flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 750; letter-spacing: .18em; text-transform: uppercase; }
+.eyebrow { color: var(--red); display: inline-flex; align-items: center; gap: 7px; font-size: 0.6875rem; font-weight: 750; letter-spacing: .18em; text-transform: uppercase; }
 .hero h1 { margin: 23px 0 21px; font: 400 clamp(48px, 6.6vw, 89px)/1.08 "Songti SC", "STSong", "SimSun", serif; letter-spacing: -.05em; }
 .hero h1 em { font-style: normal; color: var(--red); position: relative; }
 .hero h1 em::after { content: ""; position: absolute; height: 8px; left: 4px; right: -15px; bottom: 2px; background: var(--red); opacity: .16; transform: rotate(-1deg); }
-.hero-content > p { max-width: 430px; font-size: 15px; line-height: 1.9; color: var(--ink-soft); }
+.hero-content > p { max-width: 430px; font-size: 0.9375rem; line-height: 1.9; color: var(--ink-soft); }
 .hero-actions { display: flex; align-items: center; gap: 24px; margin-top: 34px; }
-.hero-actions > span { display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 12px; }
+.hero-actions > span { display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 0.75rem; }
 .venue-note { position: absolute; z-index: 3; right: 5%; bottom: 28px; min-width: 206px; padding: 15px 18px; display: flex; align-items: center; gap: 12px; color: white; background: rgba(28,30,28,.9); backdrop-filter: blur(10px); }
 .venue-note span { display: flex; flex-direction: column; gap: 4px; }
-.venue-note strong { font-size: 12px; letter-spacing: .08em; }
+.venue-note strong { font-size: 0.75rem; letter-spacing: .08em; }
 .venue-note small { color: rgba(255,255,255,.58); }
 
 .booking-container { max-width: 1356px; margin: 0 auto; padding: 36px 42px 100px; }
-.demo-banner { margin-bottom: 18px; padding: 12px 16px; border: 1px solid rgba(199,70,54,.25); color: var(--ink-soft); background: rgba(199,70,54,.05); font-size: 12px; }
+.demo-banner { margin-bottom: 18px; padding: 12px 16px; border: 1px solid rgba(199,70,54,.25); color: var(--ink-soft); background: rgba(199,70,54,.05); font-size: 0.75rem; }
 .demo-banner span { display: inline-block; color: white; background: var(--red); padding: 3px 7px; margin-right: 9px; font-weight: 700; }
 .date-strip-wrap { display: grid; grid-template-columns: 35px minmax(0, 1fr) 35px; gap: 12px; align-items: center; margin-bottom: 70px; }
 .date-strip { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--line); }
 .date-card { position: relative; border: 0; padding: 16px 5px 18px; background: transparent; color: var(--ink-soft); display: grid; grid-template-columns: auto auto; justify-content: center; align-items: end; column-gap: 6px; cursor: pointer; }
-.date-card small { grid-column: 1/-1; margin-bottom: 8px; font-size: 11px; }
-.date-card strong { color: var(--ink); font: 27px/1 "Songti SC", serif; }
-.date-card span { font-size: 10px; padding-bottom: 2px; }
+.date-card small { grid-column: 1/-1; margin-bottom: 8px; font-size: 0.6875rem; }
+.date-card strong { color: var(--ink); font: 1.6875rem/1 "Songti SC", serif; }
+.date-card span { font-size: 0.625rem; padding-bottom: 2px; }
 .date-card::after { content: ""; position: absolute; height: 2px; left: 30%; right: 30%; bottom: -1px; background: transparent; }
 .date-card.selected small, .date-card.selected strong { color: var(--red); }
 .date-card.selected::after { background: var(--red); }
@@ -132,9 +171,9 @@ a { color: inherit; text-decoration: none; }
 .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 25px; margin-bottom: 24px; }
 .section-heading h2, .ritual-section h2 { margin: 11px 0 0; font: 400 clamp(31px, 4vw, 47px)/1.2 "Songti SC", "STSong", serif; }
 .availability-summary { display: flex; align-items: baseline; gap: 7px; color: var(--ink-soft); }
-.availability-summary strong { color: var(--red); font: 35px/1 "Songti SC", serif; }
-.availability-summary span { font-size: 11px; }
-.legend { padding: 12px 0 17px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 18px; color: var(--ink-soft); font-size: 10px; }
+.availability-summary strong { color: var(--red); font: 2.1875rem/1 "Songti SC", serif; }
+.availability-summary span { font-size: 0.6875rem; }
+.legend { padding: 12px 0 17px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 18px; color: var(--ink-soft); font-size: 0.625rem; }
 .legend span { display: flex; align-items: center; gap: 6px; }
 .legend span:last-child { margin-left: auto; }
 .legend-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
@@ -145,50 +184,50 @@ a { color: inherit; text-decoration: none; }
 .schedule-table-wrap { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; scrollbar-color: rgba(34,36,33,.24) transparent; }
 .schedule-table-wrap:focus-visible { outline: 1px solid rgba(199,70,54,.42); outline-offset: 4px; }
 .schedule-row { display: contents; }
-.schedule-corner, .time-header { min-height: 39px; display: grid; place-items: center; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 9px; color: var(--ink-soft); letter-spacing: .03em; }
-.schedule-corner { font-size: 9px; }
+.schedule-corner, .time-header { min-height: 39px; display: grid; place-items: center; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 0.5625rem; color: var(--ink-soft); letter-spacing: .03em; }
+.schedule-corner { font-size: 0.5625rem; }
 .court-label { min-width: 0; min-height: 68px; overflow: hidden; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; justify-content: center; padding-inline: clamp(14px, 1.4vw, 20px) 8px; background: rgba(255,255,255,.28); }
-.court-label strong { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "Songti SC", serif; font-size: 23px; font-size: clamp(19px, calc(14px + .7vw), 23px); line-height: 1.05; letter-spacing: -.02em; }
-.court-label span { color: var(--ink-soft); font-size: 8px; letter-spacing: .14em; margin-top: 5px; text-transform: uppercase; }
+.court-label strong { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "Songti SC", serif; font-size: 1.4375rem; font-size: clamp(19px, calc(14px + .7vw), 23px); line-height: 1.05; letter-spacing: -.02em; }
+.court-label span { color: var(--ink-soft); font-size: 0.5rem; letter-spacing: .14em; margin-top: 5px; text-transform: uppercase; }
 .slot { min-height: 68px; border: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: grid; place-items: center; background: rgba(255,255,255,.36); transition: .15s ease; }
 .slot.available { cursor: pointer; color: rgba(34,36,33,.54); }
 .slot.available:hover, .slot.available:focus-visible { color: white; background: var(--red); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2), inset 0 -12px 24px rgba(159,49,39,.18); outline: 0; }
 .slot.occupied { color: rgba(255,255,255,.52); background: rgba(34,36,33,.58); cursor: not-allowed; }
 .slot.past { color: rgba(34,36,33,.3); background: rgba(34,36,33,.075); cursor: not-allowed; }
-.slot-state { font-size: 9px; letter-spacing: .08em; }
+.slot-state { font-size: 0.5625rem; letter-spacing: .08em; }
 .mobile-time { display: none; }
 .mobile-schedule { display: none; }
-.board-loading { min-height: 260px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--ink-soft); border: 1px solid var(--line); font-size: 12px; }
+.board-loading { min-height: 260px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--ink-soft); border: 1px solid var(--line); font-size: 0.75rem; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .ritual-section { max-width: 1272px; margin: 0 auto 100px; border-top: 1px solid var(--line); padding: 78px 0 20px; display: grid; grid-template-columns: .8fr 2fr; gap: 70px; }
 .ritual-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
 .ritual-steps article { border-left: 1px solid var(--line); padding-left: 25px; }
-.ritual-steps article > span { color: var(--red); font: 27px/1 "Songti SC", serif; }
-.ritual-steps h3 { margin: 22px 0 10px; font: 20px/1 "Songti SC", serif; }
-.ritual-steps p { color: var(--ink-soft); font-size: 12px; line-height: 1.8; }
+.ritual-steps article > span { color: var(--red); font: 1.6875rem/1 "Songti SC", serif; }
+.ritual-steps h3 { margin: 22px 0 10px; font: 1.25rem/1 "Songti SC", serif; }
+.ritual-steps p { color: var(--ink-soft); font-size: 0.75rem; line-height: 1.8; }
 
 .drawer-backdrop, .modal-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(25,27,24,.42); backdrop-filter: blur(5px); animation: fadeIn .2s ease; }
 .booking-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(470px, 100%); padding: 56px 44px 34px; overflow-y: auto; background: var(--paper-light); box-shadow: var(--shadow); animation: slideIn .3s cubic-bezier(.22,.8,.3,1); }
 .drawer-handle { display: none; }
 .icon-button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: transparent; display: grid; place-items: center; cursor: pointer; }
 .drawer-close, .modal-close { position: absolute; right: 25px; top: 22px; }
-.booking-drawer h2, .auth-modal h2 { margin: 10px 0 7px; font: 400 38px/1.25 "Songti SC", serif; }
-.drawer-subtitle, .auth-modal > p { color: var(--ink-soft); line-height: 1.7; font-size: 12px; margin: 0; }
+.booking-drawer h2, .auth-modal h2 { margin: 10px 0 7px; font: 400 2.375rem/1.25 "Songti SC", serif; }
+.drawer-subtitle, .auth-modal > p { color: var(--ink-soft); line-height: 1.7; font-size: 0.75rem; margin: 0; }
 .booking-summary-card { display: grid; grid-template-columns: 70px 1fr 1fr; align-items: center; gap: 14px; padding: 20px 0; margin: 24px 0 6px; border-block: 1px solid var(--line); }
-.summary-seal { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%; background: var(--ink); color: white; font: 26px/1 "Songti SC", serif; }
+.summary-seal { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%; background: var(--ink); color: white; font: 1.625rem/1 "Songti SC", serif; }
 .booking-summary-card > div:not(:first-child) { display: flex; flex-direction: column; gap: 6px; }
-.booking-summary-card small, .drawer-field small { color: var(--ink-soft); font-size: 9px; }
-.booking-summary-card strong { font-size: 12px; }
+.booking-summary-card small, .drawer-field small { color: var(--ink-soft); font-size: 0.5625rem; }
+.booking-summary-card strong { font-size: 0.75rem; }
 .drawer-field { padding: 18px 0; border-bottom: 1px solid var(--line); }
-.drawer-field > label, .party-row label { display: block; margin-bottom: 12px; font-size: 11px; font-weight: 700; }
+.drawer-field > label, .party-row label { display: block; margin-bottom: 12px; font-size: 0.6875rem; font-weight: 700; }
 .drawer-contact-fields { display: grid; gap: 8px; }
 .drawer-contact-fields label:not(:first-child) { margin-top: 7px; }
 .drawer-contact-fields input, .drawer-contact-fields textarea { width: 100%; padding: 11px 12px; border: 1px solid var(--line); background: rgba(255,255,255,.62); color: var(--ink); font: inherit; outline: 0; resize: vertical; }
 .drawer-contact-fields input:focus, .drawer-contact-fields textarea:focus { border-color: var(--ink); box-shadow: 0 0 0 2px rgba(34,36,33,.06); }
 .segmented-control { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
-.segmented-control button { height: 40px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 11px; }
+.segmented-control button { height: 40px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 0.6875rem; }
 .segmented-control button.selected { border-color: var(--ink); background: var(--ink); color: white; }
 .segmented-control button:disabled { opacity: .3; cursor: not-allowed; }
 .party-row { display: flex; align-items: center; justify-content: space-between; }
@@ -199,51 +238,51 @@ a { color: inherit; text-decoration: none; }
 .payment-option:disabled { opacity: .42; cursor: not-allowed; }
 .payment-option.selected { border-color: var(--ink); }
 .payment-option span { display: flex; flex: 1; flex-direction: column; gap: 3px; }
-.payment-option strong { font-size: 11px; }
-.price-row { display: flex; align-items: center; justify-content: space-between; padding: 19px 0 8px; font-size: 12px; }
-.price-row strong { color: var(--red); font: 24px/1 "Songti SC", serif; }
-.booking-policy { color: var(--ink-soft); font-size: 9px; display: flex; align-items: center; gap: 7px; }
+.payment-option strong { font-size: 0.6875rem; }
+.price-row { display: flex; align-items: center; justify-content: space-between; padding: 19px 0 8px; font-size: 0.75rem; }
+.price-row strong { color: var(--red); font: 1.5rem/1 "Songti SC", serif; }
+.booking-policy { color: var(--ink-soft); font-size: 0.5625rem; display: flex; align-items: center; gap: 7px; }
 .confirm-button { width: 100%; margin-top: 15px; }
 
 .modal-backdrop { display: grid; place-items: center; padding: 20px; }
 .auth-modal { width: min(430px, 100%); position: relative; background: var(--paper-light); padding: 45px 42px 36px; box-shadow: var(--shadow); animation: modalIn .25s ease; }
-.auth-seal { width: 47px; height: 47px; margin-bottom: 24px; border-radius: 50%; background: var(--red); color: white; display: grid; place-items: center; font: 22px/1 "Songti SC", serif; }
+.auth-seal { width: 47px; height: 47px; margin-bottom: 24px; border-radius: 50%; background: var(--red); color: white; display: grid; place-items: center; font: 1.375rem/1 "Songti SC", serif; }
 .auth-modal form { margin-top: 25px; }
-.auth-modal label { display: block; margin-bottom: 8px; font-size: 10px; font-weight: 700; }
+.auth-modal label { display: block; margin-bottom: 8px; font-size: 0.625rem; font-weight: 700; }
 .input-with-icon { height: 47px; border: 1px solid var(--line); background: white; display: flex; align-items: center; gap: 10px; padding: 0 13px; }
 .input-with-icon:focus-within { border-color: var(--ink); }
 .input-with-icon input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; }
 .auth-modal form .primary-button { width: 100%; margin-top: 10px; }
-.auth-divider { height: 34px; display: flex; align-items: center; color: var(--ink-soft); font-size: 9px; }
+.auth-divider { height: 34px; display: flex; align-items: center; color: var(--ink-soft); font-size: 0.5625rem; }
 .auth-divider::before, .auth-divider::after { content: ""; height: 1px; background: var(--line); flex: 1; }
 .auth-divider span { padding: 0 10px; }
 .wide-button { width: 100%; }
-.terms { display: block; margin-top: 17px; text-align: center; color: var(--ink-soft); font-size: 8px; }
+.terms { display: block; margin-top: 17px; text-align: center; color: var(--ink-soft); font-size: 0.5rem; }
 .success-message { margin-top: 25px; padding: 22px; display: flex; flex-direction: column; align-items: center; gap: 7px; border: 1px solid rgba(55,113,75,.2); color: #315c3f; background: rgba(55,113,75,.05); }
-.success-message span { font-size: 11px; }
+.success-message span { font-size: 0.6875rem; }
 
 .my-bookings-page, .empty-page { max-width: 1100px; min-height: calc(100vh - 150px); margin: 0 auto; padding: 85px 42px 120px; }
 .page-heading h1, .empty-page h1 { margin: 12px 0 9px; font: 400 clamp(43px, 6vw, 67px)/1.15 "Songti SC", serif; }
-.page-heading p, .empty-page p, .bookings-empty p { color: var(--ink-soft); font-size: 12px; }
+.page-heading p, .empty-page p, .bookings-empty p { color: var(--ink-soft); font-size: 0.75rem; }
 .booking-list { margin-top: 55px; display: grid; gap: 13px; }
 .booking-card { display: grid; grid-template-columns: 90px 1fr; min-height: 150px; background: rgba(255,255,255,.4); border: 1px solid var(--line); }
-.booking-card-seal { display: grid; place-items: center; background: var(--ink); color: white; font: 34px/1 "Songti SC", serif; }
+.booking-card-seal { display: grid; place-items: center; background: var(--ink); color: white; font: 2.125rem/1 "Songti SC", serif; }
 .booking-card-main { padding: 23px 28px; }
 .booking-card-title { display: flex; justify-content: space-between; align-items: start; gap: 20px; }
-.booking-card-title small { color: var(--red); font-size: 9px; letter-spacing: .08em; }
-.booking-card-title h2 { margin: 6px 0 18px; font: 22px/1 "Songti SC", serif; }
-.status-pill { padding: 5px 8px; font-size: 8px; background: rgba(34,36,33,.07); }
+.booking-card-title small { color: var(--red); font-size: 0.5625rem; letter-spacing: .08em; }
+.booking-card-title h2 { margin: 6px 0 18px; font: 1.375rem/1 "Songti SC", serif; }
+.status-pill { padding: 5px 8px; font-size: 0.5rem; background: rgba(34,36,33,.07); }
 .status-pill.confirmed { color: #3f6a4c; background: rgba(63,106,76,.1); }
 .status-pill.held { color: var(--red-dark); background: rgba(199,70,54,.1); }
-.booking-meta { display: flex; flex-wrap: wrap; gap: 22px; color: var(--ink-soft); font-size: 10px; }
+.booking-meta { display: flex; flex-wrap: wrap; gap: 22px; color: var(--ink-soft); font-size: 0.625rem; }
 .booking-meta span { display: flex; align-items: center; gap: 6px; }
-.text-button { border: 0; background: none; padding: 0; margin-top: 20px; cursor: pointer; font-size: 10px; text-decoration: underline; text-underline-offset: 3px; }
+.text-button { border: 0; background: none; padding: 0; margin-top: 20px; cursor: pointer; font-size: 0.625rem; text-decoration: underline; text-underline-offset: 3px; }
 .danger { color: var(--red-dark); }
 .bookings-empty { margin-top: 55px; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid var(--line); }
-.bookings-empty h2 { font: 25px/1 "Songti SC", serif; }
+.bookings-empty h2 { font: 1.5625rem/1 "Songti SC", serif; }
 .empty-page { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .empty-page p { margin-bottom: 25px; }
-.empty-ink { color: rgba(34,36,33,.08); font: 140px/1 "Songti SC", serif; margin-bottom: -52px; }
+.empty-ink { color: rgba(34,36,33,.08); font: 8.75rem/1 "Songti SC", serif; margin-bottom: -52px; }
 
 .admin-bookings-page { max-width: 1280px; min-height: calc(100vh - 150px); margin: 0 auto; padding: 10px 42px 120px; }
 .admin-capacity-page { padding-top: 42px; }
@@ -251,23 +290,23 @@ a { color: inherit; text-decoration: none; }
 .admin-summary { margin: 16px 0 18px; display: grid; grid-template-columns: repeat(4, 1fr); border-block: 1px solid var(--line); }
 .admin-summary article { min-height: 112px; padding: 22px 25px; display: grid; grid-template-columns: auto 1fr; align-content: center; border-right: 1px solid var(--line); }
 .admin-summary article:last-child { border-right: 0; }
-.admin-summary span { grid-column: 1/-1; color: var(--ink-soft); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
-.admin-summary strong { margin-top: 9px; color: var(--ink); font: 34px/1 "Songti SC", serif; }
-.admin-summary small { align-self: end; padding: 0 0 3px 6px; color: var(--ink-soft); font-size: 9px; }
+.admin-summary span { grid-column: 1/-1; color: var(--ink-soft); font-size: 0.5625rem; letter-spacing: .12em; text-transform: uppercase; }
+.admin-summary strong { margin-top: 9px; color: var(--ink); font: 2.125rem/1 "Songti SC", serif; }
+.admin-summary small { align-self: end; padding: 0 0 3px 6px; color: var(--ink-soft); font-size: 0.5625rem; }
 .admin-controls { display: grid; grid-template-columns: auto 132px 132px minmax(190px, 1fr) 126px 126px; gap: 8px; padding: 12px; background: rgba(255,255,255,.38); border: 1px solid var(--line); }
 .admin-presets { display: flex; align-items: center; }
-.admin-presets button { height: 38px; padding: 0 12px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--ink-soft); cursor: pointer; font-size: 10px; white-space: nowrap; }
+.admin-presets button { height: 38px; padding: 0 12px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--ink-soft); cursor: pointer; font-size: 0.625rem; white-space: nowrap; }
 .admin-presets button:hover { color: var(--red); }
 .admin-date-field, .admin-search { min-height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.72); border: 1px solid var(--line); }
-.admin-date-field span { color: var(--ink-soft); font-size: 9px; }
-.admin-date-field input, .admin-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 10px; }
+.admin-date-field span { color: var(--ink-soft); font-size: 0.5625rem; }
+.admin-date-field input, .admin-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 0.625rem; }
 .admin-search svg { flex: 0 0 auto; color: var(--ink-soft); }
-.admin-controls select { min-width: 0; padding: 0 10px; border: 1px solid var(--line); outline: 0; background: rgba(255,255,255,.72); color: var(--ink); font-size: 10px; }
+.admin-controls select { min-width: 0; padding: 0 10px; border: 1px solid var(--line); outline: 0; background: rgba(255,255,255,.72); color: var(--ink); font-size: 0.625rem; }
 .admin-filter-select { min-width: 0; min-height: 38px; padding: 4px 7px 4px 9px; display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 5px; border: 1px solid var(--line); background: rgba(255,255,255,.72); }
-.admin-filter-select > span { color: var(--ink-soft); font-size: 8px; white-space: nowrap; }
+.admin-filter-select > span { color: var(--ink-soft); font-size: 0.5rem; white-space: nowrap; }
 .admin-filter-select select { width: 100%; height: 28px; padding: 0 2px; border: 0; background: transparent; font-weight: 650; }
-.admin-query-meta { min-height: 32px; padding: 7px 12px 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--ink-soft); font-size: 9px; }
-.admin-query-meta button { padding: 3px 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--ink-soft); cursor: pointer; font-size: 9px; }
+.admin-query-meta { min-height: 32px; padding: 7px 12px 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--ink-soft); font-size: 0.5625rem; }
+.admin-query-meta button { padding: 3px 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--ink-soft); cursor: pointer; font-size: 0.5625rem; }
 .admin-query-meta button:hover { color: var(--red); }
 .admin-order-pagination { min-height: 76px; display: grid; grid-template-columns: minmax(110px, 1fr) auto minmax(110px, 1fr); align-items: center; gap: 16px; margin-top: 18px; border: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 94%, white); }
 .admin-order-pagination button { min-height: 74px; padding: 0 24px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
@@ -276,13 +315,13 @@ a { color: inherit; text-decoration: none; }
 .admin-order-pagination button:hover:not(:disabled) { color: var(--red); background: rgba(199, 70, 54, .035); }
 .admin-order-pagination button:disabled { color: var(--muted); cursor: default; opacity: .45; }
 .admin-order-pagination div { min-width: 150px; display: grid; justify-items: center; gap: 4px; }
-.admin-order-pagination strong { font-family: var(--serif); font-size: 15px; font-weight: 500; }
-.admin-order-pagination span { color: var(--muted); font-size: 9px; letter-spacing: .08em; }
+.admin-order-pagination strong { font-family: var(--serif); font-size: 0.9375rem; font-weight: 500; }
+.admin-order-pagination span { color: var(--muted); font-size: 0.5625rem; letter-spacing: .08em; }
 .capacity-monitor { margin: 8px 0 30px; border: 1px solid var(--line); background: rgba(255,255,255,.28); box-shadow: 0 18px 48px rgba(40,38,32,.045); }
 .capacity-monitor > header { min-height: 82px; padding: 20px 26px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--line); }
-.capacity-monitor h2 { margin: 7px 0 5px; font: 27px/1.1 "Songti SC",serif; }
-.capacity-monitor header p { margin: 0; display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 9px; }
-.capacity-legend { display: flex; gap: 13px; color: var(--ink-soft); font-size: 8px; white-space: nowrap; }
+.capacity-monitor h2 { margin: 7px 0 5px; font: 1.6875rem/1.1 "Songti SC",serif; }
+.capacity-monitor header p { margin: 0; display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 0.5625rem; }
+.capacity-legend { display: flex; gap: 13px; color: var(--ink-soft); font-size: 0.5rem; white-space: nowrap; }
 .capacity-legend span { display: flex; align-items: center; gap: 5px; }
 .capacity-legend i { width: 8px; height: 8px; border-radius: 50%; }
 .capacity-legend i.open { background: #6e876a; }
@@ -294,11 +333,11 @@ a { color: inherit; text-decoration: none; }
 .capacity-week-nav { color: var(--ink-soft); cursor: pointer; }
 .capacity-week-nav:hover { color: var(--red); border-color: var(--red); }
 .capacity-day { gap: 3px; }
-.capacity-day small { color: var(--ink-soft); font-size: 8px; }
-.capacity-day strong { font: 12px/1 "Songti SC",serif; }
+.capacity-day small { color: var(--ink-soft); font-size: 0.5rem; }
+.capacity-day strong { font: 0.75rem/1 "Songti SC",serif; }
 .capacity-row { grid-column: 1/-1; display: grid; grid-template-columns: 62px repeat(var(--capacity-days),minmax(96px,1fr)) 42px; gap: 5px; }
 .capacity-row::after { content: ''; }
-.capacity-row > strong { min-height: 38px; display: grid; place-items: center; color: var(--ink-soft); font-size: 8px; }
+.capacity-row > strong { min-height: 38px; display: grid; place-items: center; color: var(--ink-soft); font-size: 0.5rem; }
 .capacity-row button { min-height: 38px; padding: 5px 8px; display: flex; align-items: baseline; justify-content: center; gap: 4px; border: 1px solid transparent; cursor: pointer; transition: transform .15s ease, border-color .15s ease; }
 .capacity-row button:hover, .capacity-row button:focus-visible { transform: translateY(-1px); border-color: var(--ink); outline: 0; }
 .capacity-row button.open { color: #315c3f; background: rgba(77,118,74,.12); }
@@ -307,37 +346,37 @@ a { color: inherit; text-decoration: none; }
 .capacity-row button.past { color: rgba(34,36,33,.34); background: rgba(34,36,33,.075); cursor: not-allowed; }
 .capacity-row button.closed { color: rgba(34,36,33,.28); background: repeating-linear-gradient(-45deg, rgba(34,36,33,.035) 0 5px, rgba(255,255,255,.18) 5px 10px); cursor: not-allowed; }
 .capacity-row button.past:hover, .capacity-row button.past:focus-visible, .capacity-row button.closed:hover, .capacity-row button.closed:focus-visible { transform: none; border-color: transparent; }
-.capacity-row button b { font: 15px/1 "Songti SC",serif; }
-.capacity-row button span { font-size: 7px; }
+.capacity-row button b { font: 0.9375rem/1 "Songti SC",serif; }
+.capacity-row button span { font-size: 0.4375rem; }
 .admin-empty { min-height: 310px; margin-top: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--line); color: var(--ink-soft); }
-.admin-empty h2 { margin: 18px 0 5px; color: var(--ink); font: 25px/1.2 "Songti SC", serif; }
-.admin-empty p { font-size: 11px; }
+.admin-empty h2 { margin: 18px 0 5px; color: var(--ink); font: 1.5625rem/1.2 "Songti SC", serif; }
+.admin-empty p { font-size: 0.6875rem; }
 .admin-day-list { margin-top: 38px; display: grid; gap: 40px; }
 .admin-day > header { min-height: 49px; padding: 0 4px 13px; display: flex; align-items: end; justify-content: space-between; border-bottom: 1px solid var(--ink); }
 .admin-day > header div { display: flex; align-items: baseline; gap: 12px; }
-.admin-day > header strong { font: 24px/1 "Songti SC", serif; }
-.admin-day > header span { color: var(--ink-soft); font-size: 9px; letter-spacing: .08em; }
+.admin-day > header strong { font: 1.5rem/1 "Songti SC", serif; }
+.admin-day > header span { color: var(--ink-soft); font-size: 0.5625rem; letter-spacing: .08em; }
 .admin-booking-list { display: grid; }
 .admin-booking-row { min-height: 105px; display: grid; grid-template-columns: 140px 205px minmax(220px, 1fr) 250px; align-items: center; gap: 18px; padding: 18px 18px 18px 6px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.25); }
 .admin-booking-row:hover { background: rgba(255,255,255,.56); }
 .admin-booking-time { display: grid; grid-template-columns: 22px auto 1fr; align-items: baseline; color: var(--ink-soft); }
 .admin-booking-time svg { grid-row: 1/3; align-self: center; color: var(--red); }
-.admin-booking-time strong { color: var(--ink); font-size: 16px; }
-.admin-booking-time span { padding-left: 5px; font-size: 10px; }
-.admin-booking-time small { grid-column: 2/-1; margin-top: 6px; font-size: 9px; }
+.admin-booking-time strong { color: var(--ink); font-size: 1rem; }
+.admin-booking-time span { padding-left: 5px; font-size: 0.625rem; }
+.admin-booking-time small { grid-column: 2/-1; margin-top: 6px; font-size: 0.5625rem; }
 .admin-booking-court { display: flex; align-items: center; gap: 12px; }
-.admin-court-seal { width: 42px; height: 42px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; background: var(--ink); color: white; font: 20px/1 "Songti SC", serif; }
+.admin-court-seal { width: 42px; height: 42px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; background: var(--ink); color: white; font: 1.25rem/1 "Songti SC", serif; }
 .admin-booking-court div, .admin-customer div { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-.admin-booking-court strong, .admin-customer strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
-.admin-booking-court small { color: var(--ink-soft); font-size: 9px; }
+.admin-booking-court strong, .admin-customer strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.6875rem; }
+.admin-booking-court small { color: var(--ink-soft); font-size: 0.5625rem; }
 .admin-customer { min-width: 0; display: flex; align-items: center; gap: 11px; }
 .admin-customer > svg { flex: 0 0 auto; color: var(--ink-soft); }
-.admin-customer span { min-width: 0; display: flex; align-items: center; gap: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); font-size: 9px; }
-.admin-booking-details { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 9px; color: var(--ink-soft); font-size: 9px; }
+.admin-customer span { min-width: 0; display: flex; align-items: center; gap: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); font-size: 0.5625rem; }
+.admin-booking-details { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 9px; color: var(--ink-soft); font-size: 0.5625rem; }
 .admin-booking-details > span:not(.status-pill) { display: flex; align-items: center; white-space: nowrap; }
-.admin-booking-details > strong { color: var(--ink); font: 17px/1 "Songti SC", serif; }
+.admin-booking-details > strong { color: var(--ink); font: 1.0625rem/1 "Songti SC", serif; }
 .admin-booking-actions { grid-column: 1/-1; margin: 2px 0 0 auto; display: flex; align-items: center; gap: 15px; }
-.admin-booking-actions button { width: max-content; padding: 5px 0; display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; cursor: pointer; font-size: 9px; text-decoration: underline; text-underline-offset: 3px; }
+.admin-booking-actions button { width: max-content; padding: 5px 0; display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; cursor: pointer; font-size: 0.5625rem; text-decoration: underline; text-underline-offset: 3px; }
 .admin-reschedule-booking { color: var(--ink); }
 .admin-reschedule-booking:hover { color: var(--red); }
 .admin-cancel-booking { color: var(--red-dark); }
@@ -345,12 +384,12 @@ a { color: inherit; text-decoration: none; }
 .admin-booking-actions button:disabled { opacity: .45; cursor: wait; }
 .admin-schedule-editor { --inspector-width: 210px; --cancel-width: 140px; margin: 0 0 55px; display: grid; grid-template-columns: var(--inspector-width) minmax(0,1fr) var(--cancel-width); border: 1px solid var(--line); background: rgba(255,255,255,.28); box-shadow: 0 22px 58px rgba(40,38,32,.06); }
 .admin-schedule-editor > header { grid-column: 1/-1; grid-row: 1; min-height: 128px; padding: 25px 28px; display: flex; justify-content: space-between; align-items: center; gap: 25px; border-bottom: 1px solid var(--line); }
-.admin-schedule-editor h2 { margin: 8px 0 7px; font: 32px/1.1 "Songti SC", serif; }
-.admin-schedule-editor header p { max-width: 590px; margin: 0; color: var(--ink-soft); font-size: 10px; line-height: 1.7; }
+.admin-schedule-editor h2 { margin: 8px 0 7px; font: 2rem/1.1 "Songti SC", serif; }
+.admin-schedule-editor header p { max-width: 590px; margin: 0; color: var(--ink-soft); font-size: 0.625rem; line-height: 1.7; }
 .admin-schedule-date { display: flex; align-items: stretch; border: 1px solid var(--line); background: rgba(255,255,255,.52); }
 .admin-schedule-date label { min-width: 215px; padding: 10px 12px; display: grid; text-align: center; }
-.admin-schedule-date strong { font: 15px/1.2 "Songti SC", serif; }
-.admin-schedule-date input { margin-top: 5px; border: 0; background: transparent; color: var(--ink-soft); font-size: 9px; text-align: center; }
+.admin-schedule-date strong { font: 0.9375rem/1.2 "Songti SC", serif; }
+.admin-schedule-date input { margin-top: 5px; border: 0; background: transparent; color: var(--ink-soft); font-size: 0.5625rem; text-align: center; }
 .admin-schedule-workbench { display: contents; }
 .admin-schedule-side { z-index: 7; background: rgba(247,245,239,.96); backdrop-filter: blur(12px); }
 .admin-schedule-side-left { grid-column: 1/-1; grid-row: 2; position: static; min-width: 0; border-bottom: 1px solid var(--line); }
@@ -362,8 +401,8 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-day-strip > button.drop-target { color: white; border-color: var(--red); background: var(--red); box-shadow: 0 0 0 3px rgba(199,70,54,.15); transform: translateY(-2px); }
 .admin-schedule-day-strip > button.past:not(.active) { color: var(--ink-soft); background: rgba(238,236,230,.55); }
 .admin-schedule-day-strip > button.active { color: white; background: var(--ink); box-shadow: inset 0 -2px 0 var(--red); }
-.admin-schedule-day-strip > button small { color: inherit; opacity: .7; font-size: 8px; }
-.admin-schedule-day-strip > button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.admin-schedule-day-strip > button small { color: inherit; opacity: .7; font-size: 0.5rem; }
+.admin-schedule-day-strip > button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.625rem; }
 .admin-schedule-day-strip > .week-nav { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--ink-soft); background: rgba(34,36,33,.045); }
 .admin-schedule-day-strip > .week-nav:hover { color: var(--ink); background: rgba(34,36,33,.09); }
 .admin-schedule-day-strip > .week-nav svg { width: 21px; height: 21px; padding: 3px; border: 1px solid rgba(34,36,33,.14); border-radius: 50%; }
@@ -373,39 +412,39 @@ a { color: inherit; text-decoration: none; }
 .admin-date-trigger { width: 100%; height: 100%; min-width: 0; padding: 6px 10px; display: flex; align-items: center; justify-content: center; gap: 9px; border: 0; background: transparent; color: var(--ink); cursor: pointer; text-align: center; }
 .admin-date-trigger:hover, .admin-date-trigger:focus-visible, .admin-schedule-date-inline.open .admin-date-trigger { color: var(--red-dark); background: rgba(255,255,255,.74); outline: 0; box-shadow: inset 0 -2px 0 var(--red); }
 .admin-date-trigger > span { min-width: 0; display: grid; gap: 2px; }
-.admin-date-trigger strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
-.admin-date-trigger small { color: var(--ink-soft); font-size: 8px; font-weight: 500; }
+.admin-date-trigger strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.625rem; }
+.admin-date-trigger small { color: var(--ink-soft); font-size: 0.5rem; font-weight: 500; }
 .admin-date-trigger svg { flex: 0 0 auto; color: var(--red-dark); }
 .admin-calendar-popover { width: 286px; position: absolute; z-index: 60; top: calc(100% + 8px); left: 7px; padding: 13px; border: 1px solid rgba(34,36,33,.16); background: rgba(250,249,245,.96); box-shadow: 0 18px 48px rgba(34,36,33,.18); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); animation: themeMenuIn .16s ease; }
 .admin-calendar-popover > header { height: 34px; display: grid; grid-template-columns: 31px 1fr 31px; align-items: center; gap: 6px; }
-.admin-calendar-popover > header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 15px/1.2 "Songti SC", serif; text-align: center; }
+.admin-calendar-popover > header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 0.9375rem/1.2 "Songti SC", serif; text-align: center; }
 .admin-calendar-popover > header button { width: 31px; height: 31px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--ink-soft); cursor: pointer; }
 .admin-calendar-popover > header button:hover, .admin-calendar-popover > header button:focus-visible { color: white; background: var(--ink); outline: 0; }
 .admin-calendar-weekdays, .admin-calendar-days { display: grid; grid-template-columns: repeat(7,1fr); }
 .admin-calendar-weekdays { margin-top: 8px; color: var(--ink-soft); }
-.admin-calendar-weekdays span { height: 27px; display: grid; place-items: center; font-size: 8px; }
+.admin-calendar-weekdays span { height: 27px; display: grid; place-items: center; font-size: 0.5rem; }
 .admin-calendar-days { gap: 2px 0; }
-.admin-calendar-days button { aspect-ratio: 1; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--ink); cursor: pointer; font-size: 9px; }
+.admin-calendar-days button { aspect-ratio: 1; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--ink); cursor: pointer; font-size: 0.5625rem; }
 .admin-calendar-days button:hover, .admin-calendar-days button:focus-visible { color: var(--ink); background: rgba(34,36,33,.09); outline: 0; }
 .admin-calendar-days button.outside { color: rgba(103,104,99,.48); }
 .admin-calendar-days button.today { color: var(--red-dark); box-shadow: inset 0 0 0 1px var(--red); }
 .admin-calendar-days button.selected { color: white; background: var(--ink); box-shadow: none; font-weight: 700; }
-.admin-calendar-today { width: 100%; height: 32px; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(199,70,54,.22); background: rgba(199,70,54,.07); color: var(--red-dark); cursor: pointer; font-size: 9px; font-weight: 700; }
+.admin-calendar-today { width: 100%; height: 32px; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(199,70,54,.22); background: rgba(199,70,54,.07); color: var(--red-dark); cursor: pointer; font-size: 0.5625rem; font-weight: 700; }
 .admin-calendar-today:hover, .admin-calendar-today:focus-visible { color: white; background: var(--red); outline: 0; }
 .admin-schedule-inspector { grid-column: 1; grid-row: 3; position: sticky; top: 12px; z-index: 7; height: min(778px, calc(100vh - 24px)); min-height: 506px; padding: 18px 16px; display: flex; flex-direction: column; align-items: stretch; gap: 18px; overflow-x: hidden; overflow-y: auto; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(247,245,239,.96); backdrop-filter: blur(12px); }
 .admin-inspector-title { width: 100%; flex: 0 0 auto; padding-bottom: 16px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 7px; border-bottom: 1px solid var(--line); }
-.admin-inspector-title > span:first-child { color: var(--ink-soft); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
-.admin-inspector-title strong { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 20px/1.1 "Songti SC",serif; }
-.admin-inspector-edit { padding: 4px 0; display: inline-flex; align-items: center; gap: 5px; border: 0; border-bottom: 1px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer; font-size: 8px; }
+.admin-inspector-title > span:first-child { color: var(--ink-soft); font-size: 0.5rem; letter-spacing: .12em; text-transform: uppercase; }
+.admin-inspector-title strong { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 1.25rem/1.1 "Songti SC",serif; }
+.admin-inspector-edit { padding: 4px 0; display: inline-flex; align-items: center; gap: 5px; border: 0; border-bottom: 1px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer; font-size: 0.5rem; }
 .admin-schedule-inspector dl { min-width: 0; flex: 0 0 auto; margin: 0; display: grid; grid-template-columns: 1fr; gap: 15px; align-content: start; }
 .admin-schedule-inspector dl > div { min-width: 0; display: grid; gap: 4px; }
-.admin-schedule-inspector dt { color: var(--ink-soft); font-size: 8px; }
-.admin-schedule-inspector dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+.admin-schedule-inspector dt { color: var(--ink-soft); font-size: 0.5rem; }
+.admin-schedule-inspector dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.5625rem; }
 .admin-schedule-inspector dd { white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
 .admin-schedule-inspector .notes { grid-column: 1; }
 .admin-inspector-form { min-width: 0; flex: 0 0 auto; display: grid; grid-template-columns: 1fr; gap: 10px; align-content: start; }
 .admin-inspector-form label { min-width: 0; display: grid; gap: 4px; }
-.admin-inspector-form label span { color: var(--ink-soft); font-size: 8px; }
+.admin-inspector-form label span { color: var(--ink-soft); font-size: 0.5rem; }
 .admin-inspector-form input, .admin-inspector-form textarea { width: 100%; min-height: 31px; padding: 6px 8px; border: 1px solid var(--line); background: rgba(255,255,255,.68); color: var(--ink); font: inherit; outline: 0; resize: none; }
 .admin-inspector-form .admin-payment-toggle { min-height: 34px; padding: 6px 8px; display: flex; grid-template-columns: auto 1fr; align-items: center; gap: 7px; border: 1px solid var(--line); background: rgba(49,92,63,.055); cursor: pointer; }
 .admin-inspector-form .admin-payment-toggle input { width: 14px; min-height: 14px; padding: 0; accent-color: #315c3f; }
@@ -420,88 +459,88 @@ a { color: inherit; text-decoration: none; }
 .admin-quick-payment input:disabled { opacity: 1; cursor: default; }
 .admin-inspector-form .notes { grid-column: 1; }
 .admin-inspector-form-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-.admin-inspector-form-actions button { min-width: 82px; padding: 7px 9px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; font-size: 8px; }
+.admin-inspector-form-actions button { min-width: 82px; padding: 7px 9px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; font-size: 0.5rem; }
 .admin-inspector-form-actions .save { color: white; border-color: var(--ink); background: var(--ink); }
 .admin-inspector-empty { margin: auto 0; display: grid; gap: 7px; text-align: left; color: var(--ink-soft); }
-.admin-inspector-empty strong { color: var(--ink); font: 17px/1 "Songti SC",serif; }
-.admin-inspector-empty span { font-size: 9px; }
+.admin-inspector-empty strong { color: var(--ink); font: 1.0625rem/1 "Songti SC",serif; }
+.admin-inspector-empty span { font-size: 0.5625rem; }
 .admin-schedule-cancel-drop { width: 100%; height: 100%; min-height: 0; padding: 22px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 13px; overflow: hidden; text-align: center; color: var(--ink-soft); background: rgba(199,70,54,.035); opacity: .58; transition: opacity .18s ease, color .18s ease, background .18s ease, box-shadow .18s ease; }
 .admin-schedule-cancel-drop.active { opacity: 1; box-shadow: inset 0 0 0 1px rgba(199,70,54,.14); }
 .admin-schedule-cancel-drop.armed { color: white; background: var(--red-dark); }
 .admin-schedule-cancel-drop svg { flex: 0 0 auto; }
 .admin-schedule-cancel-drop div { display: grid; gap: 7px; }
-.admin-schedule-cancel-drop strong { font: 13px/1.35 "Songti SC", serif; }
-.admin-schedule-cancel-drop span { opacity: .72; font-size: 8px; line-height: 1.55; }
+.admin-schedule-cancel-drop strong { font: 0.8125rem/1.35 "Songti SC", serif; }
+.admin-schedule-cancel-drop span { opacity: .72; font-size: 0.5rem; line-height: 1.55; }
 .admin-audit-launcher { width: 100%; height: 100%; min-height: 0; padding: 22px 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 0; background: linear-gradient(180deg,rgba(255,255,255,.42),rgba(34,36,33,.025)); color: var(--ink); cursor: pointer; text-align: center; transition: background .18s ease, color .18s ease, box-shadow .18s ease; }
 .admin-audit-launcher:hover, .admin-audit-launcher:focus-visible { color: var(--red-dark); background: rgba(255,255,255,.76); box-shadow: inset 3px 0 0 var(--red); outline: 0; }
 .admin-audit-launcher > span { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid rgba(34,36,33,.15); border-radius: 50%; background: rgba(255,255,255,.65); }
-.admin-audit-launcher strong { font: 14px/1.25 "Songti SC",serif; }
-.admin-audit-launcher small { max-width: 86px; color: var(--ink-soft); font-size: 8px; line-height: 1.5; }
-.admin-audit-launcher b { min-width: 24px; height: 20px; padding: 0 7px; display: grid; place-items: center; border-radius: 999px; color: white; background: var(--ink); font-size: 9px; }
+.admin-audit-launcher strong { font: 0.875rem/1.25 "Songti SC",serif; }
+.admin-audit-launcher small { max-width: 86px; color: var(--ink-soft); font-size: 0.5rem; line-height: 1.5; }
+.admin-audit-launcher b { min-width: 24px; height: 20px; padding: 0 7px; display: grid; place-items: center; border-radius: 999px; color: white; background: var(--ink); font-size: 0.5625rem; }
 .admin-audit-backdrop { position: fixed; z-index: 180; inset: 0; border: 0; background: rgba(27,28,26,.22); cursor: default; backdrop-filter: blur(2px); animation: fadeIn .15s ease; }
 .admin-audit-drawer { width: min(430px,calc(100vw - 28px)); position: fixed; z-index: 181; top: 14px; right: 14px; bottom: 14px; padding: 24px 22px 17px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(34,36,33,.18); background: rgba(249,248,243,.97); box-shadow: -22px 0 70px rgba(34,36,33,.18); backdrop-filter: blur(22px); animation: auditDrawerIn .2s ease; }
 @keyframes auditDrawerIn { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
 .admin-audit-drawer > header { flex: 0 0 auto; display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
-.admin-audit-drawer > header > div > span { display: inline-flex; align-items: center; gap: 6px; color: var(--red-dark); font-size: 8px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
-.admin-audit-drawer h2 { margin: 8px 0 0; font: 30px/1.1 "Songti SC",serif; }
+.admin-audit-drawer > header > div > span { display: inline-flex; align-items: center; gap: 6px; color: var(--red-dark); font-size: 0.5rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.admin-audit-drawer h2 { margin: 8px 0 0; font: 1.875rem/1.1 "Songti SC",serif; }
 .admin-audit-drawer > header > button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: rgba(255,255,255,.6); color: var(--ink); cursor: pointer; }
 .admin-audit-drawer > header > button:hover { color: white; background: var(--ink); }
-.admin-audit-drawer > p { margin: 13px 0 17px; color: var(--ink-soft); font-size: 9px; line-height: 1.65; }
+.admin-audit-drawer > p { margin: 13px 0 17px; color: var(--ink-soft); font-size: 0.5625rem; line-height: 1.65; }
 .admin-audit-list { min-height: 0; flex: 1; display: grid; align-content: start; gap: 9px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; }
 .admin-audit-event { padding: 14px; border: 1px solid rgba(34,36,33,.13); background: rgba(255,255,255,.52); box-shadow: 0 8px 22px rgba(34,36,33,.035); }
 .admin-audit-event.reverted { opacity: .62; background: rgba(237,238,231,.65); }
 .admin-audit-event > header { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; align-items: center; gap: 8px; }
 .admin-audit-event-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--ink); }
 .admin-audit-event > header > div { min-width: 0; display: grid; gap: 3px; }
-.admin-audit-event > header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
-.admin-audit-event > header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); font-size: 7.5px; }
-.admin-audit-event > header b { padding: 4px 6px; color: var(--ink-soft); background: rgba(34,36,33,.055); font-size: 7.5px; }
+.admin-audit-event > header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.625rem; }
+.admin-audit-event > header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); font-size: 0.46875rem; }
+.admin-audit-event > header b { padding: 4px 6px; color: var(--ink-soft); background: rgba(34,36,33,.055); font-size: 0.46875rem; }
 .admin-audit-event-body { margin: 11px 0 12px 36px; display: grid; gap: 5px; }
-.admin-audit-event-body > strong { font: 17px/1.15 "Songti SC",serif; }
-.admin-audit-event-body > span { display: grid; gap: 3px; color: var(--ink-soft); font-size: 8px; line-height: 1.5; }
+.admin-audit-event-body > strong { font: 1.0625rem/1.15 "Songti SC",serif; }
+.admin-audit-event-body > span { display: grid; gap: 3px; color: var(--ink-soft); font-size: 0.5rem; line-height: 1.5; }
 .admin-audit-event-body > span em { color: var(--red-dark); font-style: normal; }
-.admin-audit-event-body > small { color: var(--ink-soft); font-size: 7.5px; }
+.admin-audit-event-body > small { color: var(--ink-soft); font-size: 0.46875rem; }
 .admin-audit-event > footer { min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid rgba(34,36,33,.08); padding-top: 9px; }
-.admin-audit-state { display: inline-flex; align-items: center; gap: 4px; color: #315c3f; font-size: 7.5px; font-weight: 700; }
+.admin-audit-state { display: inline-flex; align-items: center; gap: 4px; color: #315c3f; font-size: 0.46875rem; font-weight: 700; }
 .admin-audit-state.safe { color: var(--ink-soft); }
 .admin-audit-state.muted { color: var(--ink-soft); font-weight: 500; }
-.admin-audit-event > footer button { min-width: 70px; padding: 6px 9px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid rgba(199,70,54,.25); background: rgba(199,70,54,.06); color: var(--red-dark); cursor: pointer; font-size: 8px; font-weight: 700; }
+.admin-audit-event > footer button { min-width: 70px; padding: 6px 9px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid rgba(199,70,54,.25); background: rgba(199,70,54,.06); color: var(--red-dark); cursor: pointer; font-size: 0.5rem; font-weight: 700; }
 .admin-audit-event > footer button:hover, .admin-audit-event > footer button:focus-visible { color: white; background: var(--red-dark); outline: 0; }
 .admin-audit-event > footer button:disabled { opacity: .58; cursor: wait; }
 .admin-audit-empty { min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--ink-soft); text-align: center; }
-.admin-audit-empty strong { color: var(--ink); font: 18px/1.2 "Songti SC",serif; }
-.admin-audit-empty span { max-width: 240px; font-size: 8px; line-height: 1.6; }
-.admin-audit-drawer > footer { flex: 0 0 auto; margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 7.5px; line-height: 1.55; }
+.admin-audit-empty strong { color: var(--ink); font: 1.125rem/1.2 "Songti SC",serif; }
+.admin-audit-empty span { max-width: 240px; font-size: 0.5rem; line-height: 1.6; }
+.admin-audit-drawer > footer { flex: 0 0 auto; margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 0.46875rem; line-height: 1.55; }
 .admin-schedule-context { grid-column: 1/-1; grid-row: 1; height: 40px; overflow: hidden; border-bottom: 1px solid var(--line); }
 .admin-drag-readout { height: 40px; padding: 6px 16px; display: flex; align-items: center; gap: 10px; color: white; background: var(--ink); box-shadow: 0 6px 20px rgba(34,36,33,.13); }
-.admin-drag-readout > span { opacity: .58; font-size: 8px; text-transform: uppercase; letter-spacing: .13em; }
-.admin-drag-readout > strong { font-size: 10px; }
-.admin-drag-readout > b { padding: 7px 10px; color: var(--ink); background: white; font-size: 10px; }
-.admin-drag-readout > small { margin-left: auto; opacity: .72; font-size: 8px; }
-.admin-schedule-selection { height: 48px; padding: 0 22px; display: flex; align-items: center; gap: 8px; color: var(--ink); background: rgba(199,70,54,.055); font-size: 9px; }
-.admin-schedule-selection strong { font-size: 11px; }
+.admin-drag-readout > span { opacity: .58; font-size: 0.5rem; text-transform: uppercase; letter-spacing: .13em; }
+.admin-drag-readout > strong { font-size: 0.625rem; }
+.admin-drag-readout > b { padding: 7px 10px; color: var(--ink); background: white; font-size: 0.625rem; }
+.admin-drag-readout > small { margin-left: auto; opacity: .72; font-size: 0.5rem; }
+.admin-schedule-selection { height: 48px; padding: 0 22px; display: flex; align-items: center; gap: 8px; color: var(--ink); background: rgba(199,70,54,.055); font-size: 0.5625rem; }
+.admin-schedule-selection strong { font-size: 0.6875rem; }
 .admin-schedule-selection span { color: var(--ink-soft); }
-.admin-schedule-selection button { margin-left: auto; padding: 6px 9px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: rgba(255,255,255,.55); color: var(--ink); cursor: pointer; font-size: 8px; }
-.admin-phone-focus-guide { height: 40px; padding: 0 14px; display: flex; align-items: center; gap: 9px; color: var(--red-dark); background: rgba(199,70,54,.07); box-shadow: inset 3px 0 0 var(--red); font-size: 9px; }
+.admin-schedule-selection button { margin-left: auto; padding: 6px 9px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: rgba(255,255,255,.55); color: var(--ink); cursor: pointer; font-size: 0.5rem; }
+.admin-phone-focus-guide { height: 40px; padding: 0 14px; display: flex; align-items: center; gap: 9px; color: var(--red-dark); background: rgba(199,70,54,.07); box-shadow: inset 3px 0 0 var(--red); font-size: 0.5625rem; }
 .admin-phone-focus-guide > svg { flex: 0 0 auto; }
-.admin-phone-focus-guide strong { font-size: 10px; white-space: nowrap; }
+.admin-phone-focus-guide strong { font-size: 0.625rem; white-space: nowrap; }
 .admin-phone-focus-guide span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); }
-.admin-phone-focus-guide button { margin-left: auto; padding: 6px 9px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(199,70,54,.22); background: rgba(255,255,255,.62); color: var(--red-dark); cursor: pointer; font-size: 8px; white-space: nowrap; }
-.admin-schedule-hint { height: 40px; padding: 0 14px; display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 8px; }
+.admin-phone-focus-guide button { margin-left: auto; padding: 6px 9px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(199,70,54,.22); background: rgba(255,255,255,.62); color: var(--red-dark); cursor: pointer; font-size: 0.5rem; white-space: nowrap; }
+.admin-schedule-hint { height: 40px; padding: 0 14px; display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 0.5rem; }
 .admin-schedule-hint span { margin-left: auto; display: flex; align-items: center; gap: 7px; }
 .admin-undo-bar { grid-column: 1/-1; grid-row: 3; }
 .admin-schedule-scroll { grid-column: 2; grid-row: 3; min-width: 0; overflow-x: auto; border-bottom: 1px solid var(--line); }
 .admin-schedule-grid { --slot-height: 26px; min-width: 840px; position: relative; display: grid; grid-template-columns: 64px repeat(5, minmax(150px,1fr)); }
 .admin-now-line { position: absolute; z-index: 6; top: var(--now-top); left: 0; right: 0; height: 1px; pointer-events: none; background: var(--red); box-shadow: 0 0 0 1px rgba(199,70,54,.05); }
 .admin-now-line::before { content: ''; position: absolute; left: 60px; top: -3px; width: 7px; height: 7px; border-radius: 50%; background: var(--red); }
-.admin-now-line span { position: absolute; left: 4px; top: -9px; padding: 2px 4px; color: white; background: var(--red); font-size: 7px; line-height: 1.2; }
+.admin-now-line span { position: absolute; left: 4px; top: -9px; padding: 2px 4px; color: white; background: var(--red); font-size: 0.4375rem; line-height: 1.2; }
 .admin-schedule-corner, .admin-schedule-court { min-height: 50px; display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .admin-schedule-court { gap: 7px; }
-.admin-schedule-court span { width: 27px; height: 27px; display: grid; place-items: center; color: white; background: var(--ink); font: 15px/1 "Songti SC", serif; border-radius: 50%; }
-.admin-schedule-court strong { font-size: 9px; }
+.admin-schedule-court span { width: 27px; height: 27px; display: grid; place-items: center; color: white; background: var(--ink); font: 0.9375rem/1 "Songti SC", serif; border-radius: 50%; }
+.admin-schedule-court strong { font-size: 0.5625rem; }
 .admin-schedule-times, .admin-schedule-lane { position: relative; height: calc(var(--slot-height) * var(--slot-count)); border-right: 1px solid var(--line); }
 .admin-schedule-times > div, .admin-schedule-slot { height: var(--slot-height); border: 0; border-bottom: 1px solid rgba(34,36,33,.045); background: transparent; }
-.admin-schedule-times > div { padding: 4px 7px; color: var(--ink-soft); font-size: 8px; text-align: right; }
+.admin-schedule-times > div { padding: 4px 7px; color: var(--ink-soft); font-size: 0.5rem; text-align: right; }
 .admin-schedule-times > div.phone-focus { position: relative; z-index: 1; color: var(--red-dark); background: rgba(199,70,54,.1); font-weight: 700; }
 .admin-schedule-times > .hour-boundary, .admin-schedule-slot.hour-boundary { border-bottom-color: rgba(34,36,33,.2); }
 .admin-schedule-lane { display: grid; grid-template-rows: repeat(var(--slot-count),var(--slot-height)); }
@@ -517,9 +556,9 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-event > svg { flex: 0 0 auto; margin-top: 1px; }
 .admin-schedule-event > div { min-width: 0; display: grid; gap: 3px; }
 .admin-schedule-event strong, .admin-schedule-event span, .admin-schedule-event small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.admin-schedule-event strong { font-size: 9px; }
-.admin-schedule-event span { font-size: 8px; opacity: .78; }
-.admin-schedule-event small { font-size: 7px; font-weight: 700; letter-spacing: .03em; }
+.admin-schedule-event strong { font-size: 0.5625rem; }
+.admin-schedule-event span { font-size: 0.5rem; opacity: .78; }
+.admin-schedule-event small { font-size: 0.4375rem; font-weight: 700; letter-spacing: .03em; }
 .admin-schedule-booking { position: absolute; z-index: 2; top: calc(var(--start) * var(--slot-height) + 2px); left: 5px; right: 5px; height: calc(var(--span) * var(--slot-height) - 4px); min-height: 0; max-height: calc(var(--span) * var(--slot-height) - 4px); padding: 7px 8px 7px 5px; display: flex; align-items: start; gap: 5px; border: 1px solid rgba(255,255,255,.3); background: var(--ink); color: white; box-shadow: 0 7px 17px rgba(34,36,33,.17); cursor: grab; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; touch-action: none; }
 .admin-schedule-booking:active { cursor: grabbing; }
 .admin-schedule-booking.has-indicators { padding-right: 31px; }
@@ -535,20 +574,20 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-booking.dragging.invalid-target { cursor: not-allowed; }
 .admin-schedule-booking.selected { outline: 3px solid var(--paper-light); box-shadow: 0 0 0 5px var(--red), 0 8px 20px rgba(34,36,33,.24); }
 .admin-schedule-drop-preview { position: absolute; z-index: 4; pointer-events: none; top: calc(var(--start) * var(--slot-height) + 1px); left: 4px; right: 4px; min-height: calc(var(--span) * var(--slot-height) - 2px); padding: 6px 8px; display: flex; flex-direction: column; justify-content: center; gap: 3px; border: 2px solid var(--red); background: rgba(255,255,255,.91); color: var(--red-dark); box-shadow: 0 9px 24px rgba(34,36,33,.17); }
-.admin-schedule-drop-preview strong { font-size: 10px; }
-.admin-schedule-drop-preview span { font-size: 8px; opacity: .72; }
+.admin-schedule-drop-preview strong { font-size: 0.625rem; }
+.admin-schedule-drop-preview span { font-size: 0.5rem; opacity: .72; }
 .admin-schedule-drop-preview.invalid { border-color: rgba(84,82,77,.7); background: rgba(238,236,230,.88); color: var(--ink-soft); box-shadow: none; }
 .admin-schedule-context.dragging.invalid .admin-drag-readout { background: #4c4b47; }
 .admin-schedule-context.dragging.invalid .admin-drag-readout > b { color: var(--ink-soft); background: #efede7; }
 .admin-schedule-booking svg { flex: 0 0 auto; opacity: .65; }
 .admin-schedule-booking div { min-width: 0; display: grid; gap: 4px; }
-.admin-schedule-booking strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
-.admin-schedule-booking span { opacity: .72; font-size: 8px; }
-.admin-schedule-booking .admin-booking-payment { width: max-content; padding: 2px 5px; border-radius: 99px; color: white; font-size: 7px; font-weight: 700; letter-spacing: .04em; opacity: 1; }
+.admin-schedule-booking strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.5625rem; }
+.admin-schedule-booking span { opacity: .72; font-size: 0.5rem; }
+.admin-schedule-booking .admin-booking-payment { width: max-content; padding: 2px 5px; border-radius: 99px; color: white; font-size: 0.4375rem; font-weight: 700; letter-spacing: .04em; opacity: 1; }
 .admin-schedule-booking .admin-booking-payment.paid { background: rgba(32,73,43,.72); }
 .admin-schedule-booking .admin-booking-payment.unpaid { background: rgba(96,55,15,.72); }
 .admin-booking-tags { display: flex !important; align-items: center; gap: 3px !important; opacity: 1 !important; }
-.admin-booking-note { width: max-content; padding: 2px 5px; display: inline-flex; align-items: center; gap: 3px; border-radius: 99px; color: white; background: rgba(33,35,31,.48); font-size: 7px; font-weight: 700; letter-spacing: .03em; opacity: 1; }
+.admin-booking-note { width: max-content; padding: 2px 5px; display: inline-flex; align-items: center; gap: 3px; border-radius: 99px; color: white; background: rgba(33,35,31,.48); font-size: 0.4375rem; font-weight: 700; letter-spacing: .03em; opacity: 1; }
 .admin-schedule-booking.short { padding-top: 4px; padding-bottom: 4px; box-shadow: 0 3px 10px rgba(34,36,33,.14); }
 .admin-schedule-booking.short > div { gap: 1px; }
 .admin-schedule-booking.short .admin-booking-payment { padding-block: 1px; line-height: 1.05; }
@@ -565,19 +604,19 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-booking.half-hour .admin-booking-indicator svg { width: 10px; height: 10px; }
 .admin-resize-handle { position: absolute; right: 1px; bottom: 1px; width: 18px; height: 14px; padding: 0; border: 0; border-right: 3px solid rgba(255,255,255,.82); border-bottom: 3px solid rgba(255,255,255,.82); background: transparent; cursor: ns-resize; }
 .admin-range-preview { position: absolute; z-index: 3; pointer-events: none; top: calc(var(--start) * var(--slot-height) + 1px); left: 4px; right: 4px; height: calc(var(--span) * var(--slot-height) - 2px); min-height: 0; padding: 5px 8px; display: grid; align-content: center; gap: 2px; overflow: hidden; color: var(--red-dark); border: 2px dashed var(--red); background: rgba(255,255,255,.9); }
-.admin-range-preview strong { font-size: 10px; }
-.admin-range-preview span { font-size: 8px; }
+.admin-range-preview strong { font-size: 0.625rem; }
+.admin-range-preview span { font-size: 0.5rem; }
 .admin-range-preview.compact { padding: 0 8px; display: flex; align-items: center; }
-.admin-range-preview.compact strong { font-size: 9px; }
+.admin-range-preview.compact strong { font-size: 0.5625rem; }
 .admin-range-preview.compact span { display: none; }
-.admin-undo-bar { min-height: 44px; padding: 7px 18px; display: flex; align-items: center; justify-content: flex-end; gap: 10px; border-bottom: 1px solid var(--line); background: rgba(49,92,63,.07); font-size: 9px; }
+.admin-undo-bar { min-height: 44px; padding: 7px 18px; display: flex; align-items: center; justify-content: flex-end; gap: 10px; border-bottom: 1px solid var(--line); background: rgba(49,92,63,.07); font-size: 0.5625rem; }
 .admin-undo-bar button { padding: 6px 9px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: rgba(255,255,255,.6); color: var(--ink); cursor: pointer; }
 .admin-undo-bar button:last-child { padding-inline: 7px; }
 .court-multi-picker { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 7px; }
 .court-multi-picker button { min-height: 44px; padding: 7px; display: grid; place-items: center; gap: 2px; position: relative; color: var(--ink-soft); border: 1px solid var(--line); background: rgba(255,255,255,.42); cursor: pointer; }
 .court-multi-picker button.selected { color: white; border-color: var(--ink); background: var(--ink); }
 .court-multi-picker button svg { position: absolute; top: 4px; right: 4px; }
-.court-multi-picker small, .drawer-help { color: inherit; opacity: .72; font-size: 8px; }
+.court-multi-picker small, .drawer-help { color: inherit; opacity: .72; font-size: 0.5rem; }
 .admin-court-picker { display: grid; gap: 7px; }
 .admin-schedule-lane.wind .admin-schedule-booking { background: #547f8b; }
 .admin-schedule-lane.forest .admin-schedule-booking { background: #607759; }
@@ -585,12 +624,12 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-lane.mountain .admin-schedule-booking { background: #92734d; }
 .admin-schedule-lane.thunder .admin-schedule-booking { background: #755f80; }
 .admin-create-modal { position: relative; width: min(490px,calc(100vw - 28px)); padding: 34px; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: modalIn .22s ease; }
-.admin-create-modal h2 { margin: 9px 0 8px; font: 31px/1.1 "Songti SC",serif; }
-.admin-create-modal > p { margin: 0 0 23px; color: var(--ink-soft); font-size: 10px; }
+.admin-create-modal h2 { margin: 9px 0 8px; font: 1.9375rem/1.1 "Songti SC",serif; }
+.admin-create-modal > p { margin: 0 0 23px; color: var(--ink-soft); font-size: 0.625rem; }
 .admin-create-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
 .admin-create-fields label { display: grid; gap: 6px; }
 .admin-create-fields label.wide { grid-column: 1/-1; }
-.admin-create-fields span { color: var(--ink-soft); font-size: 9px; }
+.admin-create-fields span { color: var(--ink-soft); font-size: 0.5625rem; }
 .admin-create-fields input, .admin-create-fields select, .admin-create-fields textarea { min-height: 42px; padding: 9px 11px; border: 1px solid var(--line); background: rgba(255,255,255,.72); color: var(--ink); outline: 0; resize: vertical; }
 .admin-create-modal > .primary-button { width: 100%; margin-top: 18px; }
 .admin-recurring-toggle { min-height: 46px; padding: 11px 12px; display: flex !important; grid-template-columns: auto 1fr; align-items: center; border: 1px solid var(--line); background: rgba(199,70,54,.035); cursor: pointer; }
@@ -599,40 +638,40 @@ a { color: inherit; text-decoration: none; }
 .admin-week-count { padding: 11px 12px; border-left: 2px solid var(--red); background: rgba(255,255,255,.42); }
 .admin-recurring-conflicts { margin-top: 14px; padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px; color: var(--red-dark); border: 1px solid rgba(165,49,39,.25); background: rgba(165,49,39,.065); }
 .admin-recurring-conflicts div { min-width: 0; display: grid; gap: 4px; }
-.admin-recurring-conflicts strong { font-size: 10px; }
-.admin-recurring-conflicts span, .admin-recurring-conflicts li { font-size: 8px; line-height: 1.45; }
+.admin-recurring-conflicts strong { font-size: 0.625rem; }
+.admin-recurring-conflicts span, .admin-recurring-conflicts li { font-size: 0.5rem; line-height: 1.45; }
 .admin-recurring-conflicts ul { max-height: 92px; margin: 4px 0 0; padding-left: 16px; overflow-y: auto; }
 .admin-reschedule-modal { position: relative; width: min(560px,calc(100vw - 28px)); padding: 34px; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: modalIn .22s ease; }
-.admin-reschedule-modal h2 { margin: 9px 0 8px; font: 31px/1.1 "Songti SC",serif; }
-.admin-reschedule-modal > p { margin: 0 0 18px; color: var(--ink-soft); font-size: 10px; }
-.admin-reschedule-current { min-height: 44px; margin-bottom: 17px; padding: 10px 12px; display: flex; align-items: center; gap: 9px; border-left: 3px solid var(--ink); background: rgba(34,36,33,.055); color: var(--ink-soft); font-size: 9px; }
+.admin-reschedule-modal h2 { margin: 9px 0 8px; font: 1.9375rem/1.1 "Songti SC",serif; }
+.admin-reschedule-modal > p { margin: 0 0 18px; color: var(--ink-soft); font-size: 0.625rem; }
+.admin-reschedule-current { min-height: 44px; margin-bottom: 17px; padding: 10px 12px; display: flex; align-items: center; gap: 9px; border-left: 3px solid var(--ink); background: rgba(34,36,33,.055); color: var(--ink-soft); font-size: 0.5625rem; }
 .admin-reschedule-current strong { color: var(--ink); }
 .admin-reschedule-current svg:last-child { margin-left: auto; color: var(--red); }
 .admin-reschedule-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
 .admin-reschedule-fields label { display: grid; gap: 6px; }
-.admin-reschedule-fields span { color: var(--ink-soft); font-size: 9px; }
+.admin-reschedule-fields span { color: var(--ink-soft); font-size: 0.5625rem; }
 .admin-reschedule-fields input, .admin-reschedule-fields select { min-height: 42px; padding: 0 11px; border: 1px solid var(--line); background: rgba(255,255,255,.72); color: var(--ink); outline: 0; }
 .admin-reschedule-modal > .primary-button { width: 100%; margin-top: 18px; }
 .private-login-shell { min-height: 100vh; display: grid; place-items: center; background: var(--paper); }
 .private-login-brand { position: fixed; top: 28px; left: 34px; display: flex; align-items: center; gap: 10px; }
-.private-login-brand > span { width: 39px; height: 39px; display: grid; place-items: center; color: white; background: var(--ink); font: 21px/1 "Songti SC",serif; }
-.private-login-brand strong { letter-spacing: .18em; font-size: 13px; }
-.private-login-brand small { padding-left: 2px; color: var(--ink-soft); font-size: 9px; }
-.locked-auth.modal-backdrop { position: static; background: transparent; backdrop-filter: none; }
-.locked-auth .auth-modal { width: min(470px,calc(100vw - 28px)); box-shadow: 0 28px 85px rgba(34,36,33,.13); }
+.private-login-brand > span { width: 39px; height: 39px; display: grid; place-items: center; color: white; background: var(--ink); font: 1.3125rem/1 "Songti SC",serif; }
+.private-login-brand strong { letter-spacing: .18em; font-size: 0.8125rem; }
+.private-login-brand small { padding-left: 2px; color: var(--ink-soft); font-size: 0.5625rem; }
+.locked-auth.modal-backdrop { width: 100%; min-width: 0; position: static; background: transparent; backdrop-filter: none; }
+.locked-auth .auth-modal { width: min(470px,100%); box-shadow: 0 28px 85px rgba(34,36,33,.13); }
 .private-login-loading, .private-access-denied { width: min(470px,calc(100vw - 28px)); padding: 58px 40px; text-align: center; border: 1px solid var(--line); background: var(--paper-light); box-shadow: var(--shadow); }
-.private-login-loading p, .private-access-denied p { color: var(--ink-soft); font-size: 11px; line-height: 1.7; }
-.private-access-denied h1 { margin: 15px 0 7px; font: 34px/1.2 "Songti SC",serif; }
+.private-login-loading p, .private-access-denied p { color: var(--ink-soft); font-size: 0.6875rem; line-height: 1.7; }
+.private-access-denied h1 { margin: 15px 0 7px; font: 2.125rem/1.2 "Songti SC",serif; }
 .status-pill.cancelled, .status-pill.expired, .status-pill.no_show { color: var(--ink-soft); background: rgba(34,36,33,.07); }
 .status-pill.completed { color: #315c3f; background: rgba(49,92,63,.08); }
 
-footer { border-top: 1px solid var(--line); max-width: 1272px; margin: 0 auto; min-height: 120px; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; color: var(--ink-soft); font-size: 10px; }
+footer { border-top: 1px solid var(--line); max-width: 1272px; margin: 0 auto; min-height: 120px; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; color: var(--ink-soft); font-size: 0.625rem; }
 .footer-brand { color: var(--ink); font-weight: 800; letter-spacing: .2em; }
-.footer-brand span { color: var(--ink-soft); font: 10px/1 "Songti SC", serif; letter-spacing: .08em; }
+.footer-brand span { color: var(--ink-soft); font: 0.625rem/1 "Songti SC", serif; letter-spacing: .08em; }
 footer p { text-align: center; }
 footer small { text-align: right; }
 .mobile-bottom-nav { display: none; }
-.toast { position: fixed; z-index: 200; left: 50%; bottom: 30px; transform: translateX(-50%); max-width: calc(100% - 32px); background: var(--ink); color: white; padding: 13px 18px; box-shadow: var(--shadow); font-size: 11px; animation: toastIn .25s ease; }
+.toast { position: fixed; z-index: 200; left: 50%; bottom: 30px; transform: translateX(-50%); max-width: calc(100% - 32px); background: var(--ink); color: white; padding: 13px 18px; box-shadow: var(--shadow); font-size: 0.6875rem; animation: toastIn .25s ease; }
 .toast.error { background: var(--red-dark); }
 
 @keyframes fadeIn { from { opacity: 0; } }
@@ -643,7 +682,7 @@ footer small { text-align: right; }
 
 @media (max-width: 1100px) {
   .site-header { padding-inline: 24px; gap: 14px; }
-  .desktop-nav button { padding-inline: 8px; gap: 5px; font-size: 11px; }
+  .desktop-nav button { padding-inline: 8px; gap: 5px; font-size: 0.6875rem; }
   .header-actions { gap: 6px; }
   .schedule-table { display: grid; }
   .board-section { overflow: visible; padding-bottom: 10px; }
@@ -659,11 +698,11 @@ footer small { text-align: right; }
 
 @media (max-width: 760px) {
   .admin-order-pagination { grid-template-columns: 1fr auto 1fr; gap: 0; }
-  .admin-order-pagination button { min-height: 64px; padding: 0 10px; font-size: 10px; }
+  .admin-order-pagination button { min-height: 64px; padding: 0 10px; font-size: 0.625rem; }
   .admin-order-pagination div { min-width: 112px; }
   .admin-schedule-editor { display: block; }
   .admin-schedule-editor > header { padding: 22px 17px; align-items: stretch; flex-direction: column; }
-  .admin-schedule-editor h2 { font-size: 28px; }
+  .admin-schedule-editor h2 { font-size: 1.75rem; }
   .admin-schedule-date { width: 100%; }
   .admin-schedule-date label { min-width: 0; flex: 1; }
   .admin-schedule-workbench { display: flex; flex-direction: column; }
@@ -677,7 +716,7 @@ footer small { text-align: right; }
   .admin-schedule-day-strip .week-nav { flex-direction: column; }
   .admin-calendar-popover { width: min(320px, calc(100vw - 24px)); position: fixed; top: 64px; right: 12px; left: 12px; margin: 0 auto; }
   .admin-schedule-cancel-drop { min-height: 78px; height: 78px; padding: 12px 18px; flex-direction: row; text-align: left; }
-  .admin-schedule-cancel-drop strong { font-size: 12px; }
+  .admin-schedule-cancel-drop strong { font-size: 0.75rem; }
   .admin-audit-launcher { min-height: 66px; height: 66px; padding: 9px 16px; flex-direction: row; text-align: left; }
   .admin-audit-launcher > span { width: 32px; height: 32px; }
   .admin-audit-launcher small { max-width: none; margin-right: auto; }
@@ -708,7 +747,13 @@ footer small { text-align: right; }
   .header-actions { gap: 6px; }
   .desktop-nav, .account-button .account-label, .account-button > svg, .header-login { display: none; }
   .account-button { margin-left: auto; }
-  .brand strong { font-size: 13px; }
+  .display-settings-panel { width: min(342px, calc(100vw - 48px)); max-height: calc(100dvh - 74px); position: absolute; top: calc(100% + 9px); right: 0; bottom: auto; left: auto; border-radius: 5px 5px 14px 14px; }
+  .display-settings-panel > header { min-height: 64px; padding: 13px 15px; }
+  .settings-section { padding: 12px 15px 14px; }
+  .settings-theme-grid { grid-template-columns: 1fr; }
+  .settings-theme-grid > button { min-height: 50px; }
+  .display-settings-panel > footer { padding: 10px 15px; }
+  .brand strong { font-size: 0.8125rem; }
   .brand small { display: none; }
   .theme-switcher summary, .language-switch { padding-inline: 8px; }
   .theme-menu { position: fixed; top: 70px; left: 14px; right: 14px; width: auto; }
@@ -716,7 +761,7 @@ footer small { text-align: right; }
   .hero::before, .hero-art { inset: 0; }
   .hero-art { background-image: linear-gradient(180deg, rgba(243,240,233,.1) 0%, rgba(243,240,233,.8) 70%), url('./assets/tiger-ink-hero.webp'); background-position: 64% center; opacity: .76; }
   .hero h1 { font-size: clamp(50px, 15vw, 70px); margin-top: 28px; }
-  .hero-content > p { font-size: 13px; max-width: 290px; }
+  .hero-content > p { font-size: 0.8125rem; max-width: 290px; }
   .hero-actions { align-items: flex-start; flex-direction: column; gap: 15px; }
   .venue-note { left: 28px; right: auto; bottom: 22px; }
   .booking-container { padding: 29px 17px 75px; }
@@ -726,9 +771,9 @@ footer small { text-align: right; }
   .date-strip { overflow-x: auto; grid-template-columns: repeat(7, minmax(62px, 1fr)); scrollbar-width: none; }
   .date-card { padding-inline: 2px; }
   .section-heading { align-items: flex-start; }
-  .section-heading h2 { font-size: 34px; max-width: 245px; }
+  .section-heading h2 { font-size: 2.125rem; max-width: 245px; }
   .availability-summary { flex-direction: column; align-items: end; gap: 0; }
-  .availability-summary strong { font-size: 30px; }
+  .availability-summary strong { font-size: 1.875rem; }
   .legend { flex-wrap: wrap; }
   .legend span:last-child { width: 100%; margin: 0; }
   .schedule-table { display: none; }
@@ -737,13 +782,13 @@ footer small { text-align: right; }
   .board-section { overflow: visible; }
   .mobile-court-card { background: rgba(255,255,255,.38); border: 1px solid var(--line); padding: 18px 14px 14px; }
   .mobile-court-heading { display: flex; align-items: center; gap: 12px; padding: 0 3px 15px; }
-  .court-seal { width: 43px; height: 43px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--ink); font: 20px/1 "Songti SC", serif; }
-  .mobile-court-heading h3 { margin: 0 0 4px; font: 17px/1 "Songti SC", serif; }
-  .mobile-court-heading p { margin: 0; color: var(--ink-soft); font-size: 9px; }
+  .court-seal { width: 43px; height: 43px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--ink); font: 1.25rem/1 "Songti SC", serif; }
+  .mobile-court-heading h3 { margin: 0 0 4px; font: 1.0625rem/1 "Songti SC", serif; }
+  .mobile-court-heading p { margin: 0; color: var(--ink-soft); font-size: 0.5625rem; }
   .mobile-slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .mobile-slot-grid .slot { min-height: 49px; border: 1px solid var(--line); display: flex; justify-content: space-between; padding: 0 10px; }
-  .mobile-time { display: inline; font-size: 10px; }
-  .slot-state { font-size: 8px; }
+  .mobile-time { display: inline; font-size: 0.625rem; }
+  .slot-state { font-size: 0.5rem; }
   .ritual-section { margin: 0 18px 70px; padding-top: 55px; grid-template-columns: 1fr; gap: 35px; }
   .ritual-steps { grid-template-columns: 1fr; gap: 28px; }
   .ritual-steps article { display: grid; grid-template-columns: 38px 1fr; }
@@ -752,12 +797,12 @@ footer small { text-align: right; }
   footer { margin: 0 18px; padding: 32px 0; min-height: 145px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
   footer p, footer small { text-align: center; margin: 0; }
   .mobile-bottom-nav { position: fixed; display: grid; grid-template-columns: repeat(3, 1fr); z-index: 50; left: 0; right: 0; bottom: 0; height: calc(62px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); background: rgba(250,249,245,.94); backdrop-filter: blur(18px); border-top: 1px solid var(--line); }
-  .mobile-bottom-nav button { border: 0; background: transparent; color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 9px; }
+  .mobile-bottom-nav button { border: 0; background: transparent; color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 0.5625rem; }
   .mobile-bottom-nav button.active { color: var(--red); }
   .booking-drawer { top: auto; width: 100%; max-height: 91vh; padding: 35px 22px calc(25px + env(safe-area-inset-bottom)); animation: slideUp .3s cubic-bezier(.22,.8,.3,1); }
   .drawer-handle { display: block; width: 34px; height: 4px; border-radius: 999px; background: var(--line); position: absolute; top: 10px; left: calc(50% - 17px); }
   .drawer-close { top: 18px; right: 17px; }
-  .booking-drawer h2 { font-size: 31px; }
+  .booking-drawer h2 { font-size: 1.9375rem; }
   .booking-summary-card { grid-template-columns: 61px 1fr 1fr; }
   .auth-modal { padding: 40px 25px 30px; }
   .my-bookings-page, .empty-page { padding: 58px 18px 95px; }
@@ -770,13 +815,13 @@ footer small { text-align: right; }
   .admin-summary article { min-height: 93px; padding: 16px; border-bottom: 1px solid var(--line); }
   .admin-summary article:nth-child(2) { border-right: 0; }
   .admin-summary article:nth-child(n+3) { border-bottom: 0; }
-  .admin-summary strong { font-size: 29px; }
+  .admin-summary strong { font-size: 1.8125rem; }
   .admin-controls { grid-template-columns: 1fr 1fr; padding: 9px; }
   .admin-presets { overflow-x: auto; }
   .admin-presets button { flex: 1; padding-inline: 8px; }
   .admin-search { grid-column: 1/-1; }
   .admin-day-list { margin-top: 30px; gap: 32px; }
-  .admin-day > header strong { font-size: 20px; }
+  .admin-day > header strong { font-size: 1.25rem; }
   .admin-booking-row { grid-template-columns: 1fr 1fr; gap: 17px 10px; padding: 18px 12px; }
   .admin-booking-time, .admin-booking-court, .admin-customer, .admin-booking-details { grid-column: auto; }
   .admin-customer, .admin-booking-details { grid-column: 1/-1; }
@@ -1177,38 +1222,38 @@ html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96
 /* Venue Operations Center */
 .operations-page { max-width: 1400px; min-height: calc(100vh - 60px); margin: 0 auto; padding: 34px 42px 120px; }
 .operations-hero { min-height: 148px; padding: 30px 34px; display: flex; align-items: center; justify-content: space-between; gap: 30px; border: 1px solid var(--line); background: rgba(255,255,255,.3); }
-.operations-hero > div > span { display: inline-flex; align-items: center; gap: 7px; color: var(--red-dark); font-size: 9px; font-weight: 750; letter-spacing: .18em; }
-.operations-hero h1 { margin: 9px 0 7px; font: 38px/1.12 "Songti SC", serif; }
-.operations-hero p { max-width: 680px; margin: 0; color: var(--ink-soft); font-size: 11px; line-height: 1.7; }
-.operations-hero > button, .operations-primary { min-height: 38px; padding: 0 15px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--ink); background: var(--ink); color: white; cursor: pointer; font-size: 10px; font-weight: 700; }
+.operations-hero > div > span { display: inline-flex; align-items: center; gap: 7px; color: var(--red-dark); font-size: 0.5625rem; font-weight: 750; letter-spacing: .18em; }
+.operations-hero h1 { margin: 9px 0 7px; font: 2.375rem/1.12 "Songti SC", serif; }
+.operations-hero p { max-width: 680px; margin: 0; color: var(--ink-soft); font-size: 0.6875rem; line-height: 1.7; }
+.operations-hero > button, .operations-primary { min-height: 38px; padding: 0 15px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--ink); background: var(--ink); color: white; cursor: pointer; font-size: 0.625rem; font-weight: 700; }
 .operations-hero > button { border-color: var(--line); background: rgba(255,255,255,.65); color: var(--ink); }
 .operations-hero button:disabled, .operations-primary:disabled { opacity: .55; cursor: wait; }
-.operations-error { min-height: 46px; margin-top: 12px; padding: 0 16px; display: flex; align-items: center; gap: 9px; color: var(--red-dark); border: 1px solid rgba(199,70,54,.22); background: rgba(199,70,54,.055); font-size: 10px; }
+.operations-error { min-height: 46px; margin-top: 12px; padding: 0 16px; display: flex; align-items: center; gap: 9px; color: var(--red-dark); border: 1px solid rgba(199,70,54,.22); background: rgba(199,70,54,.055); font-size: 0.625rem; }
 .operations-error button { margin-left: auto; border: 0; border-bottom: 1px solid currentColor; background: none; cursor: pointer; }
 .operations-tabs { height: 58px; padding: 6px; display: grid; grid-template-columns: repeat(6,1fr); border: 1px solid var(--line); border-top: 0; background: rgba(255,255,255,.17); position: sticky; z-index: 20; top: 60px; backdrop-filter: blur(18px); }
-.operations-tabs button { min-width: 0; display: flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--ink-soft); cursor: pointer; font-size: 10px; }
+.operations-tabs button { min-width: 0; display: flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--ink-soft); cursor: pointer; font-size: 0.625rem; }
 .operations-tabs button:first-child { border-left: 0; }
 .operations-tabs button:hover { color: var(--ink); background: rgba(255,255,255,.5); }
 .operations-tabs button.active { color: white; background: var(--ink); box-shadow: inset 0 -2px 0 var(--red); }
 .operations-panel { min-height: 520px; padding: 34px; border: 1px solid var(--line); border-top: 0; background: rgba(255,255,255,.24); }
 .operations-panel-header { min-height: 94px; display: flex; align-items: flex-start; justify-content: space-between; gap: 28px; border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 24px; }
-.operations-panel-header > div > span { color: var(--red-dark); font-size: 8px; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; }
-.operations-panel-header h2 { margin: 8px 0 7px; font: 30px/1.15 "Songti SC", serif; }
-.operations-panel-header p { max-width: 650px; margin: 0; color: var(--ink-soft); font-size: 10px; line-height: 1.7; }
-.operations-loading { min-height: calc(100vh - 60px); display: flex; align-items: center; justify-content: center; gap: 9px; color: var(--ink-soft); font-size: 11px; }
+.operations-panel-header > div > span { color: var(--red-dark); font-size: 0.5rem; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; }
+.operations-panel-header h2 { margin: 8px 0 7px; font: 1.875rem/1.15 "Songti SC", serif; }
+.operations-panel-header p { max-width: 650px; margin: 0; color: var(--ink-soft); font-size: 0.625rem; line-height: 1.7; }
+.operations-loading { min-height: calc(100vh - 60px); display: flex; align-items: center; justify-content: center; gap: 9px; color: var(--ink-soft); font-size: 0.6875rem; }
 .operations-metrics { display: grid; grid-template-columns: repeat(4,1fr); border: 1px solid var(--line); }
 .operations-metrics button { min-height: 112px; padding: 20px; position: relative; display: grid; grid-template-columns: 30px 1fr; grid-template-rows: auto 1fr; align-items: center; gap: 5px 10px; border: 0; border-left: 1px solid var(--line); background: rgba(255,255,255,.26); text-align: left; cursor: pointer; }
 .operations-metrics button:first-child { border-left: 0; }
 .operations-metrics button:hover { background: rgba(255,255,255,.72); }
 .operations-metrics svg { grid-row: 1/3; width: 27px; color: var(--red-dark); }
-.operations-metrics span { color: var(--ink-soft); font-size: 9px; }
-.operations-metrics strong { font: 24px/1.2 "Songti SC", serif; }
+.operations-metrics span { color: var(--ink-soft); font-size: 0.5625rem; }
+.operations-metrics strong { font: 1.5rem/1.2 "Songti SC", serif; }
 .operations-overview-grid { margin-top: 22px; display: grid; grid-template-columns: minmax(0,1.55fr) minmax(270px,.65fr); gap: 22px; }
 .operations-settings-card, .operations-next-events { padding: 24px; border: 1px solid var(--line); background: rgba(255,255,255,.34); }
 .operations-settings-card > header, .operations-next-events > header { min-height: 42px; margin-bottom: 18px; display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
-.operations-settings-card > header span, .operations-next-events > header > span { font: 18px/1.2 "Songti SC",serif; }
-.operations-settings-card > header p { max-width: 430px; margin: 5px 0 0; color: var(--ink-soft); font-size: 8px; line-height: 1.6; }
-.operations-settings-card > header button, .operations-next-events > header button { min-height: 31px; padding: 0 10px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 8px; }
+.operations-settings-card > header span, .operations-next-events > header > span { font: 1.125rem/1.2 "Songti SC",serif; }
+.operations-settings-card > header p { max-width: 430px; margin: 5px 0 0; color: var(--ink-soft); font-size: 0.5rem; line-height: 1.6; }
+.operations-settings-card > header button, .operations-next-events > header button { min-height: 31px; padding: 0 10px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 0.5rem; }
 .operations-next-events > header button { border: 0; }
 .operations-next-events > button { width: 100%; min-height: 65px; padding: 10px 0; display: grid; grid-template-columns: 4px minmax(0,1fr) auto; align-items: center; gap: 10px; border: 0; border-top: 1px solid var(--line); background: transparent; text-align: left; cursor: pointer; }
 .operations-next-events > button:hover { background: rgba(255,255,255,.45); }
@@ -1216,36 +1261,36 @@ html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96
 .operations-next-events i.red { background: var(--red); } .operations-next-events i.gold { background: #9a772d; } .operations-next-events i.green { background: #55725a; } .operations-next-events i.blue { background: #4f7782; } .operations-next-events i.purple { background: #715e7d; }
 .operations-next-events > button > span { min-width: 0; display: grid; gap: 4px; }
 .operations-next-events strong, .operations-next-events small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.operations-next-events strong { font-size: 10px; } .operations-next-events small { color: var(--ink-soft); font-size: 8px; }
-.operations-next-events b { color: var(--ink-soft); font-size: 7px; font-weight: 500; }
+.operations-next-events strong { font-size: 0.625rem; } .operations-next-events small { color: var(--ink-soft); font-size: 0.5rem; }
+.operations-next-events b { color: var(--ink-soft); font-size: 0.4375rem; font-weight: 500; }
 .operations-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .operations-form-grid.compact { gap: 12px; }
 .operations-form-grid label { min-width: 0; display: grid; gap: 6px; align-content: start; }
-.operations-form-grid label > span, .operations-form-grid legend { color: var(--ink-soft); font-size: 8px; }
-.operations-form-grid input, .operations-form-grid select, .operations-form-grid textarea, .hours-editor input, .hours-editor select { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 0; background: rgba(255,255,255,.66); color: var(--ink); outline: 0; font-size: 10px; }
+.operations-form-grid label > span, .operations-form-grid legend { color: var(--ink-soft); font-size: 0.5rem; }
+.operations-form-grid input, .operations-form-grid select, .operations-form-grid textarea, .hours-editor input, .hours-editor select { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 0; background: rgba(255,255,255,.66); color: var(--ink); outline: 0; font-size: 0.625rem; }
 .operations-form-grid input:focus, .operations-form-grid select:focus, .operations-form-grid textarea:focus, .hours-editor input:focus, .hours-editor select:focus { border-color: var(--ink); box-shadow: 0 0 0 2px rgba(34,36,33,.05); }
 .operations-form-grid textarea { resize: vertical; }
 .operations-form-grid .full { grid-column: 1/-1; }
 .pricing-weekday-field { min-width: 0; margin: 0; padding: 0; display: grid; gap: 6px; border: 0; }
 .pricing-weekday-field legend { padding: 0; }
 .pricing-weekday-options { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border: 1px solid var(--line); background: rgba(255,255,255,.4); }
-.pricing-weekday-options button { min-width: 0; min-height: 31px; padding: 0 5px; border: 0; border-left: 1px solid var(--line); border-top: 1px solid var(--line); background: transparent; color: var(--ink-soft); cursor: pointer; font-size: 8px; }
+.pricing-weekday-options button { min-width: 0; min-height: 31px; padding: 0 5px; border: 0; border-left: 1px solid var(--line); border-top: 1px solid var(--line); background: transparent; color: var(--ink-soft); cursor: pointer; font-size: 0.5rem; }
 .pricing-weekday-options button:nth-child(-n+4) { border-top: 0; }
 .pricing-weekday-options button:nth-child(4n+1) { border-left: 0; }
 .pricing-weekday-options button:hover, .pricing-weekday-options button:focus-visible { color: var(--ink); background: rgba(34,36,33,.055); outline: 0; }
 .pricing-weekday-options button.active { color: white; background: var(--ink); }
 .event-form-intro { min-height: 72px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); background: linear-gradient(135deg, rgba(34,36,33,.045), rgba(255,255,255,.38)); }
 .event-form-intro > span { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--ink); }
-.event-form-intro strong { font: 16px/1.15 "Songti SC",serif; }
-.event-form-intro p { margin: 5px 0 0; color: var(--ink-soft); font-size: 8px; line-height: 1.55; }
+.event-form-intro strong { font: 1rem/1.15 "Songti SC",serif; }
+.event-form-intro p { margin: 5px 0 0; color: var(--ink-soft); font-size: 0.5rem; line-height: 1.55; }
 .operations-datetime-control { min-width: 0; position: relative; display: grid; grid-template-columns: minmax(0,1fr) 112px; border: 1px solid var(--line); background: rgba(255,255,255,.66); }
 .operations-date-trigger { min-width: 0; min-height: 46px; padding: 7px 11px; display: flex; align-items: center; gap: 9px; border: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
 .operations-date-trigger:hover, .operations-date-trigger:focus-visible { background: rgba(34,36,33,.045); outline: 0; }
 .operations-date-trigger > svg { flex: 0 0 auto; color: var(--red-dark); }
 .operations-date-trigger > span { min-width: 0; display: grid; gap: 2px; color: var(--ink) !important; }
 .operations-date-trigger strong, .operations-date-trigger small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.operations-date-trigger strong { font-size: 10px; }
-.operations-date-trigger small { color: var(--ink-soft); font-size: 7.5px; font-weight: 500; }
+.operations-date-trigger strong { font-size: 0.625rem; }
+.operations-date-trigger small { color: var(--ink-soft); font-size: 0.46875rem; font-weight: 500; }
 .operations-time-select { min-width: 0; padding-left: 8px; display: flex; align-items: center; border-left: 1px solid var(--line); }
 .operations-time-select > svg { flex: 0 0 auto; color: var(--ink-soft); }
 .operations-time-select select { min-width: 0; min-height: 44px !important; padding: 0 7px !important; border: 0 !important; background: transparent !important; font-weight: 700; }
@@ -1264,15 +1309,15 @@ html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96
 .event-color-picker label.selected { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .input-unit { display: grid; grid-template-columns: minmax(0,1fr) auto; border: 1px solid var(--line); background: rgba(255,255,255,.66); }
 .input-unit input { border: 0; background: transparent; }
-.input-unit small { padding: 0 10px; display: grid; place-items: center; color: var(--ink-soft); font-size: 8px; }
+.input-unit small { padding: 0 10px; display: grid; place-items: center; color: var(--ink-soft); font-size: 0.5rem; }
 .hours-editor { border: 1px solid var(--line); }
 .hours-editor article { min-height: 70px; padding: 10px 14px; display: grid; grid-template-columns: 100px 42px 130px 130px minmax(150px,1fr); align-items: end; gap: 12px; border-top: 1px solid var(--line); background: rgba(255,255,255,.28); }
 .hours-editor article:first-child { border-top: 0; }
 .hours-editor article.closed { background: rgba(34,36,33,.045); }
 .hours-day { align-self: center; display: grid; gap: 4px; }
-.hours-day strong { font: 16px/1 "Songti SC",serif; } .hours-day small { color: var(--ink-soft); font-size: 8px; }
+.hours-day strong { font: 1rem/1 "Songti SC",serif; } .hours-day small { color: var(--ink-soft); font-size: 0.5rem; }
 .hours-editor label { min-width: 0; display: grid; gap: 5px; }
-.hours-editor label > span { color: var(--ink-soft); font-size: 8px; }
+.hours-editor label > span { color: var(--ink-soft); font-size: 0.5rem; }
 .hours-editor input:disabled, .hours-editor select:disabled { opacity: .35; }
 .switch-field { width: 36px; height: 21px; align-self: center; position: relative; }
 .switch-field input { position: absolute; opacity: 0; }
@@ -1282,13 +1327,13 @@ html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96
 .switch-field input:checked + span::after { transform: translateX(15px); }
 .operations-table-wrap { overflow-x: auto; border: 1px solid var(--line); }
 .operations-table { width: 100%; border-collapse: collapse; min-width: 900px; background: rgba(255,255,255,.28); }
-.operations-table th { height: 42px; padding: 0 13px; color: var(--ink-soft); background: rgba(34,36,33,.035); border-bottom: 1px solid var(--line); font-size: 8px; font-weight: 600; text-align: left; }
-.operations-table td { height: 58px; padding: 10px 13px; border-bottom: 1px solid var(--line); font-size: 9px; }
+.operations-table th { height: 42px; padding: 0 13px; color: var(--ink-soft); background: rgba(34,36,33,.035); border-bottom: 1px solid var(--line); font-size: 0.5rem; font-weight: 600; text-align: left; }
+.operations-table td { height: 58px; padding: 10px 13px; border-bottom: 1px solid var(--line); font-size: 0.5625rem; }
 .operations-table tbody tr:last-child td { border-bottom: 0; }
 .operations-table tr.muted { opacity: .48; }
 .operations-table td strong, .operations-table td span, .operations-table td small { display: block; }
-.operations-table td strong { font-size: 10px; } .operations-table td small { margin-top: 3px; color: var(--ink-soft); font-size: 7.5px; }
-.operations-table .money { font: 15px/1 "Songti SC",serif; }
+.operations-table td strong { font-size: 0.625rem; } .operations-table td small { margin-top: 3px; color: var(--ink-soft); font-size: 0.46875rem; }
+.operations-table .money { font: 0.9375rem/1 "Songti SC",serif; }
 .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
 .row-actions button, .row-edit { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line); background: rgba(255,255,255,.45); cursor: pointer; }
 .row-actions button:hover, .row-edit:hover { color: white; background: var(--ink); }
@@ -1299,59 +1344,59 @@ html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96
 .event-list article > i { align-self: stretch; background: var(--ink); }
 .event-list article.red > i { background: var(--red); } .event-list article.gold > i { background: #9a772d; } .event-list article.green > i { background: #55725a; } .event-list article.blue > i { background: #4f7782; } .event-list article.purple > i { background: #715e7d; }
 .event-date { padding-left: 4px; display: grid; gap: 6px; }
-.event-date strong { font: 17px/1 "Songti SC",serif; } .event-date small { color: var(--ink-soft); font-size: 8px; }
+.event-date strong { font: 1.0625rem/1 "Songti SC",serif; } .event-date small { color: var(--ink-soft); font-size: 0.5rem; }
 .event-main { min-width: 0; }
 .event-main > span { display: flex; align-items: center; gap: 7px; }
-.event-main > span b, .event-main > span em { padding: 3px 5px; color: var(--ink-soft); background: rgba(34,36,33,.055); font-size: 7px; font-style: normal; font-weight: 600; }
+.event-main > span b, .event-main > span em { padding: 3px 5px; color: var(--ink-soft); background: rgba(34,36,33,.055); font-size: 0.4375rem; font-style: normal; font-weight: 600; }
 .event-main > span em { color: var(--red-dark); background: rgba(199,70,54,.08); }
-.event-main h3 { margin: 7px 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 16px/1.1 "Songti SC",serif; }
-.event-main p, .event-main small { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); font-size: 8px; }
+.event-main h3 { margin: 7px 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 1rem/1.1 "Songti SC",serif; }
+.event-main p, .event-main small { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); font-size: 0.5rem; }
 .event-main small { display: block; margin-top: 6px; }
 .event-state { display: grid; justify-items: start; gap: 7px; }
-.event-state span { padding: 5px 7px; color: #315c3f; background: rgba(49,92,63,.08); font-size: 8px; }
-.event-state b { color: var(--red-dark); font-size: 7px; line-height: 1.4; }
+.event-state span { padding: 5px 7px; color: #315c3f; background: rgba(49,92,63,.08); font-size: 0.5rem; }
+.event-state b { color: var(--red-dark); font-size: 0.4375rem; line-height: 1.4; }
 .operations-query-bar { min-height: 54px; margin-bottom: 16px; display: grid; grid-template-columns: minmax(240px,1fr) 160px 160px; border: 1px solid var(--line); background: rgba(255,255,255,.36); }
 .operations-query-bar > label { min-width: 0; padding: 0 12px; display: flex; align-items: center; gap: 7px; border-left: 1px solid var(--line); }
 .operations-query-bar > label:first-child { border-left: 0; }
-.operations-query-bar input, .operations-query-bar select { width: 100%; height: 52px; border: 0; background: transparent; outline: 0; font-size: 9px; }
-.operations-query-bar label > span { flex: 0 0 auto; color: var(--ink-soft); font-size: 8px; }
+.operations-query-bar input, .operations-query-bar select { width: 100%; height: 52px; border: 0; background: transparent; outline: 0; font-size: 0.5625rem; }
+.operations-query-bar label > span { flex: 0 0 auto; color: var(--ink-soft); font-size: 0.5rem; }
 .query-search svg { color: var(--ink-soft); flex: 0 0 auto; }
-.status-chip { width: max-content; padding: 4px 6px; color: var(--ink-soft); background: rgba(34,36,33,.06); font-size: 7.5px; }
+.status-chip { width: max-content; padding: 4px 6px; color: var(--ink-soft); background: rgba(34,36,33,.06); font-size: 0.46875rem; }
 .status-chip.active { color: #315c3f; background: rgba(49,92,63,.09); }
 .status-chip.paused { color: #8b621e; background: rgba(154,119,45,.11); }
 .status-chip.expired, .status-chip.cancelled { color: var(--red-dark); background: rgba(199,70,54,.08); }
-.operations-pagination { min-height: 56px; padding-top: 15px; display: flex; align-items: center; justify-content: space-between; gap: 20px; color: var(--ink-soft); font-size: 8px; }
+.operations-pagination { min-height: 56px; padding-top: 15px; display: flex; align-items: center; justify-content: space-between; gap: 20px; color: var(--ink-soft); font-size: 0.5rem; }
 .operations-pagination > div { display: flex; align-items: center; gap: 8px; }
-.operations-pagination button { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: rgba(255,255,255,.45); cursor: pointer; font-size: 8px; }
+.operations-pagination button { min-height: 32px; padding: 0 10px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: rgba(255,255,255,.45); cursor: pointer; font-size: 0.5rem; }
 .operations-pagination button:disabled { opacity: .35; cursor: default; }
 .operations-pagination svg { width: 13px; }
-.operations-pagination b { min-width: 68px; text-align: center; color: var(--ink); font-size: 8px; }
+.operations-pagination b { min-width: 68px; text-align: center; color: var(--ink); font-size: 0.5rem; }
 .audit-presets { margin: -9px 0 10px; display: flex; gap: 6px; }
-.audit-presets button { min-height: 29px; padding: 0 9px; border: 1px solid var(--line); background: rgba(255,255,255,.4); cursor: pointer; font-size: 8px; }
+.audit-presets button { min-height: 29px; padding: 0 9px; border: 1px solid var(--line); background: rgba(255,255,255,.4); cursor: pointer; font-size: 0.5rem; }
 .operations-query-bar.audit-query { grid-template-columns: 145px 145px minmax(240px,1fr) 150px 130px; }
 .audit-list-table { border: 1px solid var(--line); background: rgba(255,255,255,.28); }
 .audit-list-table > header, .audit-list-table > button { width: 100%; min-height: 62px; padding: 0 14px; display: grid; grid-template-columns: 145px minmax(150px,1.1fr) minmax(140px,1fr) minmax(130px,.9fr) minmax(130px,1fr) 22px; align-items: center; gap: 12px; border: 0; border-bottom: 1px solid var(--line); background: transparent; text-align: left; }
-.audit-list-table > header { min-height: 38px; color: var(--ink-soft); background: rgba(34,36,33,.035); font-size: 8px; }
-.audit-list-table > button { cursor: pointer; font-size: 8.5px; }
+.audit-list-table > header { min-height: 38px; color: var(--ink-soft); background: rgba(34,36,33,.035); font-size: 0.5rem; }
+.audit-list-table > button { cursor: pointer; font-size: 0.53125rem; }
 .audit-list-table > button:last-child { border-bottom: 0; }
 .audit-list-table > button:hover { background: rgba(255,255,255,.72); }
-.audit-list-table time { color: var(--ink-soft); font-size: 8px; }
+.audit-list-table time { color: var(--ink-soft); font-size: 0.5rem; }
 .audit-list-table button > span { min-width: 0; display: grid; gap: 3px; }
 .audit-list-table button strong, .audit-list-table button small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.audit-list-table button strong { font-size: 9px; } .audit-list-table button small { color: var(--ink-soft); font-size: 7px; }
+.audit-list-table button strong { font-size: 0.5625rem; } .audit-list-table button small { color: var(--ink-soft); font-size: 0.4375rem; }
 .changed-fields { display: flex !important; flex-direction: row; flex-wrap: wrap; gap: 3px !important; }
-.changed-fields i, .changed-fields em { padding: 3px 5px; color: var(--ink-soft); background: rgba(34,36,33,.055); font-size: 7px; font-style: normal; }
-.operations-empty { min-height: 180px; display: flex; align-items: center; justify-content: center; gap: 9px; color: var(--ink-soft); font-size: 9px; }
+.changed-fields i, .changed-fields em { padding: 3px 5px; color: var(--ink-soft); background: rgba(34,36,33,.055); font-size: 0.4375rem; font-style: normal; }
+.operations-empty { min-height: 180px; display: flex; align-items: center; justify-content: center; gap: 9px; color: var(--ink-soft); font-size: 0.5625rem; }
 .operations-empty.small { min-height: 130px; flex-direction: column; }
 .operations-modal-backdrop { position: fixed; z-index: 220; inset: 0; display: grid; place-items: center; padding: 22px; background: rgba(26,27,25,.35); backdrop-filter: blur(5px); }
 .operations-modal { width: min(650px,100%); max-height: calc(100vh - 44px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(34,36,33,.18); background: rgba(250,249,245,.98); box-shadow: var(--shadow); }
 .operations-modal.wide { width: min(920px,100%); }
 .operations-modal > header { min-height: 64px; padding: 0 22px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
-.operations-modal > header h2 { margin: 0; font: 24px/1 "Songti SC",serif; }
+.operations-modal > header h2 { margin: 0; font: 1.5rem/1 "Songti SC",serif; }
 .operations-modal > header button { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: transparent; cursor: pointer; }
 .operations-form { min-height: 0; padding: 22px; overflow-y: auto; }
 .operations-form > footer { margin: 22px -22px -22px; padding: 14px 22px; position: sticky; z-index: 5; bottom: -22px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); background: rgba(250,249,245,.94); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
-.operations-form > footer > button { min-height: 37px; padding: 0 14px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 9px; }
+.operations-form > footer > button { min-height: 37px; padding: 0 14px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 0.5625rem; }
 .operations-form > footer > .operations-primary { border-color: var(--ink); background: var(--ink); color: white; }
 .operations-form > footer > .operations-primary:hover:not(:disabled), .operations-form > footer > .operations-primary:focus-visible:not(:disabled) { background: var(--red-dark); border-color: var(--red-dark); outline: 0; }
 .operations-form > footer > .operations-primary:disabled { border-color: var(--ink); background: var(--ink); color: white; opacity: .5; }
@@ -1366,11 +1411,11 @@ html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96
 .audit-detail dl > div { min-width: 0; padding: 11px; border-left: 1px solid var(--line); border-top: 1px solid var(--line); }
 .audit-detail dl > div:nth-child(odd) { border-left: 0; } .audit-detail dl > div:nth-child(-n+2) { border-top: 0; }
 .audit-detail dl > div.full { grid-column: 1/-1; border-left: 0; }
-.audit-detail dt { color: var(--ink-soft); font-size: 7px; } .audit-detail dd { margin: 5px 0 0; overflow-wrap: anywhere; font-size: 9px; }
+.audit-detail dt { color: var(--ink-soft); font-size: 0.4375rem; } .audit-detail dd { margin: 5px 0 0; overflow-wrap: anywhere; font-size: 0.5625rem; }
 .audit-json-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .audit-json-grid section, .audit-metadata { min-width: 0; }
-.audit-detail h3 { margin: 0 0 7px; font-size: 9px; }
-.audit-detail pre { max-height: 300px; margin: 0; padding: 13px; overflow: auto; border: 1px solid var(--line); background: #222421; color: #f5f4ee; font: 8px/1.6 ui-monospace,monospace; }
+.audit-detail h3 { margin: 0 0 7px; font-size: 0.5625rem; }
+.audit-detail pre { max-height: 300px; margin: 0; padding: 13px; overflow: auto; border: 1px solid var(--line); background: #222421; color: #f5f4ee; font: 0.5rem/1.6 ui-monospace,monospace; }
 .audit-metadata { margin-top: 12px; }
 
 @media (max-width: 1100px) {
@@ -1387,15 +1432,15 @@ html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96
 @media (max-width: 700px) {
   .operations-page { padding: 10px 12px 96px; }
   .operations-hero { min-height: 120px; padding: 20px; }
-  .operations-hero h1 { font-size: 30px; }
+  .operations-hero h1 { font-size: 1.875rem; }
   .operations-hero > button { width: 37px; padding: 0; }
   .operations-hero > button:not(:disabled) { font-size: 0; }
   .operations-hero > button svg { width: 15px; }
   .operations-tabs { top: 56px; height: 53px; margin: 0; grid-template-columns: repeat(6,minmax(94px,1fr)); }
-  .operations-tabs button { font-size: 8px; }
+  .operations-tabs button { font-size: 0.5rem; }
   .operations-panel { padding: 20px 14px; }
   .operations-panel-header { min-height: 110px; flex-direction: column; gap: 14px; }
-  .operations-panel-header h2 { font-size: 25px; }
+  .operations-panel-header h2 { font-size: 1.5625rem; }
   .operations-metrics { grid-template-columns: 1fr 1fr; }
   .operations-metrics button { min-height: 92px; border-top: 1px solid var(--line); }
   .operations-metrics button:nth-child(odd) { border-left: 0; }
