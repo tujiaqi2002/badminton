@@ -1,5 +1,5 @@
 import { Check, Clock3, Minus, Plus, ShieldCheck, WalletCards, X } from 'lucide-react'
-import { bookingDurations, COURTS, formatMoney, priceFromConfiguration } from '../lib/booking'
+import { bookingDurations, COURTS, formatMoney, priceBreakdownFromConfiguration } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
 export default function BookingDrawer({ selection, onClose, onConfirm, busy, stripeEnabled, invalid, configuration }) {
@@ -12,7 +12,14 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
   const closeMinute = Number(configuration?.opening_hours?.close_minute || 1440)
   const currency = configuration?.settings?.currency || 'CAD'
   const cancellationHours = Number(configuration?.settings?.cancellation_notice_hours ?? 12)
-  const price = priceFromConfiguration(configuration, courts.map((court) => court.id), time, duration)
+  const priceBreakdown = priceBreakdownFromConfiguration(configuration, courts.map((court) => court.id), time, duration)
+  const price = priceBreakdown.total
+  const memberName = locale.startsWith('zh')
+    ? priceBreakdown.member?.name_zh
+    : priceBreakdown.member?.name_en
+  const ruleNames = [...new Set(priceBreakdown.rules.map((rule) => (
+    locale.startsWith('zh') ? rule.name_zh : rule.name_en
+  )).filter(Boolean))]
   const endMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) + duration
   const endTime = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
 
@@ -82,11 +89,16 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
           </button>
         </div>
 
-        <div className="price-row"><span>{t('drawer.fee')}</span><strong>{formatMoney(price, locale, currency)}</strong></div>
+        <div className="price-breakdown">
+          <div><span>{t('drawer.rulePrice')}</span><strong>{formatMoney(priceBreakdown.subtotal, locale, currency, true)}</strong></div>
+          {priceBreakdown.discountPercent > 0 && <div className="member-price-discount"><span>{t('drawer.memberDiscount', { tier: memberName || priceBreakdown.member?.tier || t('drawer.member'), discount: priceBreakdown.discountPercent })}</span><strong>−{formatMoney(priceBreakdown.discountAmount, locale, currency, true)}</strong></div>}
+          {ruleNames.length > 0 && <small>{t('drawer.rateRule', { rule: ruleNames.join(' + ') })}</small>}
+        </div>
+        <div className="price-row"><span>{t('drawer.fee')}</span><strong>{formatMoney(price, locale, currency, true)}</strong></div>
         <p className="booking-policy"><Clock3 size={15} /> {t('drawer.policyDynamic', { hours: cancellationHours })}</p>
 
         <button className="primary-button confirm-button" disabled={busy || invalid || !phone.trim()} onClick={() => onConfirm({ ...selection, phone: phone.trim(), notes: notes.trim(), price })}>
-          {busy ? t('drawer.locking') : invalid ? t('drawer.invalid') : !phone.trim() ? t('drawer.phoneRequired') : t('drawer.confirm', { price: formatMoney(price, locale, currency) })}
+          {busy ? t('drawer.locking') : invalid ? t('drawer.invalid') : !phone.trim() ? t('drawer.phoneRequired') : t('drawer.confirm', { price: formatMoney(price, locale, currency, true) })}
         </button>
       </aside>
     </div>

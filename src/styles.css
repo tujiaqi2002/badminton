@@ -305,6 +305,11 @@ a { color: inherit; text-decoration: none; }
 .payment-option strong { font-size: 0.6875rem; }
 .price-row { display: flex; align-items: center; justify-content: space-between; padding: 19px 0 8px; font-size: 0.75rem; }
 .price-row strong { color: var(--red); font: 1.5rem/1 "Songti SC", serif; }
+.price-breakdown { margin-top: 18px; padding: 12px 14px; display: grid; gap: 8px; border: 1px solid var(--line); background: rgba(34,36,33,.025); }
+.price-breakdown > div { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--ink-soft); font-size: 0.625rem; }
+.price-breakdown > div strong { color: var(--ink); font-size: 0.6875rem; }
+.price-breakdown > .member-price-discount, .price-breakdown > .member-price-discount strong { color: #356044; }
+.price-breakdown > small { padding-top: 7px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 0.5rem; line-height: 1.55; }
 .booking-policy { color: var(--ink-soft); font-size: 0.5625rem; display: flex; align-items: center; gap: 7px; }
 .confirm-button { width: 100%; margin-top: 15px; }
 
@@ -1365,6 +1370,17 @@ html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96
 .pricing-weekday-options button:nth-child(4n+1) { border-left: 0; }
 .pricing-weekday-options button:hover, .pricing-weekday-options button:focus-visible { color: var(--ink); background: rgba(34,36,33,.055); outline: 0; }
 .pricing-weekday-options button.active { color: white; background: var(--ink); }
+.pricing-order-preview { min-height: 72px; padding: 13px 15px; display: grid; grid-template-columns: 34px minmax(0,1fr) auto; align-items: center; gap: 12px; border: 1px solid var(--line); background: linear-gradient(135deg, rgba(34,36,33,.045), rgba(255,255,255,.38)); }
+.pricing-order-preview > svg { width: 32px; height: 32px; padding: 7px; border-radius: 50%; color: white; background: var(--ink); }
+.pricing-order-preview > div { min-width: 0; }
+.pricing-order-preview strong { font: .875rem/1.2 "Songti SC",serif; }
+.pricing-order-preview p { margin: 5px 0 0; color: var(--ink-soft); font-size: 0.5rem; line-height: 1.55; }
+.pricing-match-level { width: max-content; padding: 5px 7px; display: inline-flex !important; align-items: center; border-left: 3px solid var(--ink); background: rgba(34,36,33,.06); color: var(--ink); font-size: 0.46875rem; font-weight: 700; white-space: nowrap; }
+.pricing-match-level.priceSpecial { border-color: #aa493d; background: rgba(170,73,61,.08); color: #87372f; }
+.pricing-match-level.priceMember { border-color: #9b762c; background: rgba(155,118,44,.1); color: #73571d; }
+.pricing-match-level.priceCourt { border-color: #4f7080; background: rgba(79,112,128,.09); color: #385563; }
+.pricing-match-level.priceWeekday { border-color: #55705a; background: rgba(85,112,90,.09); color: #3b5942; }
+.pricing-match-level.priceBase { border-color: #757671; color: #5a5b57; }
 .event-form-intro { min-height: 72px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); background: linear-gradient(135deg, rgba(34,36,33,.045), rgba(255,255,255,.38)); }
 .event-form-intro > span { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--ink); }
 .event-form-intro strong { font: 1rem/1.15 "Songti SC",serif; }
