@@ -623,14 +623,14 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-hint span { margin-left: auto; display: flex; align-items: center; gap: 7px; }
 .admin-undo-bar { grid-column: 1/-1; grid-row: 3; }
 .admin-schedule-scroll { grid-column: 2; grid-row: 3; min-width: 0; overflow-x: auto; border-bottom: 1px solid var(--line); }
-.admin-schedule-grid { --slot-height: 26px; min-width: 840px; position: relative; display: grid; grid-template-columns: 64px repeat(5, minmax(150px,1fr)); }
+.admin-schedule-grid { --slot-height: 26px; width: 100%; min-width: 0; position: relative; display: grid; grid-template-columns: clamp(52px,5vw,64px) repeat(5,minmax(0,1fr)); }
 .admin-now-line { position: absolute; z-index: 6; top: var(--now-top); left: 0; right: 0; height: 1px; pointer-events: none; background: var(--red); box-shadow: 0 0 0 1px rgba(199,70,54,.05); }
 .admin-now-line::before { content: ''; position: absolute; left: 60px; top: -3px; width: 7px; height: 7px; border-radius: 50%; background: var(--red); }
 .admin-now-line span { position: absolute; left: 4px; top: -9px; padding: 2px 4px; color: white; background: var(--red); font-size: 0.4375rem; line-height: 1.2; }
 .admin-schedule-corner, .admin-schedule-court { min-height: 50px; display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.admin-schedule-court { gap: 7px; }
+.admin-schedule-court { min-width: 0; gap: 7px; padding-inline: 4px; overflow: hidden; }
 .admin-schedule-court span { width: 27px; height: 27px; display: grid; place-items: center; color: white; background: var(--ink); font: 0.9375rem/1 "Songti SC", serif; border-radius: 50%; }
-.admin-schedule-court strong { font-size: 0.5625rem; }
+.admin-schedule-court strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.5625rem; }
 .admin-schedule-times, .admin-schedule-lane { position: relative; height: calc(var(--slot-height) * var(--slot-count)); border-right: 1px solid var(--line); }
 .admin-schedule-times > div, .admin-schedule-slot { height: var(--slot-height); border: 0; border-bottom: 1px solid rgba(34,36,33,.045); background: transparent; }
 .admin-schedule-times > div { padding: 4px 7px; color: var(--ink-soft); font-size: 0.5rem; text-align: right; }
