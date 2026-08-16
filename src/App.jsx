@@ -257,7 +257,7 @@ export default function App() {
     for (let from = 0; ; from += pageSize) {
       const result = await supabase
         .from('bookings')
-        .select('id, booking_group_id, recurrence_series_id, recurrence_week, user_id, court_id, customer_name, customer_email, customer_phone, customer_notes, start_at, end_at, status, payment_status, payment_method, total_amount, currency, party_size, created_at')
+        .select('id, booking_group_id, booking_link_id, recurrence_series_id, recurrence_week, user_id, court_id, customer_name, customer_email, customer_phone, customer_notes, start_at, end_at, status, payment_status, payment_method, total_amount, currency, party_size, created_at')
         .gte('start_at', `${queryStart}T00:00:00`)
         .lt('start_at', `${endExclusive}T00:00:00`)
         .order('start_at', { ascending: true })
@@ -947,6 +947,51 @@ export default function App() {
     return { saved: true }
   }
 
+  const adminLinkBookings = async (sourceBooking, targetBooking) => {
+    const sourceGroupId = sourceBooking.booking_group_id || sourceBooking.id
+    const targetGroupId = targetBooking.booking_group_id || targetBooking.id
+    if (sourceGroupId === targetGroupId || (sourceBooking.booking_link_id && sourceBooking.booking_link_id === targetBooking.booking_link_id)) {
+      notify(t('errors.adminAlreadyLinked'), 'error')
+      return false
+    }
+
+    if (!isSupabaseConfigured) {
+      const linkId = sourceBooking.booking_link_id || targetBooking.booking_link_id || `local-link-${Date.now()}`
+      const sourceLinkId = sourceBooking.booking_link_id
+      const targetLinkId = targetBooking.booking_link_id
+      const update = (item) => {
+        const groupId = item.booking_group_id || item.id
+        const belongsToEitherGroup = groupId === sourceGroupId || groupId === targetGroupId
+        const belongsToEitherLink = (sourceLinkId && item.booking_link_id === sourceLinkId) || (targetLinkId && item.booking_link_id === targetLinkId)
+        return belongsToEitherGroup || belongsToEitherLink ? { ...item, booking_link_id: linkId } : item
+      }
+      const linkedGroupCount = new Set(adminBookings.filter((item) => {
+        const groupId = item.booking_group_id || item.id
+        return groupId === sourceGroupId || groupId === targetGroupId || (sourceLinkId && item.booking_link_id === sourceLinkId) || (targetLinkId && item.booking_link_id === targetLinkId)
+      }).map((item) => item.booking_group_id || item.id)).size
+      rememberAdminAction({ adminBookings, schedule })
+      setAdminBookings((current) => current.map(update))
+      setSchedule((current) => current.map(update))
+      notify(t('success.adminLink', { count: linkedGroupCount }))
+      return { saved: true, bookingLinkId: linkId }
+    }
+
+    setAdminScheduleBusy(true)
+    const { data, error } = await supabase.rpc('admin_link_booking_groups', {
+      p_source_booking_id: sourceBooking.id,
+      p_target_booking_id: targetBooking.id,
+    })
+    setAdminScheduleBusy(false)
+    if (error) {
+      notify(t(error.message.includes('already') || error.message.includes('same reservation') ? 'errors.adminAlreadyLinked' : 'errors.adminLink'), 'error')
+      return false
+    }
+    rememberAdminAction()
+    notify(t('success.adminLink', { count: data?.[0]?.linked_group_count || 2 }))
+    await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchSchedule(), fetchAdminAuditOperations()])
+    return { saved: true, bookingLinkId: data?.[0]?.booking_link_id }
+  }
+
   const adminUndoBookingChange = async (operationId = null) => {
     if (!operationId && adminUndoDepth < 1) return false
     if (!isSupabaseConfigured) {
@@ -1153,6 +1198,7 @@ export default function App() {
           onReschedule={adminRescheduleBooking}
           onRescheduleGroup={adminRescheduleBookingGroup}
           onSwap={adminSwapBookings}
+          onLink={adminLinkBookings}
           onUndo={adminUndoBookingChange}
           undoDepth={adminUndoDepth}
           onUpdateDetails={adminUpdateBookingDetails}

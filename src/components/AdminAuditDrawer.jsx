@@ -40,6 +40,7 @@ const eventNameKey = (eventType) => ({
   'booking.created': 'admin.audit.created',
   'booking.cancelled': 'admin.audit.cancelled',
   'booking.rescheduled': 'admin.audit.rescheduled',
+  'booking.linked': 'admin.audit.linked',
   'booking.details_updated': 'admin.audit.detailsUpdated',
 }[eventType] || 'admin.audit.changed')
 
