@@ -43,6 +43,7 @@ export default function AdminBookings({
   onPreviewPrice,
   onReschedule,
   onRescheduleGroup,
+  onSwap,
   onUndo,
   undoDepth,
   onUpdateDetails,
@@ -146,6 +147,7 @@ export default function AdminBookings({
         onPreviewPrice={onPreviewPrice}
         onReschedule={onReschedule}
         onRescheduleGroup={onRescheduleGroup}
+        onSwap={onSwap}
         onUpdateDetails={onUpdateDetails}
         onCancel={onCancel}
         auditOperations={auditOperations}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Link2, MessageSquareText, Pencil, PhoneCall, Repeat2, RotateCcw, Save, Trash2, X } from 'lucide-react'
 import { addDays, bookingDurations, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { createCustomerColorMap, customerColorForBooking } from '../lib/bookingColors'
+import { bookingSwapPreview } from '../lib/bookingSwap'
 import { useDisplay } from '../lib/display'
 import { useI18n } from '../lib/i18n'
 import AdminAuditDrawer, { AdminAuditQuickPanel } from './AdminAuditDrawer'
@@ -249,7 +250,7 @@ function NewBookingModal({ draft, busy, onClose, onSubmit, onPreviewPrice, confi
   )
 }
 
-export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onRevertAudit, configuration }) {
+export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onSwap, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onRevertAudit, configuration }) {
   const { bookingColorScheme } = useDisplay()
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
@@ -486,10 +487,23 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       const maxIndex = Math.max(0, Math.floor((closeMinutes - openMinutes - duration) / slotMinutes))
       const index = Math.max(0, Math.min(maxIndex, Math.round((event.clientY - rect.top - pointerDrag.grabOffset) / slotHeight)))
       const startMinutes = openMinutes + index * slotMinutes
-      const nextTarget = { court, index, time: timeFromMinutes(startMinutes), endTime: timeFromMinutes(startMinutes + duration), span: duration / slotMinutes }
+      const swap = bookingSwapPreview({
+        bookings,
+        sourceBooking: pointerDrag.booking,
+        targetCourtId: court.id,
+        targetDate: dateKey,
+        targetStartMinute: startMinutes,
+        duration,
+      })
+      const nextTarget = { court, index, time: timeFromMinutes(startMinutes), endTime: timeFromMinutes(startMinutes + duration), span: duration / slotMinutes, swap }
       if (isPastSlot(dateKey, nextTarget.time, now)) {
         pointerTarget.current = { type: 'invalid' }
-        setDragPreview({ ...nextTarget, invalid: true })
+        setDragPreview({ ...nextTarget, invalid: true, invalidReason: 'past' })
+        return
+      }
+      if (swap.mode === 'invalid') {
+        pointerTarget.current = { type: 'invalid' }
+        setDragPreview({ ...nextTarget, invalid: true, invalidReason: 'swap' })
         return
       }
       pointerTarget.current = { type: 'lane', target: nextTarget }
@@ -527,6 +541,10 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       pointerTarget.current = null
       finishDrag()
       if (target) {
+        if (target.swap?.mode === 'swap') {
+          await onSwap(booking, target.court, target.time, target.swap.bookings, dateKey)
+          return
+        }
         const pointerGroupSize = bookings.filter((item) => (
           (item.booking_group_id || item.id) === (booking.booking_group_id || booking.id)
           && ['held', 'confirmed'].includes(item.status)
@@ -543,7 +561,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
     }
-  }, [bookings, closeMinutes, dateKey, now, onCancel, onDateChange, onReschedule, onRescheduleGroup, openMinutes, pointerDrag, slotMinutes, timeSlots.length])
+  }, [bookings, closeMinutes, dateKey, now, onCancel, onDateChange, onReschedule, onRescheduleGroup, onSwap, openMinutes, pointerDrag, slotMinutes, timeSlots.length])
 
   const chooseSlot = useCallback((court, time) => {
     const startMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3))
@@ -714,7 +732,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
             <span>{t('admin.schedule.preview')}</span>
             <strong>{draggedBooking.customer_name}</strong>
             <b>{dateKey.replaceAll('-', '.')} · {courtTitle(dragPreview.court)} · {t('admin.schedule.dragStart')} {dragPreview.time} → {t('admin.schedule.dragEnd')} {dragPreview.endTime}</b>
-            <small>{t(dragPreview.invalid ? 'admin.schedule.pastDropBlocked' : 'admin.schedule.releaseToMove')}</small>
+            <small>{t(dragPreview.invalid ? (dragPreview.invalidReason === 'past' ? 'admin.schedule.pastDropBlocked' : 'admin.schedule.swapBlocked') : dragPreview.swap?.mode === 'swap' ? 'admin.schedule.releaseToSwap' : 'admin.schedule.releaseToMove', { count: dragPreview.swap?.bookings?.length || 0 })}</small>
           </div>
         ) : focusTime ? (
           <div className="admin-phone-focus-guide" role="status" aria-live="polite">
@@ -823,12 +841,12 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               </div>}
               {draggedBooking && dragPreview?.court.id === court.id && (
                 <div
-                  className={`admin-schedule-drop-preview ${dragPreview.invalid ? 'invalid' : ''}`}
+                  className={`admin-schedule-drop-preview ${dragPreview.invalid ? 'invalid' : ''} ${dragPreview.swap?.mode === 'swap' ? 'swap' : ''}`}
                   style={{ '--start': dragPreview.index, '--span': dragPreview.span }}
                   aria-hidden="true"
                 >
                   <strong>{dragPreview.time}–{dragPreview.endTime}</strong>
-                  <span>{t(dragPreview.invalid ? 'admin.schedule.pastDropBlockedShort' : 'admin.schedule.dropHere')}</span>
+                  <span>{t(dragPreview.invalid ? (dragPreview.invalidReason === 'past' ? 'admin.schedule.pastDropBlockedShort' : 'admin.schedule.swapBlockedShort') : dragPreview.swap?.mode === 'swap' ? 'admin.schedule.swapHere' : 'admin.schedule.dropHere', { count: dragPreview.swap?.bookings?.length || 0 })}</span>
                 </div>
               )}
               {dayEvents.filter((item) => !item.court_ids?.length || item.court_ids.includes(court.id)).map((item) => {

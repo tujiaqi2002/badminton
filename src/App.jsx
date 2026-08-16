@@ -838,6 +838,54 @@ export default function App() {
     return { saved: true }
   }
 
+  const adminSwapBookings = async (booking, court, time, targetBookings = [], targetDate) => {
+    if (!targetBookings.length) return false
+    const targetStartAt = slotDateTime(targetDate, time)
+    if (!isSupabaseConfigured) {
+      const sourceStartAt = booking.start_at
+      const sourceCourtId = booking.court_id
+      let cursor = sourceStartAt
+      const replacements = new Map()
+      rememberAdminAction({ adminBookings, schedule })
+      replacements.set(booking.id, {
+        ...booking,
+        court_id: court.id,
+        start_at: targetStartAt,
+        end_at: addMinutes(targetStartAt, Math.round((new Date(booking.end_at) - new Date(booking.start_at)) / 60_000)),
+      })
+      targetBookings.forEach((item) => {
+        const minutes = Math.round((new Date(item.end_at) - new Date(item.start_at)) / 60_000)
+        replacements.set(item.id, {
+          ...item,
+          court_id: sourceCourtId,
+          start_at: cursor,
+          end_at: addMinutes(cursor, minutes),
+        })
+        cursor = addMinutes(cursor, minutes)
+      })
+      const update = (item) => replacements.get(item.id) || item
+      setAdminBookings((current) => current.map(update).sort((left, right) => left.start_at.localeCompare(right.start_at)))
+      setSchedule((current) => current.map(update))
+      notify(t('success.adminSwap', { source: booking.customer_name, count: targetBookings.length }))
+      return { saved: true }
+    }
+    setAdminScheduleBusy(true)
+    const { error } = await supabase.rpc('admin_swap_booking_schedule', {
+      p_source_booking_id: booking.id,
+      p_target_court_id: court.id,
+      p_target_start_at: targetStartAt,
+    })
+    setAdminScheduleBusy(false)
+    if (error) {
+      notify(t(error.message.includes('exactly fill') || error.message.includes('partially') ? 'errors.swapDurationMismatch' : 'errors.adminSwap'), 'error')
+      return false
+    }
+    notify(t('success.adminSwap', { source: booking.customer_name, count: targetBookings.length }))
+    rememberAdminAction()
+    await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchSchedule(), fetchAdminAuditOperations()])
+    return { saved: true }
+  }
+
   const adminRescheduleBookingGroup = async (booking, time, duration, targetDate, anchorCourt = null) => {
     const startAt = slotDateTime(targetDate, time)
     const endAt = addMinutes(startAt, duration)
@@ -1104,6 +1152,7 @@ export default function App() {
           onPreviewPrice={adminPreviewBookingPrice}
           onReschedule={adminRescheduleBooking}
           onRescheduleGroup={adminRescheduleBookingGroup}
+          onSwap={adminSwapBookings}
           onUndo={adminUndoBookingChange}
           undoDepth={adminUndoDepth}
           onUpdateDetails={adminUpdateBookingDetails}
