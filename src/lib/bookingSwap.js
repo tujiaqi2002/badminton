@@ -34,13 +34,6 @@ export const bookingSwapPreview = ({
     return { mode: 'unchanged', targetStartAt, targetEndAt, bookings: [] }
   }
 
-  if (
-    sourceBooking.court_id === targetCourtId
-    && overlaps(sourceBooking.start_at, sourceBooking.end_at, targetStartAt, targetEndAt)
-  ) {
-    return { mode: 'invalid', reason: 'source_overlap', targetStartAt, targetEndAt, bookings: [] }
-  }
-
   const occupied = bookings
     .filter((booking) => (
       booking.id !== sourceBooking.id
