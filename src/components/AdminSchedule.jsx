@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, History, Link2, MessageSquareText, Pencil, PhoneCall, Repeat2, RotateCcw, Save, Trash2, X } from 'lucide-react'
 import { addDays, bookingDurations, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { createCustomerColorMap, customerColorForBooking } from '../lib/bookingColors'
@@ -264,11 +264,15 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const [editingDetails, setEditingDetails] = useState(false)
   const [detailsForm, setDetailsForm] = useState({ name: '', email: '', phone: '', notes: '', paymentStatus: 'pay_at_venue' })
   const [rangeDraft, setRangeDraft] = useState(null)
+  const [rangeFeedback, setRangeFeedback] = useState(null)
   const [resizeDrag, setResizeDrag] = useState(null)
   const [auditOpen, setAuditOpen] = useState(false)
   const [now, setNow] = useState(() => new Date())
   const pointerMoved = useRef(false)
   const pointerTarget = useRef(null)
+  const rangeTarget = useRef(null)
+  const suppressSlotClick = useRef(false)
+  const rangeFeedbackTimer = useRef(null)
   const editorRef = useRef(null)
   const slotMinutes = Number(configuration?.settings?.slot_minutes || 30)
   const managerMaxMinutes = Number(configuration?.settings?.manager_max_minutes || 240)
@@ -306,6 +310,55 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       && item.starts_at < `${dateKey}T24:00:00`
       && item.ends_at > `${dateKey}T00:00:00`
   )), [dateKey, events])
+
+  const buildRangeSelection = useCallback((range) => {
+    if (!range) return null
+    const startIndex = Math.min(range.startIndex, range.currentIndex)
+    const endIndex = Math.max(range.startIndex, range.currentIndex) + 1
+    const startCourtIndex = Math.min(range.startCourtIndex, range.currentCourtIndex)
+    const endCourtIndex = Math.max(range.startCourtIndex, range.currentCourtIndex)
+    const courts = COURTS.slice(startCourtIndex, endCourtIndex + 1)
+    const startMinutes = openMinutes + startIndex * slotMinutes
+    const endMinutes = openMinutes + endIndex * slotMinutes
+    const startTime = timeFromMinutes(startMinutes)
+    const selectedCourtIds = new Set(courts.map((court) => court.id))
+    const bookingConflict = dayBookings.some((booking) => {
+      if (!selectedCourtIds.has(booking.court_id)) return false
+      const bookingStart = Number(timeFromDateTime(booking.start_at).slice(0, 2)) * 60 + Number(timeFromDateTime(booking.start_at).slice(3))
+      const bookingEndText = endTimeFromDateTime(booking.start_at, booking.end_at)
+      const bookingEnd = Number(bookingEndText.slice(0, 2)) * 60 + Number(bookingEndText.slice(3))
+      return bookingStart < endMinutes && bookingEnd > startMinutes
+    })
+    const eventConflict = dayEvents.some((item) => {
+      if (!item.blocks_booking || (item.court_ids?.length && !item.court_ids.some((courtId) => selectedCourtIds.has(courtId)))) return false
+      const eventStart = item.starts_at.slice(0, 10) < dateKey ? openMinutes : Number(item.starts_at.slice(11, 13)) * 60 + Number(item.starts_at.slice(14, 16))
+      const eventEnd = item.ends_at.slice(0, 10) > dateKey ? closeMinutes : Number(item.ends_at.slice(11, 13)) * 60 + Number(item.ends_at.slice(14, 16))
+      return eventStart < endMinutes && eventEnd > startMinutes
+    })
+    const invalid = venueClosed
+      || startMinutes < openMinutes
+      || endMinutes > closeMinutes
+      || endMinutes - startMinutes > managerMaxMinutes
+      || isPastSlot(dateKey, startTime, now)
+      || bookingConflict
+      || eventConflict
+    return {
+      ...range,
+      courts,
+      startIndex,
+      endIndex,
+      startMinutes,
+      endMinutes,
+      startTime,
+      endTime: timeFromMinutes(endMinutes),
+      duration: endMinutes - startMinutes,
+      invalid,
+      bookingConflict,
+      eventConflict,
+    }
+  }, [closeMinutes, dateKey, dayBookings, dayEvents, managerMaxMinutes, now, openMinutes, slotMinutes, venueClosed])
+  const rangeSelection = useMemo(() => buildRangeSelection(rangeDraft), [buildRangeSelection, rangeDraft])
+  const rangeDisplay = rangeDraft?.dragging ? rangeSelection : rangeFeedback
 
   const dayLabel = new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'long', day: 'numeric' })
     .format(new Date(`${dateKey}T12:00:00`))
@@ -356,6 +409,8 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
     const timer = window.setInterval(() => setNow(new Date()), 30_000)
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => () => window.clearTimeout(rangeFeedbackTimer.current), [])
 
   useEffect(() => {
     if (!activeSelection) return undefined
@@ -489,7 +544,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
     }
   }, [bookings, closeMinutes, dateKey, now, onCancel, onDateChange, onReschedule, onRescheduleGroup, openMinutes, pointerDrag, slotMinutes, timeSlots.length])
 
-  const chooseSlot = (court, time) => {
+  const chooseSlot = useCallback((court, time) => {
     const startMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3))
     if (venueClosed || startMinutes + minimumBookingDuration > closeMinutes || isPastSlot(dateKey, time, now)) return
     if (activeSelection) {
@@ -499,7 +554,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
     onClearFocus?.()
     const durations = bookingDurations(configuration, true).filter((minutes) => startMinutes + minutes <= closeMinutes)
     setDraft({ court, courts: [court], dateKey, time, duration: durations.includes(60) ? 60 : durations[0] || minimumBookingDuration })
-  }
+  }, [activeSelection, closeMinutes, configuration, dateKey, minimumBookingDuration, now, onClearFocus, venueClosed])
 
   const chooseTransferDay = (next) => {
     setDraggedId(null)
@@ -507,28 +562,58 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   }
 
   useEffect(() => {
-    if (!rangeDraft?.dragging) return undefined
+    if (!rangeDraft) return undefined
     const move = (event) => {
-      const slot = document.elementFromPoint(event.clientX, event.clientY)?.closest('.admin-schedule-slot')
-      if (!slot || slot.disabled || slot.dataset.courtId !== rangeDraft.court.id) return
-      const currentIndex = Number(slot.dataset.index)
-      setRangeDraft((current) => ({ ...current, currentIndex }))
+      const activeRange = rangeTarget.current
+      if (!activeRange || event.pointerId !== activeRange.pointerId) return
+      if (!activeRange.dragging && Math.hypot(event.clientX - activeRange.startX, event.clientY - activeRange.startY) < 5) return
+      const lane = document.elementFromPoint(event.clientX, event.clientY)?.closest('.admin-schedule-lane')
+      if (!lane) return
+      const currentCourtIndex = COURTS.findIndex((court) => court.id === lane.dataset.courtId)
+      if (currentCourtIndex < 0) return
+      const rect = lane.getBoundingClientRect()
+      const slotHeight = rect.height / Math.max(1, timeSlots.length)
+      const rawIndex = Math.max(0, Math.min(timeSlots.length - 1, Math.floor((event.clientY - rect.top) / slotHeight)))
+      const maxSpan = Math.max(1, Math.floor(managerMaxMinutes / slotMinutes))
+      const delta = rawIndex - activeRange.startIndex
+      const currentIndex = Math.abs(delta) + 1 > maxSpan
+        ? activeRange.startIndex + Math.sign(delta) * (maxSpan - 1)
+        : rawIndex
+      const nextRange = { ...activeRange, dragging: true, currentCourtIndex, currentIndex }
+      rangeTarget.current = nextRange
+      setRangeDraft(nextRange)
     }
     const up = (event) => {
-      if (event.pointerId !== rangeDraft.pointerId) return
-      const startIndex = Math.min(rangeDraft.startIndex, rangeDraft.currentIndex)
-      const endIndex = Math.max(rangeDraft.startIndex, rangeDraft.currentIndex) + 1
-      const span = endIndex - startIndex
-      const duration = Math.max(minimumBookingDuration, Math.min(managerMaxMinutes, span * slotMinutes))
-      const startMinutes = openMinutes + startIndex * slotMinutes
-      const startTime = timeFromMinutes(startMinutes)
-      if (!venueClosed && startMinutes + duration <= closeMinutes && !isPastSlot(dateKey, startTime, now)) setDraft({ court: rangeDraft.court, courts: [rangeDraft.court], dateKey, time: startTime, duration })
+      const activeRange = rangeTarget.current
+      if (!activeRange || event.pointerId !== activeRange.pointerId) return
+      rangeTarget.current = null
+      setRangeDraft(null)
+      suppressSlotClick.current = true
+      window.setTimeout(() => { suppressSlotClick.current = false }, 0)
+      if (!activeRange.dragging) {
+        chooseSlot(activeRange.court, timeSlots[activeRange.startIndex])
+        return
+      }
+      const selection = buildRangeSelection(activeRange)
+      if (selection?.invalid) {
+        setRangeFeedback(selection)
+        window.clearTimeout(rangeFeedbackTimer.current)
+        rangeFeedbackTimer.current = window.setTimeout(() => setRangeFeedback(null), 2400)
+        return
+      }
+      if (selection) setDraft({ court: selection.courts[0], courts: selection.courts, dateKey, time: selection.startTime, duration: Math.max(minimumBookingDuration, selection.duration) })
+    }
+    const cancel = (event) => {
+      const activeRange = rangeTarget.current
+      if (!activeRange || event.pointerId !== activeRange.pointerId) return
+      rangeTarget.current = null
       setRangeDraft(null)
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
-    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
-  }, [closeMinutes, dateKey, managerMaxMinutes, minimumBookingDuration, now, openMinutes, rangeDraft, slotMinutes, venueClosed])
+    window.addEventListener('pointercancel', cancel)
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', cancel) }
+  }, [buildRangeSelection, chooseSlot, dateKey, managerMaxMinutes, minimumBookingDuration, rangeDraft, slotMinutes, timeSlots])
 
   useEffect(() => {
     if (!resizeDrag) return undefined
@@ -562,7 +647,9 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       onContextMenu={(event) => {
         if (!rangeDraft && !activeSelection) return
         event.preventDefault()
+        rangeTarget.current = null
         setRangeDraft(null)
+        setRangeFeedback(null)
         setSelectedBooking(null)
       }}
     >
@@ -604,7 +691,18 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
         )}
       </section>
       <div className={`admin-schedule-context ${draggedBooking && dragPreview ? `dragging ${dragPreview.invalid ? 'invalid' : ''}` : focusTime ? 'phone-focus' : ''}`}>
-        {draggedBooking && dragPreview ? (
+        {rangeDisplay ? (
+          <div className={`admin-drag-readout range-create ${rangeDisplay.invalid ? 'invalid' : ''}`} role="status" aria-live="polite">
+            <span>{t('admin.schedule.rangeTitle')}</span>
+            <strong><Link2 size={13} /> {t(rangeDisplay.courts.length > 1 ? 'admin.schedule.rangeCourtSummary' : 'admin.schedule.rangeSingleCourt', {
+              from: courtTitle(rangeDisplay.courts[0]),
+              to: courtTitle(rangeDisplay.courts.at(-1)),
+              count: rangeDisplay.courts.length,
+            })}</strong>
+            <b>{t('admin.schedule.dragStart')} {rangeDisplay.startTime} → {t('admin.schedule.dragEnd')} {rangeDisplay.endTime}</b>
+            <small>{t(rangeDisplay.invalid ? 'admin.schedule.rangeBlocked' : 'admin.schedule.rangeRelease')}</small>
+          </div>
+        ) : draggedBooking && dragPreview ? (
           <div className="admin-drag-readout" role="status" aria-live="polite">
             <span>{t('admin.schedule.preview')}</span>
             <strong>{draggedBooking.customer_name}</strong>
@@ -650,9 +748,20 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
           <div className="admin-schedule-times">
             {timeSlots.map((time) => { const minute = Number(time.slice(3, 5)); const boundary = (minute + slotMinutes) % 60 === 0; return <div className={`${boundary ? 'hour-boundary' : 'minor'} ${focusTime === time ? 'phone-focus' : ''}`} data-schedule-time={time} key={time}>{minute === 0 || slotMinutes >= 60 ? time : ''}</div> })}
           </div>
-          {COURTS.map((court) => (
+          {COURTS.map((court) => {
+            const rangeCourtPosition = rangeSelection?.courts.findIndex((selectedCourt) => selectedCourt.id === court.id) ?? -1
+            const rangeSegment = rangeCourtPosition < 0
+              ? ''
+              : rangeSelection.courts.length === 1
+                ? 'single'
+                : rangeCourtPosition === 0
+                  ? 'start'
+                  : rangeCourtPosition === rangeSelection.courts.length - 1
+                    ? 'end'
+                    : 'middle'
+            return (
             <div
-              className={`admin-schedule-lane ${court.tone} ${dragPreview?.court.id === court.id ? 'previewing' : ''}`}
+              className={`admin-schedule-lane ${court.tone} ${dragPreview?.court.id === court.id ? 'previewing' : ''} ${rangeCourtPosition >= 0 ? 'range-selecting' : ''}`}
               data-court-id={court.id}
               key={court.id}
             >
@@ -666,18 +775,45 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                   disabled={venueClosed || startMinute + minimumBookingDuration > closeMinutes || past}
                   data-court-id={court.id}
                   data-index={index}
-                  onClick={() => { if (!rangeDraft) chooseSlot(court, time) }}
+                  onClick={() => {
+                    if (suppressSlotClick.current) {
+                      suppressSlotClick.current = false
+                      return
+                    }
+                    if (!rangeDraft) chooseSlot(court, time)
+                  }}
                   onPointerDown={(event) => {
                     if (event.button !== 0 || busy || activeSelection) return
                     event.preventDefault()
                     onClearFocus?.()
-                    setRangeDraft({ dragging: true, court, startIndex: index, currentIndex: index, pointerId: event.pointerId })
+                    window.clearTimeout(rangeFeedbackTimer.current)
+                    setRangeFeedback(null)
+                    const courtIndex = COURTS.findIndex((item) => item.id === court.id)
+                    const nextRange = {
+                      dragging: false,
+                      court,
+                      startCourtIndex: courtIndex,
+                      currentCourtIndex: courtIndex,
+                      startIndex: index,
+                      currentIndex: index,
+                      pointerId: event.pointerId,
+                      startX: event.clientX,
+                      startY: event.clientY,
+                    }
+                    rangeTarget.current = nextRange
+                    setRangeDraft(nextRange)
                   }}
                   aria-label={t('admin.schedule.emptySlot', { court: courtTitle(court), time })}
                 />
                 )
               })}
-              {rangeDraft?.court.id === court.id && <div className={`admin-range-preview ${rangeDraft.startIndex === rangeDraft.currentIndex ? 'compact' : ''}`} style={{ '--start': Math.min(rangeDraft.startIndex, rangeDraft.currentIndex), '--span': Math.abs(rangeDraft.currentIndex - rangeDraft.startIndex) + 1 }}><strong>{timeFromMinutes(openMinutes + Math.min(rangeDraft.startIndex, rangeDraft.currentIndex) * slotMinutes)}–{timeFromMinutes(openMinutes + (Math.max(rangeDraft.startIndex, rangeDraft.currentIndex) + 1) * slotMinutes)}</strong><span>{t('admin.schedule.releaseToCreate')}</span></div>}
+              {rangeDraft?.dragging && rangeCourtPosition >= 0 && <div
+                className={`admin-range-preview ${rangeSelection.invalid ? 'invalid' : ''} ${rangeSelection.duration <= slotMinutes ? 'compact' : ''} ${rangeSelection.courts.length > 1 ? 'multi' : ''} segment-${rangeSegment}`}
+                style={{ '--start': rangeSelection.startIndex, '--span': rangeSelection.endIndex - rangeSelection.startIndex }}
+                aria-hidden="true"
+              >
+                {rangeCourtPosition === 0 && <><strong>{rangeSelection.startTime}–{rangeSelection.endTime}</strong><span>{t('admin.schedule.rangeCourtCount', { count: rangeSelection.courts.length })}</span></>}
+              </div>}
               {draggedBooking && dragPreview?.court.id === court.id && (
                 <div
                   className={`admin-schedule-drop-preview ${dragPreview.invalid ? 'invalid' : ''}`}
@@ -770,7 +906,8 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                 )
               })}
             </div>
-          ))}
+            )
+          })}
           </div>
         </div>
         <aside className="admin-schedule-side admin-schedule-side-right">

@@ -586,6 +586,9 @@ a { color: inherit; text-decoration: none; }
 .admin-drag-readout > strong { font-size: 0.625rem; }
 .admin-drag-readout > b { padding: 7px 10px; color: var(--ink); background: white; font-size: 0.625rem; }
 .admin-drag-readout > small { margin-left: auto; opacity: .72; font-size: 0.5rem; }
+.admin-drag-readout.range-create > strong { display: inline-flex; align-items: center; gap: 5px; }
+.admin-drag-readout.range-create.invalid { background: #57544f; }
+.admin-drag-readout.range-create.invalid > b { color: var(--ink-soft); background: #efede7; }
 .admin-schedule-selection { height: 48px; padding: 0 22px; display: flex; align-items: center; gap: 8px; color: var(--ink); background: rgba(199,70,54,.055); font-size: 0.5625rem; }
 .admin-schedule-selection strong { font-size: 0.6875rem; }
 .admin-schedule-selection span { color: var(--ink-soft); }
@@ -615,7 +618,7 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-lane { display: grid; grid-template-rows: repeat(var(--slot-count),var(--slot-height)); }
 .admin-schedule-grid.venue-closed .admin-schedule-lane { background: repeating-linear-gradient(-45deg, rgba(34,36,33,.035) 0 6px, rgba(255,255,255,.12) 6px 12px); }
 .admin-schedule-lane.previewing { background: rgba(199,70,54,.035); }
-.admin-schedule-slot { width: 100%; cursor: crosshair; }
+.admin-schedule-slot { width: 100%; cursor: crosshair; user-select: none; -webkit-user-select: none; touch-action: none; }
 .admin-schedule-slot:hover, .admin-schedule-slot:focus-visible { background: rgba(199,70,54,.08); outline: 0; }
 .admin-schedule-slot.phone-focus:not(:disabled) { background: rgba(199,70,54,.075); }
 .admin-schedule-slot:disabled { cursor: not-allowed; opacity: .32; }
@@ -672,12 +675,16 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-booking.half-hour .admin-booking-indicator { width: 16px; height: 16px; }
 .admin-schedule-booking.half-hour .admin-booking-indicator svg { width: 10px; height: 10px; }
 .admin-resize-handle { position: absolute; right: 1px; bottom: 1px; width: 18px; height: 14px; padding: 0; border: 0; border-right: 3px solid var(--customer-color-ink,rgba(255,255,255,.82)); border-bottom: 3px solid var(--customer-color-ink,rgba(255,255,255,.82)); background: transparent; cursor: ns-resize; }
-.admin-range-preview { position: absolute; z-index: 3; pointer-events: none; top: calc(var(--start) * var(--slot-height) + 1px); left: 4px; right: 4px; height: calc(var(--span) * var(--slot-height) - 2px); min-height: 0; padding: 5px 8px; display: grid; align-content: center; gap: 2px; overflow: hidden; color: var(--red-dark); border: 2px dashed var(--red); background: rgba(255,255,255,.9); }
+.admin-range-preview { position: absolute; z-index: 4; pointer-events: none; top: calc(var(--start) * var(--slot-height) + 1px); left: 4px; right: 4px; height: calc(var(--span) * var(--slot-height) - 2px); min-height: 0; padding: 5px 8px; display: grid; align-content: center; gap: 2px; overflow: hidden; color: var(--red-dark); border: 2px solid var(--red); background: rgba(199,70,54,.1); box-shadow: 0 7px 18px rgba(126,50,40,.11), inset 0 0 0 1px rgba(255,255,255,.52); }
 .admin-range-preview strong { font-size: 0.625rem; }
 .admin-range-preview span { font-size: 0.5rem; }
 .admin-range-preview.compact { padding: 0 8px; display: flex; align-items: center; }
 .admin-range-preview.compact strong { font-size: 0.5625rem; }
 .admin-range-preview.compact span { display: none; }
+.admin-range-preview.multi { left: -1px; right: -1px; border-left-width: 0; border-right-width: 0; border-radius: 0; background: rgba(199,70,54,.13); box-shadow: 0 8px 18px rgba(126,50,40,.1), inset 0 1px 0 rgba(255,255,255,.62), inset 0 -1px 0 rgba(255,255,255,.62); }
+.admin-range-preview.multi.segment-start { left: 4px; border-left-width: 2px; border-radius: 6px 0 0 6px; }
+.admin-range-preview.multi.segment-end { right: 4px; border-right-width: 2px; border-radius: 0 6px 6px 0; }
+.admin-range-preview.invalid { color: #5b5852; border-color: #77736c; background: repeating-linear-gradient(-45deg,rgba(91,88,82,.12) 0 7px,rgba(255,255,255,.66) 7px 14px); box-shadow: none; }
 .admin-undo-bar { min-height: 44px; padding: 7px 18px; display: flex; align-items: center; justify-content: flex-end; gap: 10px; border-bottom: 1px solid var(--line); background: rgba(49,92,63,.07); font-size: 0.5625rem; }
 .admin-undo-bar button { padding: 6px 9px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: rgba(255,255,255,.6); color: var(--ink); cursor: pointer; }
 .admin-undo-bar button:last-child { padding-inline: 7px; }
