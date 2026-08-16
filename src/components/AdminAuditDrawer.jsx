@@ -1,4 +1,5 @@
-import { AlertCircle, CalendarClock, Check, History, LoaderCircle, RotateCcw, ShieldCheck, X } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+import { AlertCircle, CalendarClock, Check, ChevronRight, History, LoaderCircle, RotateCcw, ShieldCheck, X } from 'lucide-react'
 import { COURTS, timeFromDateTime } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
 
@@ -9,6 +10,30 @@ const compactSlot = (snapshot, courtTitle) => {
   const start = timeFromDateTime(snapshot.start_at)
   const end = timeFromDateTime(snapshot.end_at)
   return [date, court ? courtTitle(court) : null, `${start}–${end}`].filter(Boolean).join(' · ')
+}
+
+const compactOperationSlot = (items, courtTitle) => {
+  const snapshots = (items || []).filter((item) => item?.start_at)
+  if (!snapshots.length) return ''
+  const first = snapshots[0]
+  const firstDate = first.start_at.slice(0, 10)
+  const sameDate = snapshots.every((item) => item.start_at.slice(0, 10) === firstDate)
+  const sameTime = snapshots.every((item) => (
+    timeFromDateTime(item.start_at) === timeFromDateTime(first.start_at)
+    && timeFromDateTime(item.end_at) === timeFromDateTime(first.end_at)
+  ))
+  if (!sameDate || !sameTime) return compactSlot(first, courtTitle)
+
+  const courtIds = new Set(snapshots.map((item) => item.court_id))
+  const courts = COURTS.filter((court) => courtIds.has(court.id))
+  const courtLabel = courts.length > 1
+    ? `${courtTitle(courts[0])}–${courtTitle(courts.at(-1))}`
+    : courts[0] ? courtTitle(courts[0]) : null
+  return [
+    firstDate.replaceAll('-', '.'),
+    courtLabel,
+    `${timeFromDateTime(first.start_at)}–${timeFromDateTime(first.end_at)}`,
+  ].filter(Boolean).join(' · ')
 }
 
 const eventNameKey = (eventType) => ({
@@ -34,24 +59,86 @@ const changedFieldKey = (field) => ({
   payment_status: 'admin.audit.fieldPayment',
 }[field])
 
-function AuditOperation({ operation, busy, onRevert }) {
-  const { courtTitle, locale, t } = useI18n()
+const operationDetails = (operation, courtTitle, t) => {
   const before = (operation.before_items || []).find(Boolean)
   const after = (operation.after_items || []).find(Boolean)
-  const customerName = after?.customer_name || before?.customer_name || t('admin.audit.unknownCustomer')
-  const beforeSlot = compactSlot(before, courtTitle)
-  const afterSlot = compactSlot(after, courtTitle)
-  const isReverted = Boolean(operation.reverted_at) || operation.undo_reason === 'already_reverted'
   const changed = (operation.changed_fields || [])
     .map((field) => changedFieldKey(field))
     .filter(Boolean)
     .map((key) => t(key))
-  const happenedAt = new Intl.DateTimeFormat(locale, {
-    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  }).format(new Date(operation.occurred_at))
+  return {
+    before,
+    after,
+    customerName: after?.customer_name || before?.customer_name || t('admin.audit.unknownCustomer'),
+    beforeSlot: compactOperationSlot(operation.before_items, courtTitle),
+    afterSlot: compactOperationSlot(operation.after_items, courtTitle),
+    changed,
+  }
+}
+
+const formatAuditTime = (occurredAt, locale, compact = false) => new Intl.DateTimeFormat(locale, compact
+  ? { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }
+  : { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  .format(new Date(occurredAt))
+
+export function AdminAuditQuickPanel({ operations, loading, onOpen }) {
+  const { courtTitle, locale, t } = useI18n()
+  const recent = (operations || []).slice(0, 5)
 
   return (
-    <article className={`admin-audit-event ${isReverted ? 'reverted' : ''}`}>
+    <section className="admin-audit-quick" aria-label={t('admin.audit.quickAria')}>
+      <header>
+        <span><History size={14} /></span>
+        <div><strong>{t('admin.audit.launchTitle')}</strong><small>{t('admin.audit.launchHelp')}</small></div>
+        <b>{recent.length}</b>
+      </header>
+      <div className="admin-audit-quick-list" aria-live="polite">
+        {loading ? (
+          <div className="admin-audit-quick-empty"><LoaderCircle className="spin" size={16} /><span>{t('admin.audit.loading')}</span></div>
+        ) : recent.length === 0 ? (
+          <div className="admin-audit-quick-empty"><CalendarClock size={17} /><span>{t('admin.audit.empty')}</span></div>
+        ) : recent.map((operation) => {
+          const details = operationDetails(operation, courtTitle, t)
+          const moved = operation.event_type === 'booking.rescheduled' && details.beforeSlot && details.afterSlot
+          return (
+            <button
+              className={`admin-audit-quick-item ${operation.event_type.split('.').at(-1)} ${operation.reverted_at ? 'reverted' : ''}`}
+              type="button"
+              key={operation.operation_id}
+              onClick={() => onOpen(operation.operation_id)}
+              aria-label={t('admin.audit.openOperation', { action: t(eventNameKey(operation.event_type)), name: details.customerName })}
+            >
+              <span className="admin-audit-quick-heading"><strong>{t(eventNameKey(operation.event_type))}</strong><time>{formatAuditTime(operation.occurred_at, locale, true)}</time></span>
+              <b>{details.customerName}</b>
+              {moved ? (
+                <span className="admin-audit-quick-change">
+                  <small><em>{t('admin.audit.from')}</em>{details.beforeSlot}</small>
+                  <small><em>{t('admin.audit.to')}</em>{details.afterSlot}</small>
+                </span>
+              ) : (
+                <small className="admin-audit-quick-slot">{details.afterSlot || details.beforeSlot || details.changed.join(' · ') || t('admin.audit.bookingChanged')}</small>
+              )}
+              <span className="admin-audit-quick-more">
+                <small>{t('admin.audit.operator', { name: operation.actor_email?.split('@')[0] || t('admin.audit.unknownOperator') })}</small>
+                <span>{operation.item_count > 1 ? t('admin.audit.items', { count: operation.item_count }) : t('admin.audit.viewDetails')}<ChevronRight size={12} /></span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      <button className="admin-audit-quick-all" type="button" onClick={() => onOpen(null)}>{t('admin.audit.viewAll')}<ChevronRight size={13} /></button>
+    </section>
+  )
+}
+
+function AuditOperation({ operation, busy, focused, elementRef, onRevert }) {
+  const { courtTitle, locale, t } = useI18n()
+  const { customerName, beforeSlot, afterSlot, changed } = operationDetails(operation, courtTitle, t)
+  const isReverted = Boolean(operation.reverted_at) || operation.undo_reason === 'already_reverted'
+  const happenedAt = formatAuditTime(operation.occurred_at, locale)
+
+  return (
+    <article ref={elementRef} className={`admin-audit-event ${isReverted ? 'reverted' : ''} ${focused ? 'focused' : ''}`}>
       <header>
         <span className="admin-audit-event-icon"><History size={13} /></span>
         <div>
@@ -90,8 +177,16 @@ function AuditOperation({ operation, busy, onRevert }) {
   )
 }
 
-export default function AdminAuditDrawer({ open, operations, loading, revertingId, onClose, onRevert }) {
+export default function AdminAuditDrawer({ open, operations, loading, revertingId, focusOperationId, onClose, onRevert }) {
   const { t } = useI18n()
+  const focusedRef = useRef(null)
+
+  useEffect(() => {
+    if (!open || !focusOperationId) return undefined
+    const frame = window.requestAnimationFrame(() => focusedRef.current?.scrollIntoView({ block: 'nearest' }))
+    return () => window.cancelAnimationFrame(frame)
+  }, [focusOperationId, open, operations])
+
   if (!open) return null
 
   return (
@@ -113,6 +208,8 @@ export default function AdminAuditDrawer({ open, operations, loading, revertingI
               key={operation.operation_id}
               operation={operation}
               busy={revertingId === operation.operation_id}
+              focused={focusOperationId === operation.operation_id}
+              elementRef={focusOperationId === operation.operation_id ? focusedRef : null}
               onRevert={onRevert}
             />
           ))}
