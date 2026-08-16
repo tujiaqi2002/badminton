@@ -48,7 +48,7 @@ const CREAM_PALETTE = [
 ]
 
 // Court-first spectrum inspired by the five elemental pigments in the venue
-// artwork. These are only hue anchors: party size controls the visible depth
+// artwork. These are only hue anchors: party size controls chroma density
 // band, while the stable customer slot creates small variations inside that
 // court's colour family. It therefore scales far beyond five customers without
 // losing the instant "which court is this?" cue.
@@ -79,49 +79,15 @@ const COLOR_CANDIDATES_PER_CUSTOMER = 32
 const COLOR_PROBE_STEP = 1597
 const LIGHT_INK = '#FFF9F1'
 const DARK_INK = '#211D17'
+// Every generated booking card sits on the same perceptual brightness plane.
+// Hue and chroma may vary, but OKLab lightness does not. This avoids yellow or
+// cyan cards appearing much brighter than plum, blue or brown cards.
+const CARD_START_OKLAB_LIGHTNESS = 0.50
+const CARD_END_OKLAB_LIGHTNESS = 0.43
 // Leave a small margin because the final HSL values are rounded to 8-bit hex.
 const MINIMUM_TEXT_CONTRAST = 4.6
 
 export const DEFAULT_BOOKING_COLOR_SCHEME = 'mineral'
-
-export const BOOKING_COLOR_SCHEMES = [
-  {
-    id: COURT_ORIGIN_SCHEME,
-    nameKey: 'settings.bookingColorsCourtOrigins',
-    noteKey: 'settings.bookingColorsCourtOriginsNote',
-    swatches: COURT_ORIGIN_BASES.map(({ hex }) => hex),
-  },
-  {
-    id: 'mineral',
-    nameKey: 'settings.bookingColorsMineral',
-    noteKey: 'settings.bookingColorsMineralNote',
-    swatches: MINERAL_PALETTE.slice(0, 5).map(({ start }) => start),
-  },
-  {
-    id: 'signal',
-    nameKey: 'settings.bookingColorsSignal',
-    noteKey: 'settings.bookingColorsSignalNote',
-    swatches: ['#A85D48', '#C48A5A', '#9A8A57', '#687A61', '#66717A'],
-  },
-  {
-    id: 'teahouse',
-    nameKey: 'settings.bookingColorsTeahouse',
-    noteKey: 'settings.bookingColorsTeahouseNote',
-    swatches: ['#8C4F3D', '#B06F4A', '#A48A56', '#6F7758', '#69586A'],
-  },
-  {
-    id: 'autumn',
-    nameKey: 'settings.bookingColorsAutumn',
-    noteKey: 'settings.bookingColorsAutumnNote',
-    swatches: ['#924A4D', '#B76E50', '#B39A61', '#6F7B5A', '#725D73'],
-  },
-  {
-    id: 'cream',
-    nameKey: 'settings.bookingColorsCream',
-    noteKey: 'settings.bookingColorsCreamNote',
-    swatches: ['#C98268', '#D9A66F', '#B5A06F', '#879075', '#847083'],
-  },
-]
 
 const paletteFor = (scheme) => PALETTES[scheme] || PALETTES[DEFAULT_BOOKING_COLOR_SCHEME]
 
@@ -224,6 +190,102 @@ const rgbToOklab = ({ r, g, b }) => {
   }
 }
 
+const oklabToRgb = ({ l, a, b }) => {
+  const long = (l + 0.3963377774 * a + 0.2158037573 * b) ** 3
+  const medium = (l - 0.1055613458 * a - 0.0638541728 * b) ** 3
+  const short = (l - 0.0894841775 * a - 1.291485548 * b) ** 3
+  const linear = {
+    r: 4.0767416621 * long - 3.3077115913 * medium + 0.2309699292 * short,
+    g: -1.2684380046 * long + 2.6097574011 * medium - 0.3413193965 * short,
+    b: -0.0041960863 * long - 0.7034186147 * medium + 1.707614701 * short,
+  }
+  const encode = (channel) => 255 * (channel <= 0.0031308
+    ? 12.92 * channel
+    : 1.055 * channel ** (1 / 2.4) - 0.055)
+  return { r: encode(linear.r), g: encode(linear.g), b: encode(linear.b) }
+}
+
+const isRgbInGamut = ({ r, g, b }) => [r, g, b].every((channel) => channel >= 0 && channel <= 255)
+
+const rgbAtPerceptualLightness = (rgb, targetLightness) => {
+  const lab = rgbToOklab(rgb)
+  // Preserve hue while gently reducing chroma only when the target lightness
+  // would otherwise put the colour outside the displayable sRGB gamut.
+  for (let chromaScale = 1; chromaScale >= 0; chromaScale -= 0.025) {
+    const candidate = oklabToRgb({
+      l: targetLightness,
+      a: lab.a * chromaScale,
+      b: lab.b * chromaScale,
+    })
+    if (isRgbInGamut(candidate)) return candidate
+  }
+  return oklabToRgb({ l: targetLightness, a: 0, b: 0 })
+}
+
+const uniformCardPair = (startRgb, endRgb) => {
+  const normalizedStart = rgbAtPerceptualLightness(startRgb, CARD_START_OKLAB_LIGHTNESS)
+  const normalizedEnd = rgbAtPerceptualLightness(endRgb, CARD_END_OKLAB_LIGHTNESS)
+  const candidates = [LIGHT_INK, DARK_INK].map((foreground) => {
+    const foregroundRgb = hexToRgb(foreground)
+    return {
+      foreground,
+      minimumContrast: Math.min(
+        contrastRatio(normalizedStart, foregroundRgb),
+        contrastRatio(normalizedEnd, foregroundRgb),
+      ),
+    }
+  })
+  const bestForeground = candidates.sort((left, right) => right.minimumContrast - left.minimumContrast)[0]
+
+  return {
+    startRgb: normalizedStart,
+    endRgb: normalizedEnd,
+    foreground: bestForeground.foreground,
+    minimumContrast: bestForeground.minimumContrast,
+  }
+}
+
+const previewSwatch = (hex) => rgbToHex(rgbAtPerceptualLightness(hexToRgb(hex), CARD_START_OKLAB_LIGHTNESS))
+
+export const BOOKING_COLOR_SCHEMES = [
+  {
+    id: COURT_ORIGIN_SCHEME,
+    nameKey: 'settings.bookingColorsCourtOrigins',
+    noteKey: 'settings.bookingColorsCourtOriginsNote',
+    swatches: COURT_ORIGIN_BASES.map(({ hex }) => previewSwatch(hex)),
+  },
+  {
+    id: 'mineral',
+    nameKey: 'settings.bookingColorsMineral',
+    noteKey: 'settings.bookingColorsMineralNote',
+    swatches: MINERAL_PALETTE.slice(0, 5).map(({ start }) => previewSwatch(start)),
+  },
+  {
+    id: 'signal',
+    nameKey: 'settings.bookingColorsSignal',
+    noteKey: 'settings.bookingColorsSignalNote',
+    swatches: WARM_PALETTE.map(({ start }) => previewSwatch(start)),
+  },
+  {
+    id: 'teahouse',
+    nameKey: 'settings.bookingColorsTeahouse',
+    noteKey: 'settings.bookingColorsTeahouseNote',
+    swatches: TEAHOUSE_PALETTE.map(({ start }) => previewSwatch(start)),
+  },
+  {
+    id: 'autumn',
+    nameKey: 'settings.bookingColorsAutumn',
+    noteKey: 'settings.bookingColorsAutumnNote',
+    swatches: AUTUMN_PALETTE.map(({ start }) => previewSwatch(start)),
+  },
+  {
+    id: 'cream',
+    nameKey: 'settings.bookingColorsCream',
+    noteKey: 'settings.bookingColorsCreamNote',
+    swatches: CREAM_PALETTE.map(({ start }) => previewSwatch(start)),
+  },
+]
+
 const oklabDistance = (left, right) => Math.sqrt(
   ((left.l - right.l) * 1.35) ** 2
   + (left.a - right.a) ** 2
@@ -263,13 +325,14 @@ const generatedColorForSlot = (palette, slot) => {
 
   if (tier === 0) {
     const readable = readableCardPair(hexToRgb(anchor.start), hexToRgb(anchor.end))
+    const uniform = uniformCardPair(readable.startRgb, readable.endRgb)
     return {
       name: anchor.name,
-      start: rgbToHex(readable.startRgb),
-      end: rgbToHex(readable.endRgb),
-      foreground: readable.foreground,
-      textShadow: readable.foreground === LIGHT_INK ? '0 1px 1px rgba(24,25,23,.24)' : '0 1px 1px rgba(255,249,241,.18)',
-      lab: rgbToOklab(readable.startRgb),
+      start: rgbToHex(uniform.startRgb),
+      end: rgbToHex(uniform.endRgb),
+      foreground: uniform.foreground,
+      textShadow: uniform.foreground === LIGHT_INK ? '0 1px 1px rgba(24,25,23,.24)' : '0 1px 1px rgba(255,249,241,.18)',
+      lab: rgbToOklab(uniform.startRgb),
     }
   }
 
@@ -291,14 +354,15 @@ const generatedColorForSlot = (palette, slot) => {
   const startRgb = hslToRgb(startHsl)
   const endRgb = hslToRgb(endHsl)
   const readable = readableCardPair(startRgb, endRgb)
+  const uniform = uniformCardPair(readable.startRgb, readable.endRgb)
 
   return {
     name: `${anchor.name}-${tier}`,
-    start: rgbToHex(readable.startRgb),
-    end: rgbToHex(readable.endRgb),
-    foreground: readable.foreground,
-    textShadow: readable.foreground === LIGHT_INK ? '0 1px 1px rgba(24,25,23,.24)' : '0 1px 1px rgba(255,249,241,.18)',
-    lab: rgbToOklab(readable.startRgb),
+    start: rgbToHex(uniform.startRgb),
+    end: rgbToHex(uniform.endRgb),
+    foreground: uniform.foreground,
+    textShadow: uniform.foreground === LIGHT_INK ? '0 1px 1px rgba(24,25,23,.24)' : '0 1px 1px rgba(255,249,241,.18)',
+    lab: rgbToOklab(uniform.startRgb),
   }
 }
 
@@ -330,23 +394,20 @@ const generatedCourtOriginColor = (booking, slot) => {
   const base = COURT_ORIGIN_BASES[courtIndexForBooking(booking)]
   const baseHsl = rgbToHsl(hexToRgb(base.hex))
   const depth = partyDepthForBooking(booking)
-  // Large, ordered lightness bands make party size readable at a glance.
-  // Low-discrepancy customer offsets then create thousands of stable variants
-  // without allowing neighbouring bands to collapse into one another.
-  const depthShift = [15, 8, 1, -6, -13][depth]
+  // Party size changes chroma rather than lightness, so the optional court
+  // spectrum keeps its extra cue without breaking the shared brightness plane.
+  const depthSaturationShift = [-8, -4, 0, 4, 8][depth]
   const sequence = slot + 1
   // Neutral ink needs a wider chroma window than the coloured families;
   // otherwise many generated HSL values round to the same RGB swatch.
   const hueWindow = base.name === 'ink' ? 16 : 8
   const saturationWindow = base.name === 'ink' ? 14 : 8
-  const lightnessWindow = base.name === 'ink' ? 5.8 : 2.8
   const hueJitter = (radicalInverse(sequence, 2) * 2 - 1) * hueWindow
   const saturationJitter = (radicalInverse(sequence, 3) * 2 - 1) * saturationWindow
-  const lightnessJitter = (radicalInverse(sequence, 5) * 2 - 1) * lightnessWindow
   const startHsl = {
     h: (baseHsl.h + hueJitter + 360) % 360,
-    s: clamp(baseHsl.s + saturationJitter, base.saturation[0], base.saturation[1]),
-    l: clamp(baseHsl.l + depthShift + lightnessJitter, base.lightness[0], base.lightness[1]),
+    s: clamp(baseHsl.s + depthSaturationShift + saturationJitter, base.saturation[0], base.saturation[1]),
+    l: clamp(baseHsl.l, base.lightness[0], base.lightness[1]),
   }
   const endHsl = {
     h: (startHsl.h + (radicalInverse(sequence, 7) * 3 - 1.5) + 360) % 360,
@@ -354,12 +415,13 @@ const generatedCourtOriginColor = (booking, slot) => {
     l: clamp(startHsl.l - 8, base.lightness[0] - 2, base.lightness[1] - 3),
   }
   const readable = readableCardPair(hslToRgb(startHsl), hslToRgb(endHsl))
+  const uniform = uniformCardPair(readable.startRgb, readable.endRgb)
   return {
     name: `${base.name}-people-${depth + 1}-${slot}`,
-    start: rgbToHex(readable.startRgb),
-    end: rgbToHex(readable.endRgb),
-    foreground: readable.foreground,
-    textShadow: readable.foreground === LIGHT_INK
+    start: rgbToHex(uniform.startRgb),
+    end: rgbToHex(uniform.endRgb),
+    foreground: uniform.foreground,
+    textShadow: uniform.foreground === LIGHT_INK
       ? '0 1px 1px rgba(24,25,23,.24)'
       : '0 1px 1px rgba(255,249,241,.18)',
   }
