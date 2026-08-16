@@ -83,7 +83,7 @@ const formatAuditTime = (occurredAt, locale, compact = false) => new Intl.DateTi
 
 export function AdminAuditQuickPanel({ operations, loading, onOpen }) {
   const { courtTitle, locale, t } = useI18n()
-  const recent = (operations || []).slice(0, 5)
+  const recent = (operations || []).slice(0, 10)
 
   return (
     <section className="admin-audit-quick" aria-label={t('admin.audit.quickAria')}>
