@@ -1076,13 +1076,17 @@ export default function App() {
 
   const loginByEmail = async (email) => {
     if (!isSupabaseConfigured) return false
-    if (!['321756623tu@gmail.com', 'zhangk7@gmail.com'].includes(email.trim().toLowerCase())) {
-      notify(t('errors.restrictedLogin'), 'error')
-      return false
-    }
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href.split('#')[0], shouldCreateUser: false } })
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
+      options: { emailRedirectTo: window.location.href.split('#')[0], shouldCreateUser: true },
+    })
     if (error) {
-      notify(t(error.message.toLowerCase().includes('rate limit') ? 'errors.emailRateLimit' : 'errors.auth'), 'error')
+      const message = error.message.toLowerCase()
+      notify(t(message.includes('rate limit')
+        ? 'errors.emailRateLimit'
+        : message.includes('not been invited') || message.includes('approved manager')
+          ? 'errors.restrictedLogin'
+          : 'errors.auth'), 'error')
       return false
     }
     return true
