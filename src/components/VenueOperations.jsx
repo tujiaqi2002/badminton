@@ -18,6 +18,8 @@ import {
   RefreshCw,
   Save,
   Search,
+  ShieldCheck,
+  ShieldOff,
   Trash2,
   UserRoundSearch,
   UserPlus,
@@ -36,7 +38,7 @@ const EVENT_COLORS = ['ink', 'red', 'gold', 'green', 'blue', 'purple']
 const COPY = {
   zh: {
     eyebrow: 'VENUE OPERATIONS', title: '馆务中心', subtitle: '把营业规则、定价、活动、会员与操作记录放在同一处管理。',
-    overview: '总览', hours: '营业时间', pricing: '定价规则', events: '活动与闭馆', members: '会员查询', audit: '操作记录',
+    overview: '总览', hours: '营业时间', pricing: '定价规则', events: '活动与闭馆', members: '会员查询', managers: '管理员管理', audit: '操作记录',
     refresh: '刷新', save: '保存更改', saving: '保存中…', add: '新增', edit: '编辑', close: '关闭', cancel: '取消', delete: '删除',
     todayHours: '今日营业', activePrices: '生效定价', upcomingEvents: '未来活动', activeMembers: '有效会员',
     operationsSummary: '今日运营摘要', quickStart: '快速进入', allVenue: '全馆', court: '指定场地', allDays: '每天', allTiers: '所有会员',
@@ -56,19 +58,24 @@ const COPY = {
     memberNumber: '会员号', memberName: '姓名', contact: '联系方式', tier: '等级', discount: '折扣', joined: '加入日期', expires: '到期日期', statusLabel: '状态', memberNotes: '会员备注', paused: '暂停', expired: '已过期',
     quickMember: '快速添加会员', quickMemberHelp: '只填姓名并选择等级即可建档；电话和邮箱可稍后补充。', createMember: '立即建档', quickContact: '电话或邮箱至少建议填写一项',
     tierSystem: '会员等级体系', tierSystemHelp: '等级统一控制默认折扣、有效期与权益；单个会员仍可设置例外。', addTier: '新增等级', editTier: '编辑等级', tierCode: '等级代码', tierNameZh: '中文等级名', tierNameEn: '英文等级名', validity: '默认有效期', permanent: '长期有效', memberCount: '{{count}} 位会员', tierBenefits: '权益（每行一项）', rank: '排序', tierColor: '标记颜色', useTierDiscount: '使用等级默认折扣', customDiscount: '个人折扣例外', activeTier: '启用等级',
+    managersTitle: '馆长与权限', managersHelp: '邀请可信任的馆长使用预订管理和馆务中心。权限由数据库即时校验，停用后会立即失去馆长操作权限。',
+    inviteManagerTitle: '邀请新馆长', inviteManagerHelp: '添加邮箱后，对方可使用该邮箱通过 Google 或邮件验证码登录。系统只登记权限，不会自动发送邀请邮件。', managerEmail: '馆长邮箱', inviteManager: '添加管理员', managerInvited: '管理员权限已更新',
+    activeManagers: '已启用', pendingManagers: '待首次登录', disabledManagers: '已停用', managerName: '管理员', managerStatus: '权限状态', addedAt: '添加时间', lastSignIn: '最近登录', access: '权限操作', currentAccount: '当前账号',
+    managerActive: '已启用', managerInvitedStatus: '待激活', managerDisabled: '已停用', neverSignedIn: '尚未登录', disableAccess: '停用权限', restoreAccess: '恢复权限', managerSelfProtected: '当前登录账号不能停用自己', managerSafetyTitle: '权限安全', managerSafetyHelp: '管理员名单不会公开给客户。所有邀请、启用和停用都会进入操作记录；系统也会阻止停用当前账号和最后一位管理员。',
+    confirmDisableManager: '停用 {{email}} 的馆长权限？该账号会立即无法管理订单。', managerInvalidEmail: '请输入有效的邮箱地址', managerOwnAccess: '不能停用当前登录账号', managerLastActive: '必须至少保留一位已启用的管理员', managerLimit: '管理员数量已达到上限', noManagers: '暂无管理员记录',
     auditTitle: '操作记录查询', auditHelp: '日志只追加、不修改。可按时间、操作者、模块和对象筛选，查看每次更改前后的完整数据。', searchAudit: '搜索邮箱、操作、对象 ID 或操作编号',
     last7: '最近 7 天', last30: '最近 30 天', actor: '操作者', module: '模块', entity: '对象', all: '全部', manager: '馆长', user: '用户', system: '系统',
     operation: '操作', occurred: '发生时间', changed: '更改字段', source: '来源', details: '查看详情', before: '更改前', after: '更改后', metadata: '元数据', operationId: '操作编号',
     page: '第 {{page}} 页', previous: '上一页', next: '下一页', max50: '每页最多 50 条', total: '共 {{count}} 条',
     empty: '暂无符合条件的记录', loading: '正在读取馆务数据', loadError: '馆务中心加载失败，请重试。', saveError: '保存失败，请检查填写内容。', saved: '馆务设置已保存', customerDurationInvalid: '客户最短预订不能超过客户最长预订',
     confirmDeletePrice: '删除这条定价规则？历史订单价格不会改变。', confirmCancelEvent: '取消这项活动？', conflictConfirm: '这个安排与已有订单冲突。仍然保存，并保留这些订单吗？',
-    eventPrefixAll: '全部模块', booking: '预订', venue_settings: '基础设置', opening_hours: '营业时间', pricing_rule: '定价', venue_event: '活动', event_court: '活动场地', member: '会员', member_tier: '会员等级',
+    eventPrefixAll: '全部模块', booking: '预订', venue_settings: '基础设置', opening_hours: '营业时间', pricing_rule: '定价', venue_event: '活动', event_court: '活动场地', member: '会员', member_tier: '会员等级', manager_account: '管理员账号',
     updatedAt: '最后更新', noEvents: '未来没有特别活动', noMembers: '尚未建立会员资料', unsaved: '有尚未保存的更改',
     mon: '周一', tue: '周二', wed: '周三', thu: '周四', fri: '周五', sat: '周六', sun: '周日',
   },
   en: {
     eyebrow: 'VENUE OPERATIONS', title: 'Operations Center', subtitle: 'Manage hours, pricing, events, members and the audit trail in one place.',
-    overview: 'Overview', hours: 'Opening hours', pricing: 'Pricing', events: 'Events & closures', members: 'Members', audit: 'Audit log',
+    overview: 'Overview', hours: 'Opening hours', pricing: 'Pricing', events: 'Events & closures', members: 'Members', managers: 'Managers', audit: 'Audit log',
     refresh: 'Refresh', save: 'Save changes', saving: 'Saving…', add: 'Add', edit: 'Edit', close: 'Close', cancel: 'Cancel', delete: 'Delete',
     todayHours: 'Today’s hours', activePrices: 'Active rates', upcomingEvents: 'Upcoming events', activeMembers: 'Active members',
     operationsSummary: 'Today at a glance', quickStart: 'Quick access', allVenue: 'Entire venue', court: 'Specific court', allDays: 'Every day', allTiers: 'All members',
@@ -88,13 +95,18 @@ const COPY = {
     memberNumber: 'Member no.', memberName: 'Name', contact: 'Contact', tier: 'Tier', discount: 'Discount', joined: 'Joined', expires: 'Expires', statusLabel: 'Status', memberNotes: 'Member notes', paused: 'Paused', expired: 'Expired',
     quickMember: 'Quick member add', quickMemberHelp: 'A name and tier are enough to create the profile; contact details can be completed later.', createMember: 'Create member', quickContact: 'A phone number or email is recommended',
     tierSystem: 'Membership tiers', tierSystemHelp: 'Tiers define the default discount, validity and benefits while allowing per-member exceptions.', addTier: 'Add tier', editTier: 'Edit tier', tierCode: 'Tier code', tierNameZh: 'Chinese tier name', tierNameEn: 'English tier name', validity: 'Default validity', permanent: 'No expiry', memberCount: '{{count}} members', tierBenefits: 'Benefits (one per line)', rank: 'Order', tierColor: 'Marker colour', useTierDiscount: 'Use tier discount', customDiscount: 'Member discount override', activeTier: 'Active tier',
+    managersTitle: 'Managers and access', managersHelp: 'Invite trusted managers to booking administration and the Operations Center. Access is checked by the database and is removed immediately when disabled.',
+    inviteManagerTitle: 'Invite a manager', inviteManagerHelp: 'After adding an email, that person can sign in with Google or an email code. This records access but does not send an invitation email.', managerEmail: 'Manager email', inviteManager: 'Add manager', managerInvited: 'Manager access updated',
+    activeManagers: 'Active', pendingManagers: 'Pending first sign-in', disabledManagers: 'Disabled', managerName: 'Manager', managerStatus: 'Access status', addedAt: 'Added', lastSignIn: 'Last sign-in', access: 'Access', currentAccount: 'Current account',
+    managerActive: 'Active', managerInvitedStatus: 'Pending', managerDisabled: 'Disabled', neverSignedIn: 'Never signed in', disableAccess: 'Disable access', restoreAccess: 'Restore access', managerSelfProtected: 'You cannot disable the account you are using', managerSafetyTitle: 'Access safety', managerSafetyHelp: 'The manager directory is never exposed to customers. Invites, enables and disables are added to the audit log, and the current or last active manager cannot be disabled.',
+    confirmDisableManager: 'Disable manager access for {{email}}? This account will immediately lose booking administration access.', managerInvalidEmail: 'Enter a valid email address', managerOwnAccess: 'You cannot disable your current account', managerLastActive: 'At least one active manager is required', managerLimit: 'The manager limit has been reached', noManagers: 'No manager records',
     auditTitle: 'Audit log query', auditHelp: 'The ledger is append-only. Filter by time, actor, module and entity, then inspect complete before/after data.', searchAudit: 'Search email, action, entity ID or operation ID',
     last7: 'Last 7 days', last30: 'Last 30 days', actor: 'Actor', module: 'Module', entity: 'Entity', all: 'All', manager: 'Manager', user: 'User', system: 'System',
     operation: 'Action', occurred: 'Occurred', changed: 'Changed fields', source: 'Source', details: 'Details', before: 'Before', after: 'After', metadata: 'Metadata', operationId: 'Operation ID',
     page: 'Page {{page}}', previous: 'Previous', next: 'Next', max50: 'Up to 50 per page', total: '{{count}} total',
     empty: 'No matching records', loading: 'Loading venue operations', loadError: 'Could not load the Operations Center.', saveError: 'Could not save. Check the entered values.', saved: 'Venue operations updated', customerDurationInvalid: 'Customer minimum cannot exceed the customer maximum.',
     confirmDeletePrice: 'Delete this pricing rule? Historical booking prices will not change.', confirmCancelEvent: 'Cancel this event?', conflictConfirm: 'This event conflicts with active bookings. Save it and keep those bookings?',
-    eventPrefixAll: 'All modules', booking: 'Bookings', venue_settings: 'Venue settings', opening_hours: 'Opening hours', pricing_rule: 'Pricing', venue_event: 'Events', event_court: 'Event courts', member: 'Members', member_tier: 'Member tiers',
+    eventPrefixAll: 'All modules', booking: 'Bookings', venue_settings: 'Venue settings', opening_hours: 'Opening hours', pricing_rule: 'Pricing', venue_event: 'Events', event_court: 'Event courts', member: 'Members', member_tier: 'Member tiers', manager_account: 'Manager accounts',
     updatedAt: 'Last updated', noEvents: 'No upcoming special events', noMembers: 'No member records yet', unsaved: 'Unsaved changes',
     mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
   },
@@ -265,6 +277,9 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded, initi
   const [memberFilters, setMemberFilters] = useState({ query: '', status: 'all', tier: 'all' })
   const [memberCursorStack, setMemberCursorStack] = useState([null])
   const [memberPage, setMemberPage] = useState(1)
+  const [managers, setManagers] = useState({ items: [], total: 0, active_count: 0, invited_count: 0, disabled_count: 0 })
+  const [managerEmail, setManagerEmail] = useState('')
+  const [managerLoading, setManagerLoading] = useState(false)
   const [audit, setAudit] = useState({ items: [], total: 0, has_more: false, next_cursor: null, event_prefixes: [], entity_types: [] })
   const [auditFilters, setAuditFilters] = useState(() => ({
     start: dateInput(new Date(Date.now() - 29 * 24 * 60 * 60_000)), end: dateInput(), query: '', eventPrefix: 'all', entityType: 'all', actorKind: 'all',
@@ -324,6 +339,15 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded, initi
     setAuditPage(page)
   }, [auditFilters, c.loadError, notify])
 
+  const loadManagers = useCallback(async () => {
+    if (!isSupabaseConfigured) return
+    setManagerLoading(true)
+    const { data: result, error: requestError } = await supabase.rpc('admin_list_manager_accounts')
+    setManagerLoading(false)
+    if (requestError) { notify(c.loadError, 'error'); return }
+    setManagers(result || { items: [], total: 0, active_count: 0, invited_count: 0, disabled_count: 0 })
+  }, [c.loadError, notify])
+
   useEffect(() => { loadOverview() }, [loadOverview])
   useEffect(() => {
     if (tab !== 'members') return
@@ -335,6 +359,9 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded, initi
     const timeout = window.setTimeout(() => { setAuditCursorStack([null]); queryAudit(null, 1) }, 220)
     return () => window.clearTimeout(timeout)
   }, [auditFilters, queryAudit, tab])
+  useEffect(() => {
+    if (tab === 'managers') loadManagers()
+  }, [loadManagers, tab])
 
   const mutate = async (rpc, payload, after) => {
     setBusy(true)
@@ -422,6 +449,35 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded, initi
     if (!response.error) setTierForm(null)
   }
 
+  const managerError = (message = '') => {
+    if (message.includes('valid email')) return c.managerInvalidEmail
+    if (message.includes('own manager')) return c.managerOwnAccess
+    if (message.includes('At least one')) return c.managerLastActive
+    if (message.includes('limit reached')) return c.managerLimit
+    return message || c.saveError
+  }
+  const inviteManager = async (event) => {
+    event.preventDefault()
+    setBusy(true)
+    const { data: result, error: requestError } = await supabase.rpc('admin_invite_manager', { p_email: managerEmail })
+    setBusy(false)
+    if (requestError) { notify(managerError(requestError.message), 'error'); return }
+    setManagers(result)
+    setManagerEmail('')
+    notify(c.managerInvited)
+  }
+  const setManagerAccess = async (manager, enabled) => {
+    if (!enabled && !window.confirm(c.confirmDisableManager.replace('{{email}}', manager.email))) return
+    setBusy(true)
+    const { data: result, error: requestError } = await supabase.rpc('admin_set_manager_status', {
+      p_manager_id: manager.id, p_enabled: enabled,
+    })
+    setBusy(false)
+    if (requestError) { notify(managerError(requestError.message), 'error'); return }
+    setManagers(result)
+    notify(c.managerInvited)
+  }
+
   const todayDow = new Date(`${venueNow().dateKey}T12:00:00`).getDay()
   const todayHours = data?.hours?.find((item) => item.day_of_week === todayDow)
   const upcoming = (data?.events || []).filter((item) => item.status === 'scheduled' && item.ends_at?.slice(0, 19) >= venueNow().dateTime)
@@ -440,6 +496,9 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded, initi
   const courtLabel = (courtId) => courtId ? (COURTS.find((court) => court.id === courtId)?.[language === 'zh' ? 'name' : 'english'] || c.court) : c.allVenue
   const tierLabel = (tier) => language === 'zh' ? tier.name_zh : tier.name_en
   const selectedMemberTier = (code) => memberTiers.find((tier) => tier.code === code)
+  const managerStatusLabel = (status) => status === 'active'
+    ? c.managerActive
+    : status === 'invited' ? c.managerInvitedStatus : c.managerDisabled
   const togglePricingDay = (day) => setPricingForm((current) => {
     const selected = pricingDays(current)
     if (selected === null) return { ...current, days_of_week: [day], day_of_week: day }
@@ -450,7 +509,7 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded, initi
 
   const tabs = [
     ['overview', <Activity size={16} />, c.overview], ['hours', <Clock3 size={16} />, c.hours], ['pricing', <BadgeDollarSign size={16} />, c.pricing],
-    ['events', <CalendarClock size={16} />, c.events], ['members', <UsersRound size={16} />, c.members], ['audit', <FileClock size={16} />, c.audit],
+    ['events', <CalendarClock size={16} />, c.events], ['members', <UsersRound size={16} />, c.members], ['managers', <ShieldCheck size={16} />, c.managers], ['audit', <FileClock size={16} />, c.audit],
   ]
 
   if (loading && !data) return <main className="operations-page"><div className="operations-loading"><LoaderCircle className="spin" /><span>{c.loading}</span></div></main>
@@ -583,6 +642,39 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded, initi
       <div className="operations-pagination"><span>{c.total.replace('{{count}}', members.total || 0)} · {c.max50}</span><div><button disabled={memberPage === 1} onClick={() => { const page = memberPage - 1; queryMembers(memberCursorStack[page - 1], page) }}><ChevronLeft />{c.previous}</button><b>{c.page.replace('{{page}}', memberPage)}</b><button disabled={!members.has_more} onClick={() => { const next = members.next_cursor; setMemberCursorStack((stack) => [...stack.slice(0, memberPage), next]); queryMembers(next, memberPage + 1) }}>{c.next}<ChevronRight /></button></div></div>
     </section>}
 
+    {tab === 'managers' && <section className="operations-panel manager-access-panel">
+      <PanelHeader eyebrow={c.managers} title={c.managersTitle} help={c.managersHelp} action={<button className="operations-secondary" type="button" onClick={loadManagers} disabled={managerLoading}><RefreshCw size={14} className={managerLoading ? 'spin' : ''} />{c.refresh}</button>} />
+      <div className="manager-access-metrics">
+        <article><span className="active"><ShieldCheck size={17} /></span><div><small>{c.activeManagers}</small><strong>{managers.active_count || 0}</strong></div></article>
+        <article><span className="invited"><UserPlus size={17} /></span><div><small>{c.pendingManagers}</small><strong>{managers.invited_count || 0}</strong></div></article>
+        <article><span className="disabled"><ShieldOff size={17} /></span><div><small>{c.disabledManagers}</small><strong>{managers.disabled_count || 0}</strong></div></article>
+      </div>
+      <div className="manager-access-command">
+        <form className="manager-invite-card" onSubmit={inviteManager}>
+          <span className="manager-command-icon"><UserPlus size={18} /></span>
+          <div><h3>{c.inviteManagerTitle}</h3><p>{c.inviteManagerHelp}</p></div>
+          <label><span>{c.managerEmail}</span><input type="email" required autoComplete="email" value={managerEmail} onChange={(event) => setManagerEmail(event.target.value)} placeholder="name@example.com" /></label>
+          <button className="operations-primary" disabled={busy || !managerEmail.trim()}><Plus size={14} />{busy ? c.saving : c.inviteManager}</button>
+        </form>
+        <article className="manager-safety-card">
+          <span><ShieldCheck size={18} /></span><div><h3>{c.managerSafetyTitle}</h3><p>{c.managerSafetyHelp}</p></div>
+        </article>
+      </div>
+      <div className="operations-table-wrap manager-table-wrap"><table className="operations-table manager-table"><thead><tr><th>{c.managerName}</th><th>{c.managerStatus}</th><th>{c.addedAt}</th><th>{c.lastSignIn}</th><th>{c.access}</th></tr></thead><tbody>
+        {(managers.items || []).map((manager) => <tr key={manager.id} className={manager.status === 'disabled' ? 'muted' : ''}>
+          <td><div className="manager-identity"><span>{manager.display_name?.trim()?.slice(0, 1)?.toUpperCase() || manager.email.slice(0, 1).toUpperCase()}</span><div><strong>{manager.display_name}</strong><small>{manager.email}</small></div>{manager.is_current && <em>{c.currentAccount}</em>}</div></td>
+          <td><span className={`status-chip manager-${manager.status}`}>{managerStatusLabel(manager.status)}</span></td>
+          <td>{formatDateTime(manager.created_at)}</td>
+          <td>{manager.last_sign_in_at ? formatDateTime(manager.last_sign_in_at) : c.neverSignedIn}</td>
+          <td>{manager.is_current
+            ? <small className="manager-self-note">{c.managerSelfProtected}</small>
+            : <button type="button" className={`manager-access-action ${manager.status === 'disabled' ? 'restore' : 'disable'}`} disabled={busy} onClick={() => setManagerAccess(manager, manager.status === 'disabled')}>{manager.status === 'disabled' ? <ShieldCheck size={14} /> : <ShieldOff size={14} />}{manager.status === 'disabled' ? c.restoreAccess : c.disableAccess}</button>}
+          </td>
+        </tr>)}
+      </tbody></table></div>
+      {!managerLoading && !managers.items?.length && <div className="operations-empty"><ShieldCheck /><span>{c.noManagers}</span></div>}
+    </section>}
+
     {tab === 'audit' && <section className="operations-panel audit-panel">
       <PanelHeader eyebrow={c.audit} title={c.auditTitle} help={c.auditHelp} />
       <div className="audit-presets"><button onClick={() => setAuditFilters({ ...auditFilters, start: dateInput(new Date(Date.now() - 6 * 24 * 60 * 60_000)), end: dateInput() })}>{c.last7}</button><button onClick={() => setAuditFilters({ ...auditFilters, start: dateInput(new Date(Date.now() - 29 * 24 * 60 * 60_000)), end: dateInput() })}>{c.last30}</button></div>
@@ -590,7 +682,7 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded, initi
         <label><span>{c.from}</span><input type="date" value={auditFilters.start} max={auditFilters.end} onChange={(e) => setAuditFilters({ ...auditFilters, start: e.target.value })} /></label>
         <label><span>{c.to}</span><input type="date" value={auditFilters.end} min={auditFilters.start} onChange={(e) => setAuditFilters({ ...auditFilters, end: e.target.value })} /></label>
         <label className="query-search"><Search size={15} /><input value={auditFilters.query} onChange={(e) => setAuditFilters({ ...auditFilters, query: e.target.value })} placeholder={c.searchAudit} /></label>
-        <label><span>{c.module}</span><select value={auditFilters.eventPrefix} onChange={(e) => setAuditFilters({ ...auditFilters, eventPrefix: e.target.value })}><option value="all">{c.eventPrefixAll}</option>{['booking', 'venue_settings', 'opening_hours', 'pricing_rule', 'venue_event', 'event_court', 'member', 'member_tier'].map((prefix) => <option key={prefix} value={prefix}>{c[prefix] || prefix}</option>)}</select></label>
+        <label><span>{c.module}</span><select value={auditFilters.eventPrefix} onChange={(e) => setAuditFilters({ ...auditFilters, eventPrefix: e.target.value })}><option value="all">{c.eventPrefixAll}</option>{['booking', 'venue_settings', 'opening_hours', 'pricing_rule', 'venue_event', 'event_court', 'member', 'member_tier', 'manager'].map((prefix) => <option key={prefix} value={prefix}>{prefix === 'manager' ? c.manager_account : (c[prefix] || prefix)}</option>)}</select></label>
         <label><span>{c.actor}</span><select value={auditFilters.actorKind} onChange={(e) => setAuditFilters({ ...auditFilters, actorKind: e.target.value })}><option value="all">{c.all}</option><option value="manager">{c.manager}</option><option value="user">{c.user}</option><option value="system">{c.system}</option></select></label>
       </div>
       <div className="audit-list-table">
