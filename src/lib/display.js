@@ -1,10 +1,9 @@
 import { createContext, useContext } from 'react'
 
-export const DISPLAY_SIZES = [
-  { id: 'small', labelKey: 'settings.fontSmall', preview: 'A' },
-  { id: 'standard', labelKey: 'settings.fontStandard', preview: 'A' },
-  { id: 'large', labelKey: 'settings.fontLarge', preview: 'A' },
-]
+export const FONT_SCALE_MIN = 90
+export const FONT_SCALE_MAX = 140
+export const FONT_SCALE_STEP = 2
+export const FONT_SCALE_DEFAULT = 100
 
 export const DisplayContext = createContext(null)
 
