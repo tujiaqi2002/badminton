@@ -5,9 +5,10 @@ import DisplaySettings from './DisplaySettings'
 export default function Header({ user, isAdmin, view, onViewChange, onAuth, onSignOut }) {
   const { t } = useI18n()
   const guest = t('account.guest')
+  const usesWideWorkspace = isAdmin && (view === 'admin' || view === 'capacity')
 
   return (
-    <header className="site-header">
+    <header className={`site-header${usesWideWorkspace ? ' admin-workspace' : ''}`}>
       <button className="brand" onClick={() => onViewChange('book')} aria-label={t('nav.home')}>
         <span className="brand-mark" aria-hidden="true">虎</span>
         <span><strong>TIGER</strong><small>{t('brand.subtitle')}</small></span>

@@ -34,6 +34,7 @@ a { color: inherit; text-decoration: none; }
   -webkit-backdrop-filter: saturate(155%) blur(20px);
   backdrop-filter: saturate(155%) blur(20px);
 }
+.site-header.admin-workspace { padding-inline: max(28px, calc((100vw - 2240px) / 2 + 42px)); }
 .brand { display: flex; align-items: center; gap: 11px; border: 0; background: none; cursor: pointer; padding: 0; }
 .brand-mark {
   width: 38px; height: 38px; display: grid; place-items: center; color: var(--paper-light);
@@ -366,7 +367,7 @@ a { color: inherit; text-decoration: none; }
 .empty-page p { margin-bottom: 25px; }
 .empty-ink { color: rgba(34,36,33,.08); font: 8.75rem/1 "Songti SC", serif; margin-bottom: -52px; }
 
-.admin-bookings-page { max-width: 1280px; min-height: calc(100vh - 150px); margin: 0 auto; padding: 10px 42px 120px; }
+.admin-bookings-page { width: 100%; max-width: 2240px; min-height: calc(100vh - 150px); margin: 0 auto; padding: 10px clamp(28px,2vw,48px) 120px; }
 .admin-capacity-page { padding-top: 42px; }
 .admin-capacity-page .capacity-monitor { margin-top: 0; }
 .admin-summary { margin: 16px 0 18px; display: grid; grid-template-columns: repeat(4, 1fr); border-block: 1px solid var(--line); }
@@ -464,7 +465,7 @@ a { color: inherit; text-decoration: none; }
 .admin-cancel-booking { color: var(--red-dark); }
 .admin-cancel-booking:hover { color: var(--red); }
 .admin-booking-actions button:disabled { opacity: .45; cursor: wait; }
-.admin-schedule-editor { --inspector-width: 210px; --cancel-width: 205px; margin: 0 0 55px; display: grid; grid-template-columns: var(--inspector-width) minmax(0,1fr) var(--cancel-width); border: 1px solid var(--line); background: rgba(255,255,255,.28); box-shadow: 0 22px 58px rgba(40,38,32,.06); }
+.admin-schedule-editor { --inspector-width: clamp(210px,11vw,250px); --cancel-width: clamp(205px,12vw,280px); margin: 0 0 55px; display: grid; grid-template-columns: var(--inspector-width) minmax(0,1fr) var(--cancel-width); border: 1px solid var(--line); background: rgba(255,255,255,.28); box-shadow: 0 22px 58px rgba(40,38,32,.06); }
 .admin-schedule-editor > header { grid-column: 1/-1; grid-row: 1; min-height: 128px; padding: 25px 28px; display: flex; justify-content: space-between; align-items: center; gap: 25px; border-bottom: 1px solid var(--line); }
 .admin-schedule-editor h2 { margin: 8px 0 7px; font: 2rem/1.1 "Songti SC", serif; }
 .admin-schedule-editor header p { max-width: 590px; margin: 0; color: var(--ink-soft); font-size: 0.625rem; line-height: 1.7; }
