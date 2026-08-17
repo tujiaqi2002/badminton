@@ -288,6 +288,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const venueClosed = Boolean(configuration?.opening_hours?.is_closed)
   const minimumBookingDuration = Math.ceil(30 / slotMinutes) * slotMinutes
   const currency = configuration?.settings?.currency || 'CAD'
+  const historyLocked = configuration?.settings?.lock_historical_bookings !== false
   const timeSlots = useMemo(() => Array.from({ length: Math.max(0, Math.floor((closeMinutes - openMinutes) / slotMinutes)) }, (_, index) => timeFromMinutes(openMinutes + index * slotMinutes)), [closeMinutes, openMinutes, slotMinutes])
 
   useEffect(() => {
@@ -381,6 +382,11 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
     : 0
   const groupPrice = activeGroup.reduce((sum, booking) => sum + Number(booking.total_amount || 0), 0)
   const nowAtVenue = venueNow(now)
+  const historicalDragCanUsePastDates = Boolean(
+    draggedBooking
+    && !historyLocked
+    && bookingPhaseAtVenue(draggedBooking, nowAtVenue) !== 'future',
+  )
   const currentLineOffset = dateKey === nowAtVenue.dateKey && nowAtVenue.minutes >= openMinutes && nowAtVenue.minutes <= closeMinutes
     ? (nowAtVenue.minutes - openMinutes) / slotMinutes
     : null
@@ -541,7 +547,8 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
         duration,
       })
       const nextTarget = { court, index, time: timeFromMinutes(startMinutes), endTime: timeFromMinutes(startMinutes + duration), span: duration / slotMinutes, swap }
-      if (isPastSlot(dateKey, nextTarget.time, now)) {
+      const movingHistoricalBooking = bookingPhaseAtVenue(pointerDrag.booking, venueNow(now)) !== 'future'
+      if (isPastSlot(dateKey, nextTarget.time, now) && (historyLocked || !movingHistoricalBooking)) {
         pointerTarget.current = { type: 'invalid' }
         setDragPreview({ ...nextTarget, invalid: true, invalidReason: 'past' })
         return
@@ -606,7 +613,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
     }
-  }, [bookings, closeMinutes, dateKey, now, onCancel, onDateChange, onReschedule, onRescheduleGroup, onSwap, openMinutes, pointerDrag, slotMinutes, timeSlots.length])
+  }, [bookings, closeMinutes, dateKey, historyLocked, now, onCancel, onDateChange, onReschedule, onRescheduleGroup, onSwap, openMinutes, pointerDrag, slotMinutes, timeSlots.length])
 
   const chooseSlot = useCallback((court, time) => {
     const startMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3))
@@ -828,7 +835,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
             {quickDays.map((day) => (
               <button
                 className={`${dateKey === day.key ? 'active' : ''} ${day.key < nowAtVenue.dateKey ? 'past' : ''} ${dragDay === day.key ? 'drop-target' : ''}`}
-                data-transfer-date={day.key >= nowAtVenue.dateKey ? day.key : undefined}
+                data-transfer-date={day.key >= nowAtVenue.dateKey || historicalDragCanUsePastDates ? day.key : undefined}
                 key={day.key}
                 onClick={() => chooseTransferDay(day.key)}
               >
@@ -948,12 +955,13 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                 const resizeGroupKey = resizeDrag ? (resizeDrag.booking.booking_group_id || resizeDrag.booking.id) : null
                 const minutes = resizeGroupKey === bookingGroupKey ? resizeDrag.duration : durationMinutes(booking)
                 const bookingPhase = bookingPhaseAtVenue(booking, nowAtVenue)
-                const canMove = bookingPhase === 'future'
+                const historicalEditable = !historyLocked && bookingPhase !== 'future'
+                const canMove = bookingPhase === 'future' || historicalEditable
                 const nowSeconds = Number(nowAtVenue.dateTime.slice(17, 19))
                 const minimumEndMinutes = Math.ceil((nowAtVenue.minutes + (nowSeconds > 0 ? 1 / 60 : 0)) / slotMinutes) * slotMinutes
-                const minimumResizeDuration = bookingPhase === 'in-progress' ? Math.max(minimumBookingDuration, minimumEndMinutes - startMinutes) : minimumBookingDuration
+                const minimumResizeDuration = bookingPhase === 'in-progress' && !historicalEditable ? Math.max(minimumBookingDuration, minimumEndMinutes - startMinutes) : minimumBookingDuration
                 const maximumResizeDuration = Math.min(managerMaxMinutes, closeMinutes - startMinutes)
-                const canResize = bookingPhase !== 'ended' && minimumResizeDuration <= maximumResizeDuration
+                const canResize = (bookingPhase !== 'ended' || historicalEditable) && minimumResizeDuration <= maximumResizeDuration
                 const linkedGroupCount = booking.booking_link_id ? new Set(dayBookings.filter((item) => item.booking_link_id === booking.booking_link_id).map((item) => item.booking_group_id || item.id)).size : 0
                 const hasLinkedRelationship = groupSize > 1 || linkedGroupCount > 1
                 const indicatorCount = Number(hasLinkedRelationship) + Number(Boolean(booking.recurrence_series_id))

@@ -281,6 +281,7 @@ a { color: inherit; text-decoration: none; }
 .drawer-subtitle, .auth-modal > p { color: var(--ink-soft); line-height: 1.7; font-size: 0.75rem; margin: 0; }
 .booking-summary-card { display: grid; grid-template-columns: 70px 1fr 1fr; align-items: center; gap: 14px; padding: 20px 0; margin: 24px 0 6px; border-block: 1px solid var(--line); }
 .summary-seal { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%; background: var(--ink); color: white; font: 1.625rem/1 "Songti SC", serif; }
+.summary-seal.empty { color: var(--ink-soft); border: 1px dashed rgba(34,36,33,.25); background: rgba(34,36,33,.055); }
 .booking-summary-card > div:not(:first-child) { display: flex; flex-direction: column; gap: 6px; }
 .booking-summary-card small, .drawer-field small { color: var(--ink-soft); font-size: 0.5625rem; }
 .booking-summary-card strong { font-size: 0.75rem; }
@@ -733,6 +734,7 @@ a { color: inherit; text-decoration: none; }
 .court-multi-picker button.selected { color: white; border-color: var(--ink); background: var(--ink); }
 .court-multi-picker button svg { position: absolute; top: 4px; right: 4px; }
 .court-multi-picker small, .drawer-help { color: inherit; opacity: .72; font-size: 0.5rem; }
+.drawer-court-required { margin: 8px 0 0; padding: 8px 10px; color: var(--red-dark); border-left: 3px solid var(--red); background: rgba(199,70,54,.07); font-size: .53125rem; line-height: 1.45; }
 .admin-court-picker { display: grid; gap: 7px; }
 .admin-create-modal { position: relative; width: min(520px,calc(100vw - 28px)); max-height: calc(100vh - 24px); padding: 34px; overflow-y: auto; background: var(--paper-light); border: 1px solid var(--line); box-shadow: var(--shadow); animation: modalIn .22s ease; }
 .admin-create-modal h2 { margin: 9px 0 8px; font: 1.9375rem/1.1 "Songti SC",serif; }
@@ -1438,6 +1440,14 @@ html[data-theme="inkplay"] .mobile-bottom-nav { background: rgba(239,227,204,.96
 .operations-form-grid input:focus, .operations-form-grid select:focus, .operations-form-grid textarea:focus, .hours-editor input:focus, .hours-editor select:focus { border-color: var(--ink); box-shadow: 0 0 0 2px rgba(34,36,33,.05); }
 .operations-form-grid textarea { resize: vertical; }
 .operations-form-grid .full { grid-column: 1/-1; }
+.operations-history-lock { margin-top: 17px; padding: 14px 15px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border: 1px solid var(--line); background: rgba(34,36,33,.035); cursor: pointer; }
+.operations-history-lock.editable { border-color: rgba(171,111,32,.28); background: rgba(171,111,32,.055); }
+.operations-history-lock-copy { min-width: 0; display: grid; gap: 4px; }
+.operations-history-lock-copy strong { font: .875rem/1.15 "Songti SC",serif; }
+.operations-history-lock-copy b { color: var(--ink); font-size: .53125rem; }
+.operations-history-lock.editable .operations-history-lock-copy b { color: #8a581c; }
+.operations-history-lock-copy small { max-width: 610px; color: var(--ink-soft); font-size: .5rem; line-height: 1.55; }
+.operations-history-lock .switch-field { flex: 0 0 36px; }
 .pricing-weekday-field { min-width: 0; margin: 0; padding: 0; display: grid; gap: 6px; border: 0; }
 .pricing-weekday-field legend { padding: 0; }
 .pricing-weekday-options { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border: 1px solid var(--line); background: rgba(255,255,255,.4); }

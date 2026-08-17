@@ -78,8 +78,9 @@ const rescheduleErrorMessage = (message = '', t) => {
   return t('errors.adminReschedule')
 }
 
-const validateActiveBookingChange = (booking, startAt, endAt, courtId, t) => {
+const validateActiveBookingChange = (booking, startAt, endAt, courtId, t, historyLocked = true) => {
   const current = venueNow()
+  if (!historyLocked && booking.start_at <= current.dateTime) return null
   if (booking.end_at <= current.dateTime) return t('errors.endedBooking')
   if (booking.start_at > current.dateTime) return null
   if (startAt !== booking.start_at || courtId !== booking.court_id) return t('errors.inProgressMove')
@@ -533,6 +534,11 @@ export default function App() {
       setShowAuth(true)
       return
     }
+    const selectedCourts = (details.courts || [details.court]).filter(Boolean)
+    if (!selectedCourts.length) {
+      notify(t('drawer.courtRequiredHelp'), 'error')
+      return
+    }
     if (selectionInvalid) {
       notify(t(selectionPast ? 'errors.pastTime' : selectionOutsideHours ? 'errors.outsideHours' : 'errors.overlap'), 'error')
       return
@@ -548,7 +554,6 @@ export default function App() {
 
     if (!isSupabaseConfigured) {
       const groupId = `local-group-${Date.now()}`
-      const selectedCourts = details.courts || [details.court]
       const created = selectedCourts.map((court, index) => ({
         id: `local-${Date.now()}-${index}`, booking_group_id: groupId,
         court_id: court.id,
@@ -571,7 +576,7 @@ export default function App() {
     }
 
     const { data, error } = await supabase.rpc('create_multi_booking', {
-      p_court_ids: (details.courts || [details.court]).map((court) => court.id),
+      p_court_ids: selectedCourts.map((court) => court.id),
       p_start_at: startAt,
       p_end_at: endAt,
       p_customer_phone: details.phone,
@@ -792,7 +797,8 @@ export default function App() {
   const adminRescheduleBooking = async (booking, court, time, duration, targetDate) => {
     const startAt = slotDateTime(targetDate, time)
     const endAt = addMinutes(startAt, duration)
-    const activeChangeError = validateActiveBookingChange(booking, startAt, endAt, court.id, t)
+    const historyLocked = adminScheduleConfiguration?.settings?.lock_historical_bookings !== false
+    const activeChangeError = validateActiveBookingChange(booking, startAt, endAt, court.id, t, historyLocked)
     if (activeChangeError) {
       notify(activeChangeError, 'error')
       return false
@@ -889,7 +895,8 @@ export default function App() {
   const adminRescheduleBookingGroup = async (booking, time, duration, targetDate, anchorCourt = null) => {
     const startAt = slotDateTime(targetDate, time)
     const endAt = addMinutes(startAt, duration)
-    const activeChangeError = validateActiveBookingChange(booking, startAt, endAt, anchorCourt?.id || booking.court_id, t)
+    const historyLocked = adminScheduleConfiguration?.settings?.lock_historical_bookings !== false
+    const activeChangeError = validateActiveBookingChange(booking, startAt, endAt, anchorCourt?.id || booking.court_id, t, historyLocked)
     if (activeChangeError) {
       notify(activeChangeError, 'error')
       return false
