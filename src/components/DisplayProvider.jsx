@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BOOKING_COLOR_SCHEMES, DEFAULT_BOOKING_COLOR_SCHEME } from '../lib/bookingColors'
-import { DisplayContext, DISPLAY_SIZES } from '../lib/display'
+import { DisplayContext, FONT_SCALE_DEFAULT, FONT_SCALE_MAX, FONT_SCALE_MIN } from '../lib/display'
 
 const STORAGE_KEY = 'tiger-display-size'
 const BOOKING_COLORS_STORAGE_KEY = 'tiger-booking-color-scheme'
 
 const getInitialSize = () => {
   const stored = window.localStorage.getItem(STORAGE_KEY)
-  return DISPLAY_SIZES.some(({ id }) => id === stored) ? stored : 'standard'
+  const legacyScale = { small: 90, standard: 100, large: 112 }[stored]
+  const parsed = legacyScale || Number(stored)
+  return Number.isFinite(parsed) ? Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, parsed)) : FONT_SCALE_DEFAULT
 }
 
 const getInitialBookingColorScheme = () => {
@@ -20,8 +22,9 @@ export default function DisplayProvider({ children }) {
   const [bookingColorScheme, setBookingColorScheme] = useState(getInitialBookingColorScheme)
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, displaySize)
-    document.documentElement.dataset.fontSize = displaySize
+    window.localStorage.setItem(STORAGE_KEY, String(displaySize))
+    document.documentElement.style.fontSize = `${16 * displaySize / 100}px`
+    delete document.documentElement.dataset.fontSize
   }, [displaySize])
 
   useEffect(() => {

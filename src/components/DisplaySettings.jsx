@@ -2,7 +2,7 @@ import { Check, ChevronDown, Languages, LogOut, Palette, Search, Settings2, Swat
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BOOKING_COLOR_SCHEMES } from '../lib/bookingColors'
-import { DISPLAY_SIZES, useDisplay } from '../lib/display'
+import { FONT_SCALE_DEFAULT, FONT_SCALE_MAX, FONT_SCALE_MIN, FONT_SCALE_STEP, useDisplay } from '../lib/display'
 import { useI18n } from '../lib/i18n'
 import { THEMES, useTheme } from '../lib/theme'
 
@@ -26,7 +26,7 @@ export default function DisplaySettings({ user, guest, isAdmin, onSignOut }) {
     if (!normalizedQuery) return SETTINGS_SECTIONS
     return SETTINGS_SECTIONS.filter((section) => {
       const themeTerms = section.id === 'appearance' ? `${THEMES.flatMap((item) => [t(item.nameKey), t(item.noteKey)]).join(' ')} ${isAdmin ? BOOKING_COLOR_SCHEMES.flatMap((item) => [t(item.nameKey), t(item.noteKey)]).join(' ') : ''}` : ''
-      const displayTerms = section.id === 'display' ? `${t('settings.fontSize')} ${t('settings.language')} ${t('settings.fontSmall')} ${t('settings.fontStandard')} ${t('settings.fontLarge')}` : ''
+      const displayTerms = section.id === 'display' ? `${t('settings.fontSize')} ${t('settings.language')} ${t('settings.fontSmaller')} ${t('settings.fontStandard')} ${t('settings.fontLarger')}` : ''
       const accountTerms = section.id === 'account' ? `${username} ${user.email || ''} ${t('account.signOut')}` : ''
       return `${t(section.titleKey)} ${t(section.descriptionKey)} ${themeTerms} ${displayTerms} ${accountTerms}`.toLocaleLowerCase().includes(normalizedQuery)
     })
@@ -108,12 +108,25 @@ export default function DisplaySettings({ user, guest, isAdmin, onSignOut }) {
                 <div className="settings-page">
                   <section className="settings-card">
                     <div className="settings-card-heading"><span><Type size={17} /></span><div><h3>{t('settings.fontSize')}</h3><p>{t('settings.fontHelp')}</p></div></div>
-                    <div className="font-size-options" role="group" aria-label={t('settings.fontSize')}>
-                      {DISPLAY_SIZES.map((size, index) => (
-                        <button type="button" className={displaySize === size.id ? 'selected' : ''} aria-pressed={displaySize === size.id} onClick={() => setDisplaySize(size.id)} key={size.id}>
-                          <b className={`font-preview font-preview-${index}`}>{size.preview}</b><span>{t(size.labelKey)}</span>{displaySize === size.id && <Check size={14} />}
-                        </button>
-                      ))}
+                    <div className="font-scale-control">
+                      <div className="font-scale-value" aria-live="polite"><span>{t('settings.fontCurrent')}</span><output htmlFor="font-scale-slider">{displaySize}%</output></div>
+                      <div className="font-scale-slider-row">
+                        <b className="font-scale-preview small" aria-hidden="true">A</b>
+                        <input
+                          id="font-scale-slider"
+                          type="range"
+                          min={FONT_SCALE_MIN}
+                          max={FONT_SCALE_MAX}
+                          step={FONT_SCALE_STEP}
+                          value={displaySize}
+                          onChange={(event) => setDisplaySize(Number(event.target.value))}
+                          aria-label={t('settings.fontSize')}
+                          aria-valuetext={`${displaySize}%`}
+                          style={{ '--font-scale-progress': `${(displaySize - FONT_SCALE_MIN) / (FONT_SCALE_MAX - FONT_SCALE_MIN) * 100}%` }}
+                        />
+                        <b className="font-scale-preview large" aria-hidden="true">A</b>
+                      </div>
+                      <div className="font-scale-labels"><span>{t('settings.fontSmaller')}</span><button type="button" onClick={() => setDisplaySize(FONT_SCALE_DEFAULT)}>{t('settings.fontStandard')} · {FONT_SCALE_DEFAULT}%</button><span>{t('settings.fontLarger')}</span></div>
                     </div>
                   </section>
 
