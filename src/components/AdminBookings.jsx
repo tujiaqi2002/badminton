@@ -52,6 +52,7 @@ export default function AdminBookings({
   auditLoading,
   auditRevertingId,
   onOpenAudit,
+  onViewAuditLog,
   onRevertAudit,
   focusTarget,
   onClearFocus,
@@ -156,6 +157,7 @@ export default function AdminBookings({
         auditLoading={auditLoading}
         auditRevertingId={auditRevertingId}
         onOpenAudit={onOpenAudit}
+        onViewAuditLog={onViewAuditLog}
         onRevertAudit={onRevertAudit}
         focusTime={focusTime}
         onClearFocus={clearScheduleFocus}

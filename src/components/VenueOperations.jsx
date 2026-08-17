@@ -245,10 +245,10 @@ function EventDateTimeField({ label, value, minValue = '', locale, c, onChange }
   </label>
 }
 
-export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
+export default function VenueOperations({ onNotify, onConfigurationLoaded, initialTab = 'overview' }) {
   const { language, locale } = useI18n()
   const c = COPY[language] || COPY.en
-  const [tab, setTab] = useState('overview')
+  const [tab, setTab] = useState(initialTab)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)

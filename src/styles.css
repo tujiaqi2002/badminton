@@ -575,18 +575,16 @@ a { color: inherit; text-decoration: none; }
 .admin-audit-quick > header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); font-size: 0.4375rem; }
 .admin-audit-quick > header b { min-width: 22px; height: 18px; padding: 0 6px; display: grid; place-items: center; border-radius: 999px; color: white; background: var(--ink); font-size: 0.5rem; }
 .admin-audit-quick-list { min-height: 0; display: grid; align-content: start; overflow-y: auto; scrollbar-width: thin; }
-.admin-audit-quick-item { width: 100%; min-width: 0; padding: 11px 12px 10px; display: grid; gap: 5px; border: 0; border-bottom: 1px solid rgba(34,36,33,.105); background: transparent; color: var(--ink); text-align: left; cursor: pointer; transition: background .16s ease, box-shadow .16s ease; }
+.admin-audit-quick-item { width: 100%; min-width: 0; min-height: 76px; padding: 9px 12px 8px; display: grid; align-content: center; gap: 3px; border: 0; border-bottom: 1px solid rgba(34,36,33,.105); background: transparent; color: var(--ink); text-align: left; cursor: pointer; transition: background .16s ease, box-shadow .16s ease; }
 .admin-audit-quick-item:hover, .admin-audit-quick-item:focus-visible { background: rgba(255,255,255,.78); box-shadow: inset 3px 0 0 var(--red); outline: 0; }
+.admin-audit-quick-item.cancelled { box-shadow: inset 2px 0 0 rgba(199,70,54,.62); }
+.admin-audit-quick-item.cancelled .admin-audit-quick-heading strong { color: var(--red-dark); }
 .admin-audit-quick-item.reverted { opacity: .62; }
 .admin-audit-quick-heading { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 5px; }
 .admin-audit-quick-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.53125rem; }
 .admin-audit-quick-heading time { flex: 0 0 auto; color: var(--ink-soft); font-size: 0.40625rem; }
-.admin-audit-quick-item > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 0.75rem/1.2 "Songti SC",serif; }
-.admin-audit-quick-slot, .admin-audit-quick-change small { min-width: 0; color: var(--ink-soft); font-size: 0.4375rem; line-height: 1.45; }
-.admin-audit-quick-slot { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.admin-audit-quick-change { display: grid; gap: 3px; }
-.admin-audit-quick-change small { display: grid; grid-template-columns: 18px minmax(0,1fr); gap: 3px; }
-.admin-audit-quick-change em { color: var(--red-dark); font-style: normal; font-weight: 700; }
+.admin-audit-quick-item > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 0.6875rem/1.15 "Songti SC",serif; }
+.admin-audit-quick-slot { min-width: 0; overflow: hidden; color: var(--ink-soft); font-size: 0.4375rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .admin-audit-quick-more { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 5px; color: var(--ink-soft); font-size: 0.40625rem; }
 .admin-audit-quick-more > small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; }
 .admin-audit-quick-more > span { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; }

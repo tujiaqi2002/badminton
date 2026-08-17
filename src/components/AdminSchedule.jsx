@@ -250,7 +250,7 @@ function NewBookingModal({ draft, busy, onClose, onSubmit, onPreviewPrice, confi
   )
 }
 
-export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onSwap, onLink, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onRevertAudit, configuration }) {
+export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onSwap, onLink, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onViewAuditLog, onRevertAudit, configuration }) {
   const { bookingColorScheme } = useDisplay()
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
@@ -1030,7 +1030,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               <div><strong>{cancelArmed ? t('admin.schedule.cancelRelease') : t('admin.schedule.cancelDrop')}</strong><span>{t('admin.schedule.cancelProtection')}</span></div>
             </div>
           ) : (
-            <AdminAuditQuickPanel operations={auditOperations} loading={auditLoading} onOpen={openAudit} />
+            <AdminAuditQuickPanel operations={auditOperations} loading={auditLoading} onOpen={openAudit} onViewAll={onViewAuditLog} />
           )}
         </aside>
       </div>

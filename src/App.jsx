@@ -93,6 +93,7 @@ export default function App() {
   const { themeDefinition } = useTheme()
   const heroKey = themeDefinition.heroKey || 'hero'
   const [view, setView] = useState('book')
+  const [operationsInitialTab, setOperationsInitialTab] = useState('overview')
   const [dateKey, setDateKey] = useState(todayKey)
   const [schedule, setSchedule] = useState(() => demoSchedule(todayKey()))
   const [bookingConfiguration, setBookingConfiguration] = useState(null)
@@ -1146,7 +1147,17 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Header user={user} isAdmin={isAdmin} view={view} onViewChange={setView} onAuth={() => setShowAuth(true)} onSignOut={signOut} />
+      <Header
+        user={user}
+        isAdmin={isAdmin}
+        view={view}
+        onViewChange={(nextView) => {
+          if (nextView === 'operations') setOperationsInitialTab('overview')
+          setView(nextView)
+        }}
+        onAuth={() => setShowAuth(true)}
+        onSignOut={signOut}
+      />
 
       {view === 'book' ? (
         <main>
@@ -1213,6 +1224,10 @@ export default function App() {
           auditLoading={loadingAdminAudit}
           auditRevertingId={revertingAuditOperationId}
           onOpenAudit={fetchAdminAuditOperations}
+          onViewAuditLog={() => {
+            setOperationsInitialTab('audit')
+            setView('operations')
+          }}
           onRevertAudit={adminRevertAuditOperation}
           focusTarget={adminFocus}
           onClearFocus={() => setAdminFocus(null)}
@@ -1235,7 +1250,7 @@ export default function App() {
         />
       ) : view === 'operations' && isAdmin ? (
         <Suspense fallback={<main className="operations-page"><div className="operations-loading"><Clock3 className="spin" /><span>{t('auth.checkingAccess')}</span></div></main>}>
-          <VenueOperations onNotify={notify} onConfigurationLoaded={handleVenueOperationsConfiguration} />
+          <VenueOperations initialTab={operationsInitialTab} onNotify={notify} onConfigurationLoaded={handleVenueOperationsConfiguration} />
         </Suspense>
       ) : (
         <MyBookings user={user} bookings={bookings} loading={loadingBookings} onLogin={() => setShowAuth(true)} onCancel={cancelBooking} configuration={bookingConfiguration || venueOperationsConfiguration} />
@@ -1248,7 +1263,7 @@ export default function App() {
         <button className={view === 'mine' ? 'active' : ''} onClick={() => setView('mine')}><CircleUserRound size={20} /><span>{t('nav.myShort')}</span></button>
         {isAdmin && <button className={view === 'admin' ? 'active' : ''} onClick={() => setView('admin')}><ShieldCheck size={20} /><span>{t('nav.adminShort')}</span></button>}
         {isAdmin && <button className={view === 'capacity' ? 'active' : ''} onClick={() => setView('capacity')}><Gauge size={20} /><span>{t('nav.capacityShort')}</span></button>}
-        {isAdmin && <button className={view === 'operations' ? 'active' : ''} onClick={() => setView('operations')}><Building2 size={20} /><span>{t('nav.operationsShort')}</span></button>}
+        {isAdmin && <button className={view === 'operations' ? 'active' : ''} onClick={() => { setOperationsInitialTab('overview'); setView('operations') }}><Building2 size={20} /><span>{t('nav.operationsShort')}</span></button>}
         <button onClick={() => view === 'book' && document.getElementById('availability')?.scrollIntoView({ behavior: 'smooth' })}><Clock3 size={20} /><span>{t('nav.slots')}</span></button>
       </nav>
 
