@@ -43,6 +43,7 @@ const COPY = {
     settingsTitle: '基础设置', settingsHelp: '这些值将成为以后预订、财务与通知模块共同使用的唯一配置来源。',
     nameZh: '中文名称', nameEn: '英文名称', timezone: '时区', currency: '币种', bookingWindow: '开放预订天数',
     slotMinutes: '最小时间刻度', customerMin: '客户最短预订', customerMax: '客户最长预订', managerMax: '馆长最长预订', cancelHours: '免费取消提前小时', minutes: '分钟', hoursUnit: '小时', days: '天',
+    historyLock: '锁定历史订单', historyLockOn: '历史订单已锁定', historyLockOff: '允许馆长修正历史订单', historyLockHelp: '开启后，已经开始或结束的订单只能查看；关闭后，馆长可移动、调整时长或修改这些订单。新订单仍不能创建在过去。',
     hoursTitle: '每周营业时间', hoursHelp: '关闭某一天不会删除历史订单；新的预订会使用这份时间表。', closed: '闭馆', open: '营业', from: '开始', to: '结束', note: '当日说明',
     pricingTitle: '定价规则', pricingHelp: '不再计算优先级数字。系统自动选择范围最具体的规则：限时日期 → 会员专属 → 指定场地 → 指定星期 → 基础价；同层级选择覆盖更窄的时段。', addPrice: '新增定价', ruleNameZh: '规则中文名', ruleNameEn: '规则英文名',
     weekday: '星期', startTime: '开始时间', endTime: '结束时间', hourlyRate: '每小时价格', memberTier: '会员等级', matchOrder: '自动匹配', active: '启用', effective: '有效日期', noLimit: '不限',
@@ -74,6 +75,7 @@ const COPY = {
     settingsTitle: 'Venue settings', settingsHelp: 'These values are the shared source of truth for future booking, finance and notification modules.',
     nameZh: 'Chinese name', nameEn: 'English name', timezone: 'Time zone', currency: 'Currency', bookingWindow: 'Booking window',
     slotMinutes: 'Smallest time step', customerMin: 'Customer minimum', customerMax: 'Customer maximum', managerMax: 'Manager maximum', cancelHours: 'Free-cancellation notice', minutes: 'min', hoursUnit: 'hours', days: 'days',
+    historyLock: 'Lock historical bookings', historyLockOn: 'Historical bookings are locked', historyLockOff: 'Managers may correct historical bookings', historyLockHelp: 'When enabled, bookings that have started or ended are read-only. Disable it to move, resize or edit those bookings. New bookings still cannot be created in the past.',
     hoursTitle: 'Weekly opening hours', hoursHelp: 'Closing a day keeps historical bookings intact; new bookings use this schedule.', closed: 'Closed', open: 'Open', from: 'From', to: 'To', note: 'Day note',
     pricingTitle: 'Pricing rules', pricingHelp: 'No numeric priority is needed. The most specific match wins: dated rule → member → court → weekday → base rate; narrower windows win within a level.', addPrice: 'Add rate', ruleNameZh: 'Chinese rule name', ruleNameEn: 'English rule name',
     weekday: 'Weekday', startTime: 'Start', endTime: 'End', hourlyRate: 'Hourly rate', memberTier: 'Member tier', matchOrder: 'Automatic match', active: 'Active', effective: 'Effective dates', noLimit: 'No limit',
@@ -138,7 +140,7 @@ const pricingRuleLevel = (rule) => {
 }
 const emptyEvent = () => {
   const tomorrow = toDateKey(addDays(new Date(`${venueNow().dateKey}T12:00:00`), 1))
-  return { title_zh: '', title_en: '', description: '', event_type: 'special_event', status: 'scheduled', starts_at: `${tomorrow}T10:00`, ends_at: `${tomorrow}T12:00`, blocks_booking: false, color: 'ink', court_ids: [] }
+  return { title_zh: '', title_en: '', description: '', event_type: 'special_event', status: 'scheduled', starts_at: `${tomorrow}T10:00`, ends_at: `${tomorrow}T12:00`, blocks_booking: true, color: 'ink', court_ids: [] }
 }
 const emptyMember = () => ({
   member_number: '', display_name: '', email: '', phone: '', tier: 'standard', status: 'active',
@@ -487,6 +489,22 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded }) {
             <label><span>{c.managerMax}</span><div className="input-unit"><input type="number" step="30" min="30" max="720" value={settings?.manager_max_minutes || 240} onChange={(e) => setSettings({ ...settings, manager_max_minutes: Number(e.target.value) })} /><small>{c.minutes}</small></div></label>
             <label><span>{c.cancelHours}</span><div className="input-unit"><input type="number" min="0" max="168" value={settings?.cancellation_notice_hours ?? 12} onChange={(e) => setSettings({ ...settings, cancellation_notice_hours: Number(e.target.value) })} /><small>{c.hoursUnit}</small></div></label>
           </div>
+          <label className={`operations-history-lock ${settings?.lock_historical_bookings !== false ? 'locked' : 'editable'}`}>
+            <span className="operations-history-lock-copy">
+              <strong>{c.historyLock}</strong>
+              <b>{settings?.lock_historical_bookings !== false ? c.historyLockOn : c.historyLockOff}</b>
+              <small>{c.historyLockHelp}</small>
+            </span>
+            <span className="switch-field">
+              <input
+                type="checkbox"
+                checked={settings?.lock_historical_bookings !== false}
+                onChange={(event) => setSettings({ ...settings, lock_historical_bookings: event.target.checked })}
+                aria-label={c.historyLock}
+              />
+              <span />
+            </span>
+          </label>
         </article>
         <article className="operations-next-events">
           <header><span>{c.upcomingEvents}</span><button onClick={() => setTab('events')}>{c.events}<ChevronRight size={14} /></button></header>

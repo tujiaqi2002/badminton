@@ -8,6 +8,8 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
 
   const { court, courts = [court], time, dateKey, duration, partySize, paymentMethod, phone = '', notes = '' } = selection
   const set = selection.set
+  const primaryCourt = court || courts[0] || null
+  const hasCourts = courts.length > 0
   const durations = bookingDurations(configuration)
   const closeMinute = Number(configuration?.opening_hours?.close_minute || 1440)
   const currency = configuration?.settings?.currency || 'CAD'
@@ -26,11 +28,11 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
         <div className="drawer-handle" />
         <button className="icon-button drawer-close" onClick={onClose} aria-label={t('drawer.close')}><X size={20} /></button>
         <span className="eyebrow">{t('drawer.eyebrow')}</span>
-        <h2 id="booking-title">{courtTitle(court)}</h2>
-        <p className="drawer-subtitle">{t('drawer.subtitle', { note: courtNote(court) })}</p>
+        <h2 id="booking-title">{primaryCourt ? courtTitle(primaryCourt) : t('drawer.selectCourtTitle')}</h2>
+        <p className="drawer-subtitle">{primaryCourt ? t('drawer.subtitle', { note: courtNote(primaryCourt) }) : t('drawer.selectCourtSubtitle')}</p>
 
         <div className="booking-summary-card">
-          <div className={`summary-seal ${court.tone}`}>{court.name}</div>
+          <div className={`summary-seal ${primaryCourt?.tone || 'empty'}`}>{primaryCourt?.name || '—'}</div>
           <div><small>{t('drawer.date')}</small><strong>{dateKey.replaceAll('-', '.')}</strong></div>
           <div><small>{t('drawer.time')}</small><strong>{time}—{endTime}</strong></div>
         </div>
@@ -53,11 +55,13 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
               const selected = courts.some((selectedCourt) => selectedCourt.id === item.id)
               return <button type="button" className={selected ? 'selected' : ''} key={item.id} onClick={() => {
                 const next = selected ? courts.filter((selectedCourt) => selectedCourt.id !== item.id) : [...courts, item]
-                if (next.length) set({ courts: next, court: next[0], paymentMethod: next.length > 1 ? 'venue' : paymentMethod })
+                set({ courts: next, court: next[0] || null, paymentMethod: next.length > 1 ? 'venue' : paymentMethod })
               }}><span>{item.name}</span><small>{item.english}</small>{selected && <Check size={15} />}</button>
             })}
           </div>
-          <small className="drawer-help">{t('drawer.multiCourtHelp', { count: courts.length })}</small>
+          {hasCourts
+            ? <small className="drawer-help">{t('drawer.multiCourtHelp', { count: courts.length })}</small>
+            : <p className="drawer-court-required" role="alert">{t('drawer.courtRequiredHelp')}</p>}
         </div>
 
         <div className="drawer-field party-row">
@@ -93,8 +97,8 @@ export default function BookingDrawer({ selection, onClose, onConfirm, busy, str
         <div className="price-row"><span>{t('drawer.fee')}</span><strong>{formatMoney(price, locale, currency, true)}</strong></div>
         <p className="booking-policy"><Clock3 size={15} /> {t('drawer.policyDynamic', { hours: cancellationHours })}</p>
 
-        <button className="primary-button confirm-button" disabled={busy || invalid || !phone.trim()} onClick={() => onConfirm({ ...selection, phone: phone.trim(), notes: notes.trim(), price })}>
-          {busy ? t('drawer.locking') : invalid ? t('drawer.invalid') : !phone.trim() ? t('drawer.phoneRequired') : t('drawer.confirm', { price: formatMoney(price, locale, currency, true) })}
+        <button className="primary-button confirm-button" disabled={busy || invalid || !hasCourts || !phone.trim()} onClick={() => onConfirm({ ...selection, phone: phone.trim(), notes: notes.trim(), price })}>
+          {busy ? t('drawer.locking') : invalid ? t('drawer.invalid') : !hasCourts ? t('drawer.courtRequired') : !phone.trim() ? t('drawer.phoneRequired') : t('drawer.confirm', { price: formatMoney(price, locale, currency, true) })}
         </button>
       </aside>
     </div>
