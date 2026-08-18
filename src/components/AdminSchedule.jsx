@@ -375,6 +375,9 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const dayLabel = new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'long', day: 'numeric' })
     .format(new Date(`${dateKey}T12:00:00`))
   const draggedBooking = bookings.find((booking) => booking.id === draggedId)
+  const draggedCustomerColor = draggedBooking
+    ? customerColorForBooking(draggedBooking, customerColorMap, bookingColorScheme)
+    : null
   const activeSelection = selectedBooking && (bookings.find((booking) => booking.id === selectedBooking.id) || selectedBooking)
   const activeGroup = activeSelection ? bookings.filter((booking) => (booking.booking_group_id || booking.id) === (activeSelection.booking_group_id || activeSelection.id) && ['held', 'confirmed'].includes(booking.status)) : []
   const activeLinkedGroups = activeSelection?.booking_link_id
@@ -922,12 +925,20 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               </div>}
               {draggedBooking && dragPreview?.court.id === court.id && (
                 <div
-                  className={`admin-schedule-drop-preview ${dragPreview.invalid ? 'invalid' : ''} ${dragPreview.swap?.mode === 'swap' ? 'swap' : ''}`}
-                  style={{ '--start': dragPreview.index, '--span': dragPreview.span }}
+                  className={`admin-schedule-drop-preview ${dragPreview.span <= 1 ? 'compact' : ''} ${dragPreview.invalid ? 'invalid' : ''} ${dragPreview.swap?.mode === 'swap' ? 'swap' : ''}`}
+                  style={{
+                    '--start': dragPreview.index,
+                    '--span': dragPreview.span,
+                    '--customer-color-start': draggedCustomerColor?.start,
+                    '--customer-color-end': draggedCustomerColor?.end,
+                    '--customer-color-ink': draggedCustomerColor?.foreground,
+                    '--customer-text-shadow': draggedCustomerColor?.textShadow,
+                  }}
                   aria-hidden="true"
                 >
-                  <strong>{dragPreview.time}–{dragPreview.endTime}</strong>
-                  <span>{t(dragPreview.invalid ? (dragPreview.invalidReason === 'past' ? 'admin.schedule.pastDropBlockedShort' : 'admin.schedule.swapBlockedShort') : dragPreview.swap?.mode === 'swap' ? 'admin.schedule.swapHere' : 'admin.schedule.dropHere', { count: dragPreview.swap?.bookings?.length || 0 })}</span>
+                  <div className="admin-drop-preview-customer"><GripVertical size={13} /><strong>{draggedBooking.customer_name}</strong></div>
+                  <span className="admin-drop-preview-time">{dragPreview.time}–{dragPreview.endTime}</span>
+                  <small>{t(dragPreview.invalid ? (dragPreview.invalidReason === 'past' ? 'admin.schedule.pastDropBlockedShort' : 'admin.schedule.swapBlockedShort') : dragPreview.swap?.mode === 'swap' ? 'admin.schedule.swapHere' : 'admin.schedule.dropHere', { count: dragPreview.swap?.bookings?.length || 0 })}</small>
                 </div>
               )}
               {dayEvents.filter((item) => !item.court_ids?.length || item.court_ids.includes(court.id)).map((item) => {
@@ -995,6 +1006,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                     style={{ '--start': offset / slotMinutes, '--span': minutes / slotMinutes, '--customer-color-start': customerColor.start, '--customer-color-end': customerColor.end, '--customer-color-ink': customerColor.foreground, '--customer-text-shadow': customerColor.textShadow }}
                     data-customer-color={customerColor.index}
                     data-booking-id={booking.id}
+                    data-origin-label={draggedId === booking.id ? `${t('admin.schedule.originPosition')} · ${timeFromDateTime(booking.start_at)}–${endTimeFromDateTime(booking.start_at, booking.end_at)}` : undefined}
                     key={booking.id}
                     title={t(canMove ? 'admin.schedule.dragTitle' : bookingPhase === 'in-progress' ? 'admin.schedule.inProgressResizeTitle' : 'admin.schedule.endedReadOnly', { name: booking.customer_name })}
                   >
