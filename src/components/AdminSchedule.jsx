@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Link2, MessageSquareText, Move, MoveHorizontal, MoveVertical, Pencil, PhoneCall, Repeat2, RotateCcw, Save, Trash2, X } from 'lucide-react'
+import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Link2, LockKeyhole, MessageSquareText, Move, MoveHorizontal, MoveVertical, Pencil, PhoneCall, Repeat2, RotateCcw, Save, Trash2, UnlockKeyhole, X } from 'lucide-react'
 import { addDays, bookingDurations, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { createCustomerColorMap, customerColorForBooking } from '../lib/bookingColors'
+import { activeBookingGroup, activeBookingGroupSize, BOOKING_MOVE_SCOPE_GROUP, bookingMoveScope, resizeAppliesToBooking } from '../lib/bookingMoveScope'
 import { bookingSwapPreview } from '../lib/bookingSwap'
 import { DRAG_LOCK_COURT_ONLY, DRAG_LOCK_FREE, DRAG_LOCK_TIME_ONLY, useDisplay } from '../lib/display'
 import { useI18n } from '../lib/i18n'
@@ -261,6 +262,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const [dragDay, setDragDay] = useState(null)
   const [pointerDrag, setPointerDrag] = useState(null)
   const [selectedBooking, setSelectedBooking] = useState(null)
+  const [moveTogether, setMoveTogether] = useState(true)
   const [draft, setDraft] = useState(null)
   const [editingDetails, setEditingDetails] = useState(false)
   const [detailsForm, setDetailsForm] = useState({ name: '', email: '', phone: '', notes: '', paymentStatus: 'pay_at_venue' })
@@ -384,11 +386,16 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
     ? customerColorForBooking(draggedBooking, customerColorMap, bookingColorScheme)
     : null
   const activeSelection = selectedBooking && (bookings.find((booking) => booking.id === selectedBooking.id) || selectedBooking)
-  const activeGroup = activeSelection ? bookings.filter((booking) => (booking.booking_group_id || booking.id) === (activeSelection.booking_group_id || activeSelection.id) && ['held', 'confirmed'].includes(booking.status)) : []
+  const activeGroup = activeSelection
+    ? activeBookingGroup(bookings, activeSelection).sort((left, right) => left.start_at.localeCompare(right.start_at) || left.court_id.localeCompare(right.court_id))
+    : []
   const activeLinkedGroups = activeSelection?.booking_link_id
     ? new Set(bookings.filter((booking) => booking.booking_link_id === activeSelection.booking_link_id && ['held', 'confirmed'].includes(booking.status)).map((booking) => booking.booking_group_id || booking.id)).size
     : 0
   const groupPrice = activeGroup.reduce((sum, booking) => sum + Number(booking.total_amount || 0), 0)
+  const activeGroupSharesSchedule = activeGroup.every((booking) => (
+    booking.start_at === activeSelection?.start_at && booking.end_at === activeSelection?.end_at
+  ))
   const nowAtVenue = venueNow(now)
   const historicalDragCanUsePastDates = Boolean(
     draggedBooking
@@ -421,6 +428,10 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
     })
     setEditingDetails(false)
   }, [activeSelection])
+
+  useEffect(() => {
+    setMoveTogether(true)
+  }, [activeSelection?.id])
 
   const markSelectionPaid = async () => {
     if (!activeSelection || activeSelection.payment_status === 'paid' || busy) return
@@ -618,11 +629,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
           await onSwap(booking, target.court, target.time, target.swap.bookings, dateKey)
           return
         }
-        const pointerGroupSize = bookings.filter((item) => (
-          (item.booking_group_id || item.id) === (booking.booking_group_id || booking.id)
-          && ['held', 'confirmed'].includes(item.status)
-        )).length
-        const result = pointerGroupSize > 1
+        const result = pointerDrag.moveScope === BOOKING_MOVE_SCOPE_GROUP
           ? await onRescheduleGroup(booking, target.time, durationMinutes(booking), dateKey, target.court)
           : await onReschedule(booking, target.court, target.time, durationMinutes(booking), dateKey)
         if (result?.unchanged) setSelectedBooking(booking)
@@ -727,8 +734,9 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       const duration = resizeDrag.duration
       setResizeDrag(null)
       if (duration === resizeDrag.initialDuration) return
+      setMoveTogether(true)
       const court = COURTS.find((item) => item.id === booking.court_id) || COURTS[0]
-      resizeDrag.groupSize > 1
+      resizeDrag.moveScope === BOOKING_MOVE_SCOPE_GROUP
         ? await onRescheduleGroup(booking, timeFromDateTime(booking.start_at), duration, booking.start_at.slice(0, 10))
         : await onReschedule(booking, court, timeFromDateTime(booking.start_at), duration, booking.start_at.slice(0, 10))
     }
@@ -801,7 +809,30 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               </form>
             ) : (
               <dl>
-                <div><dt>{t('admin.schedule.courtTime')}</dt><dd>{activeGroup.map((booking) => courtTitle(COURTS.find((court) => court.id === booking.court_id) || COURTS[0])).join(' + ')} · {activeSelection.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(activeSelection.start_at)}–{endTimeFromDateTime(activeSelection.start_at, activeSelection.end_at)}</dd></div>
+                {activeGroup.length > 1 && <div className={`admin-move-scope ${moveTogether ? 'group' : 'single'}`}>
+                  <dt>{t('admin.schedule.moveScope')}</dt>
+                  <dd>
+                    <button
+                      type="button"
+                      className="admin-move-scope-toggle"
+                      role="switch"
+                      aria-checked={moveTogether}
+                      aria-label={t('admin.schedule.moveTogether')}
+                      title={t(moveTogether ? 'admin.schedule.moveTogetherOnHelp' : 'admin.schedule.moveTogetherOffHelp', { count: activeGroup.length })}
+                      disabled={busy}
+                      onClick={() => setMoveTogether((current) => !current)}
+                    >
+                      {moveTogether ? <LockKeyhole size={15} /> : <UnlockKeyhole size={15} />}
+                      <span className="admin-move-scope-copy">
+                        <strong>{t(moveTogether ? 'admin.schedule.moveTogetherOn' : 'admin.schedule.moveTogetherOff')}</strong>
+                        <small>{t(moveTogether ? 'admin.schedule.moveTogetherOnShort' : 'admin.schedule.moveTogetherOffShort', { count: activeGroup.length })}</small>
+                      </span>
+                      <span className="admin-move-scope-track" aria-hidden="true"><span /></span>
+                    </button>
+                  </dd>
+                </div>}
+                <div><dt>{t('admin.schedule.courtTime')}</dt><dd>{(activeGroupSharesSchedule ? activeGroup : [activeSelection]).map((booking) => courtTitle(COURTS.find((court) => court.id === booking.court_id) || COURTS[0])).join(' + ')} · {activeSelection.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(activeSelection.start_at)}–{endTimeFromDateTime(activeSelection.start_at, activeSelection.end_at)}</dd></div>
+                {!activeGroupSharesSchedule && <div className="admin-group-schedule"><dt>{t('admin.schedule.groupSchedule')}</dt><dd>{activeGroup.map((booking) => <span key={booking.id}>{courtTitle(COURTS.find((court) => court.id === booking.court_id) || COURTS[0])} · {booking.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(booking.start_at)}–{endTimeFromDateTime(booking.start_at, booking.end_at)}</span>)}</dd></div>}
                 <div><dt>{t('admin.schedule.bookedAt')}</dt><dd>{activeSelection.created_at ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activeSelection.created_at)) : t('admin.schedule.notRecorded')}</dd></div>
                 <div><dt>{t('admin.schedule.contact')}</dt><dd>{activeSelection.customer_email || t('admin.schedule.notProvided')} · {activeSelection.customer_phone || t('admin.schedule.notProvided')}</dd></div>
                 <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd className="admin-booking-meta">{t('admin.people', { count: activeSelection.party_size })} · <label className={`admin-quick-payment ${activeSelection.payment_status === 'paid' ? 'paid' : 'unpaid'}`} title={t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paidEditHint' : 'admin.schedule.quickMarkPaid')}><input type="checkbox" checked={activeSelection.payment_status === 'paid'} disabled={busy || activeSelection.payment_status === 'paid'} onChange={markSelectionPaid} /><span>{t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.quickMarkPaid')}</span></label> · {t(`payment.${activeSelection.payment_status}`)} · {formatMoney(groupPrice, locale, currency)}</dd></div>
@@ -834,7 +865,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
             <span>{t('admin.schedule.preview')}</span>
             <strong>{draggedBooking.customer_name}</strong>
             <b>{dateKey.replaceAll('-', '.')} · {courtTitle(dragPreview.court)} · {t('admin.schedule.dragStart')} {dragPreview.time} → {t('admin.schedule.dragEnd')} {dragPreview.endTime}</b>
-            <small><em>{t('admin.schedule.dragLockActive', { mode: t(dragLockLabelKey) })}</em>{t(dragPreview.invalid ? (dragPreview.invalidReason === 'past' ? 'admin.schedule.pastDropBlocked' : 'admin.schedule.swapBlocked') : dragPreview.swap?.mode === 'swap' ? 'admin.schedule.releaseToSwap' : 'admin.schedule.releaseToMove', { count: dragPreview.swap?.bookings?.length || 0 })}</small>
+            <small><em>{t(pointerDrag?.moveScope === BOOKING_MOVE_SCOPE_GROUP ? 'admin.schedule.moveScopeActiveGroup' : 'admin.schedule.moveScopeActiveSingle')} · {t('admin.schedule.dragLockActive', { mode: t(dragLockLabelKey) })}</em>{t(dragPreview.invalid ? (dragPreview.invalidReason === 'past' ? 'admin.schedule.pastDropBlocked' : 'admin.schedule.swapBlocked') : dragPreview.swap?.mode === 'swap' ? 'admin.schedule.releaseToSwap' : 'admin.schedule.releaseToMove', { count: dragPreview.swap?.bookings?.length || 0 })}</small>
           </div>
         ) : focusTime ? (
           <div className="admin-phone-focus-guide" role="status" aria-live="polite">
@@ -994,10 +1025,9 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               {dayBookings.filter((booking) => booking.court_id === court.id).map((booking) => {
                 const startMinutes = Number(timeFromDateTime(booking.start_at).slice(0, 2)) * 60 + Number(timeFromDateTime(booking.start_at).slice(3))
                 const offset = startMinutes - openMinutes
-                const groupSize = dayBookings.filter((item) => (item.booking_group_id || item.id) === (booking.booking_group_id || booking.id)).length
-                const bookingGroupKey = booking.booking_group_id || booking.id
-                const resizeGroupKey = resizeDrag ? (resizeDrag.booking.booking_group_id || resizeDrag.booking.id) : null
-                const minutes = resizeGroupKey === bookingGroupKey ? resizeDrag.duration : durationMinutes(booking)
+                const groupSize = activeBookingGroupSize(bookings, booking)
+                const resizeAffectsCurrentBooking = resizeAppliesToBooking(resizeDrag, booking)
+                const minutes = resizeAffectsCurrentBooking ? resizeDrag.duration : durationMinutes(booking)
                 const bookingPhase = bookingPhaseAtVenue(booking, nowAtVenue)
                 const historicalEditable = !historyLocked && bookingPhase !== 'future'
                 const canMove = bookingPhase === 'future' || historicalEditable
@@ -1031,10 +1061,16 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                       window.getSelection()?.removeAllRanges()
                       event.currentTarget.setPointerCapture?.(event.pointerId)
                       const grabOffset = event.clientY - event.currentTarget.getBoundingClientRect().top
+                      const moveScope = bookingMoveScope({
+                        booking,
+                        groupSize,
+                        selectedBookingId: activeSelection?.id,
+                        moveTogether,
+                      })
                       pointerMoved.current = false
                       pointerTarget.current = null
                       setSelectedBooking(null)
-                      setPointerDrag({ booking, grabOffset, startX: event.clientX, startY: event.clientY })
+                      setPointerDrag({ booking, grabOffset, startX: event.clientX, startY: event.clientY, moveScope })
                     }}
                     style={{ '--start': offset / slotMinutes, '--span': minutes / slotMinutes, '--customer-color-start': customerColor.start, '--customer-color-end': customerColor.end, '--customer-color-ink': customerColor.foreground, '--customer-text-shadow': customerColor.textShadow }}
                     data-customer-color={customerColor.index}
@@ -1046,7 +1082,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                     {canMove ? <GripVertical size={14} /> : <Clock3 className="admin-booking-state-icon" size={14} />}
                     <div>
                       <strong>{booking.customer_name}</strong>
-                      <span>{timeFromDateTime(booking.start_at)}–{resizeGroupKey === bookingGroupKey ? timeFromMinutes(startMinutes + minutes) : endTimeFromDateTime(booking.start_at, booking.end_at)}</span>
+                      <span>{timeFromDateTime(booking.start_at)}–{resizeAffectsCurrentBooking ? timeFromMinutes(startMinutes + minutes) : endTimeFromDateTime(booking.start_at, booking.end_at)}</span>
                       <span className="admin-booking-tags">
                         <small className={`admin-booking-payment ${booking.payment_status === 'paid' ? 'paid' : 'unpaid'}`}>{t(booking.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.paymentUnpaid')}</small>
                         {booking.customer_notes?.trim() && <small className="admin-booking-note" title={booking.customer_notes}><MessageSquareText size={8} /> {t('admin.schedule.hasNote')}</small>}
@@ -1056,7 +1092,24 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                       {hasLinkedRelationship && <span className="admin-booking-indicator" title={t(linkedGroupCount > 1 ? 'admin.schedule.businessLinked' : 'admin.schedule.multiCourtLinked', { count: linkedGroupCount > 1 ? linkedGroupCount : groupSize })}><Link2 size={12} /></span>}
                       {booking.recurrence_series_id && <span className="admin-booking-indicator" title={t('admin.schedule.recurrenceCard', { count: booking.recurrence_week })}><Repeat2 size={12} /></span>}
                     </span>}
-                    {canResize && <button className="admin-resize-handle" aria-label={t('admin.schedule.resize')} title={t('admin.schedule.resize')} onPointerDown={(event) => { if (event.button !== 0) return; event.stopPropagation(); event.preventDefault(); setResizeDrag({ booking, startY: event.clientY, initialDuration: durationMinutes(booking), duration: durationMinutes(booking), minimumDuration: minimumResizeDuration, groupSize }) }} />}
+                    {canResize && <button className="admin-resize-handle" aria-label={t('admin.schedule.resize')} title={t('admin.schedule.resize')} onPointerDown={(event) => {
+                      if (event.button !== 0) return
+                      event.stopPropagation()
+                      event.preventDefault()
+                      setResizeDrag({
+                        booking,
+                        startY: event.clientY,
+                        initialDuration: durationMinutes(booking),
+                        duration: durationMinutes(booking),
+                        minimumDuration: minimumResizeDuration,
+                        moveScope: bookingMoveScope({
+                          booking,
+                          groupSize,
+                          selectedBookingId: activeSelection?.id,
+                          moveTogether,
+                        }),
+                      })
+                    }} />}
                   </article>
                 )
               })}

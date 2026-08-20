@@ -187,6 +187,8 @@ Supabase client 启用 session persistence、自动刷新和 OAuth redirect 检�
 - 编辑订单详情。
 - 最近操作撤回和指定 audit operation 回滚。
 
+管理端多场地移动范围是前端的单次交互状态：默认调用现有 group move/reschedule RPC；馆长临时解锁当前 booking 后，下一次拖动到空位或缩放调用现有 `admin_reschedule_booking`。该模式保留 `booking_group_id`，不新增 schema、RPC contract 或持久化设置；冲突、计价、权限和审计仍由数据库现有 trigger/RPC 最终裁决。
+
 禁止用多次前端顺序写入替代原子多行 RPC。
 
 ### 时间规则
