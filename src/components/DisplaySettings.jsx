@@ -1,8 +1,8 @@
-import { Check, ChevronDown, Languages, LogOut, Palette, Search, Settings2, SwatchBook, Type, UserRound, X } from 'lucide-react'
+import { Check, ChevronDown, Languages, LogOut, Move, MoveHorizontal, MoveVertical, Palette, Search, Settings2, SwatchBook, Type, UserRound, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BOOKING_COLOR_SCHEMES } from '../lib/bookingColors'
-import { FONT_SCALE_DEFAULT, FONT_SCALE_MAX, FONT_SCALE_MIN, FONT_SCALE_STEP, useDisplay } from '../lib/display'
+import { DRAG_LOCK_COURT_ONLY, DRAG_LOCK_FREE, DRAG_LOCK_TIME_ONLY, FONT_SCALE_DEFAULT, FONT_SCALE_MAX, FONT_SCALE_MIN, FONT_SCALE_STEP, useDisplay } from '../lib/display'
 import { useI18n } from '../lib/i18n'
 import { THEMES, useTheme } from '../lib/theme'
 
@@ -13,7 +13,7 @@ const SETTINGS_SECTIONS = [
 ]
 
 export default function DisplaySettings({ user, guest, isAdmin, onSignOut }) {
-  const { displaySize, setDisplaySize, bookingColorScheme, setBookingColorScheme } = useDisplay()
+  const { displaySize, setDisplaySize, bookingColorScheme, setBookingColorScheme, dragLockMode, setDragLockMode } = useDisplay()
   const { language, setLanguage, t } = useI18n()
   const { theme, setTheme, themeDefinition } = useTheme()
   const [open, setOpen] = useState(false)
@@ -26,7 +26,7 @@ export default function DisplaySettings({ user, guest, isAdmin, onSignOut }) {
     if (!normalizedQuery) return SETTINGS_SECTIONS
     return SETTINGS_SECTIONS.filter((section) => {
       const themeTerms = section.id === 'appearance' ? `${THEMES.flatMap((item) => [t(item.nameKey), t(item.noteKey)]).join(' ')} ${isAdmin ? BOOKING_COLOR_SCHEMES.flatMap((item) => [t(item.nameKey), t(item.noteKey)]).join(' ') : ''}` : ''
-      const displayTerms = section.id === 'display' ? `${t('settings.fontSize')} ${t('settings.language')} ${t('settings.fontSmaller')} ${t('settings.fontStandard')} ${t('settings.fontLarger')}` : ''
+      const displayTerms = section.id === 'display' ? `${t('settings.fontSize')} ${t('settings.language')} ${t('settings.fontSmaller')} ${t('settings.fontStandard')} ${t('settings.fontLarger')} ${isAdmin ? `${t('settings.dragLock')} ${t('settings.dragLockFree')} ${t('settings.dragLockCourt')} ${t('settings.dragLockTime')}` : ''}` : ''
       const accountTerms = section.id === 'account' ? `${username} ${user.email || ''} ${t('account.signOut')}` : ''
       return `${t(section.titleKey)} ${t(section.descriptionKey)} ${themeTerms} ${displayTerms} ${accountTerms}`.toLocaleLowerCase().includes(normalizedQuery)
     })
@@ -129,6 +129,23 @@ export default function DisplaySettings({ user, guest, isAdmin, onSignOut }) {
                       <div className="font-scale-labels"><span>{t('settings.fontSmaller')}</span><button type="button" onClick={() => setDisplaySize(FONT_SCALE_DEFAULT)}>{t('settings.fontStandard')} · {FONT_SCALE_DEFAULT}%</button><span>{t('settings.fontLarger')}</span></div>
                     </div>
                   </section>
+
+                  {isAdmin && (
+                    <section className="settings-card">
+                      <div className="settings-card-heading"><span><Move size={17} /></span><div><h3>{t('settings.dragLock')}</h3><p>{t('settings.dragLockHelp')}</p></div></div>
+                      <div className="drag-lock-settings-options" role="radiogroup" aria-label={t('settings.dragLock')}>
+                        {[
+                          { id: DRAG_LOCK_FREE, icon: Move, label: 'settings.dragLockFree', note: 'settings.dragLockFreeNote' },
+                          { id: DRAG_LOCK_COURT_ONLY, icon: MoveHorizontal, label: 'settings.dragLockCourt', note: 'settings.dragLockCourtNote' },
+                          { id: DRAG_LOCK_TIME_ONLY, icon: MoveVertical, label: 'settings.dragLockTime', note: 'settings.dragLockTimeNote' },
+                        ].map((item) => {
+                          const Icon = item.icon
+                          const selected = dragLockMode === item.id
+                          return <button type="button" role="radio" aria-checked={selected} className={selected ? 'selected' : ''} onClick={() => setDragLockMode(item.id)} key={item.id}><Icon size={16} /><span><strong>{t(item.label)}</strong><small>{t(item.note)}</small></span>{selected && <Check size={14} />}</button>
+                        })}
+                      </div>
+                    </section>
+                  )}
 
                   <section className="settings-card">
                     <div className="settings-card-heading"><span><Languages size={17} /></span><div><h3>{t('settings.language')}</h3><p>{t('settings.languageHelp')}</p></div></div>

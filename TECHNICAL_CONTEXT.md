@@ -365,7 +365,7 @@ Vite `base` 为 `./`，支持 `/badminton/` 子路径。
 - Stripe 尚未部署上线。
 - `supabase/schema.sql` 不是当前完整安装包。
 - demo mode 只近似后端行为，不能证明生产正确。
-- 显示偏好尚未跨设备同步。
+- 显示偏好和尚未账号化的馆长交互偏好（包括拖拽方向锁定）保存在 `localStorage`，尚未跨设备同步。
 - Security advisor 的预期 warning 仍需逐函数持续审计，不能整体忽略。
 
 ## 19. 上下文维护
