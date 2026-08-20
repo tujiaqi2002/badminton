@@ -15,7 +15,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 后端：Supabase project `ldbtrouofmqmnkyxiewk`，PostgreSQL + Auth + Realtime + RPC/RLS。
 - `main` 当前包含截至 2026-08-19 的产品/技术上下文；#88 分支加上新提交后全历史共 99 个提交。
 - 数据库目录包含 36 个有序 migration。
-- 构建命令只有 `dev`、`build`、`preview`、`lint`；没有单元、集成或 E2E test script。
+- 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；#93 增加了首组 6 个纯逻辑单元测试，但仍没有集成或 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
 - `App.jsx`、`AdminSchedule.jsx`、`i18n.js` 和 `styles.css` 已成为大型集中模块，后续改动的回归面较大。
 
@@ -37,6 +37,15 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 | 多商户 SaaS、AI 助理、市场平台 | 未开始 / 非当前范围 | 来自早期长期蓝图，不应在单馆核心稳定前启动 |
 
 ## 4. 当前进行中工作
+
+### PR #93 / Issue #92：Multi-court Individual Move
+
+- 分支：`codex/issue-92-individual-booking-move`。
+- PR：`https://github.com/tujiaqi2002/badminton/pull/93`，等待评审。
+- 内容：多场地订单默认保持连锁移动；馆长可在选中详情中临时切换到“单独移动”，让下一次拖动到空位或缩放只修改当前 booking，操作后自动恢复连锁模式。
+- 同组 booking 分开后，详情按每条记录的真实场地和时间展示；`booking_group_id` 与 `booking_link_id` 保持不变。
+- Supabase：不需要 schema、migration 或新 RPC；复用现有单条和整组 reschedule/move RPC。
+- 已记录验证：6 个单元测试、lint、build、桌面与 390px 响应式浏览器检查，以及连锁/单条拖动与缩放演示验证。
 
 ### PR #90 / Issue #88：Drag Lock
 
@@ -88,7 +97,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ### P1：回归风险
 
-- 无自动测试套件，复杂排期行为主要依赖人工浏览器检查。
+- 已有 #93 引入的最小纯逻辑测试，但复杂排期行为仍主要依赖人工浏览器检查，尚缺集成与 E2E 覆盖。
 - 关键组件过大且共享 CSS 集中，多人并行修改容易冲突和产生跨页面回归。
 - 馆务配置影响多个页面和数据库，任何设置功能都需要跨表面验收。
 
