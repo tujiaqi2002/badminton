@@ -6,11 +6,10 @@
 
 按顺序阅读：
 
-1. 在本地 Codex Workspace 中阅读 [`../../GLOBAL_WORKBENCH.md`](../../GLOBAL_WORKBENCH.md) 与 [`../../NEW_PROJECT_SOP.md`](../../NEW_PROJECT_SOP.md)；如果这是不含 Workspace 文件的独立 clone，则跳过此项，本文与项目文档仍可独立使用。
-2. [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) 确认当前发布、进行中 PR 和风险。
-3. 产品行为任务读 [`PRODUCT_CONTEXT.md`](./PRODUCT_CONTEXT.md)。
-4. 代码、数据库、权限或部署任务同时读 [`TECHNICAL_CONTEXT.md`](./TECHNICAL_CONTEXT.md)。
-5. 需要追溯原因时读 [`PROJECT_HISTORY.md`](./PROJECT_HISTORY.md)，不要把旧聊天当当前事实。
+1. [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) 确认当前发布、进行中 PR 和风险。
+2. 产品行为任务读 [`PRODUCT_CONTEXT.md`](./PRODUCT_CONTEXT.md)。
+3. 代码、数据库、权限或部署任务同时读 [`TECHNICAL_CONTEXT.md`](./TECHNICAL_CONTEXT.md)。
+4. 需要追溯原因时读 [`PROJECT_HISTORY.md`](./PROJECT_HISTORY.md)，不要把旧聊天当当前事实。
 
 开始修改前检查 `git status`、当前分支、关联 issue/PR。一个目标使用一个分支；不要把无关修改加入正在评审的 PR。
 
@@ -48,6 +47,6 @@ pnpm run build
 - 已接受产品行为变化：更新 `PRODUCT_CONTEXT.md`。
 - 架构、数据库、安全、部署变化：更新 `TECHNICAL_CONTEXT.md`。
 - 阶段性里程碑：更新 `PROJECT_HISTORY.md`。
-- 跨项目可复用教训：追加到 [`../../COMPOUND_LESSONS.md`](../../COMPOUND_LESSONS.md)。
+- 可复用教训先写入 `PROJECT_HISTORY.md`；本机存在全局 Workspace 时，再同步到其 `COMPOUND_LESSONS.md`。
 
 生产部署、数据库破坏性操作、合并 PR 和清理旧 worktree 需要明确授权。
