@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Link2, MessageSquareText, Pencil, PhoneCall, Repeat2, RotateCcw, Save, Trash2, X } from 'lucide-react'
+import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Link2, MessageSquareText, Move, MoveHorizontal, MoveVertical, Pencil, PhoneCall, Repeat2, RotateCcw, Save, Trash2, X } from 'lucide-react'
 import { addDays, bookingDurations, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { createCustomerColorMap, customerColorForBooking } from '../lib/bookingColors'
 import { bookingSwapPreview } from '../lib/bookingSwap'
-import { useDisplay } from '../lib/display'
+import { DRAG_LOCK_COURT_ONLY, DRAG_LOCK_FREE, DRAG_LOCK_TIME_ONLY, useDisplay } from '../lib/display'
 import { useI18n } from '../lib/i18n'
 import AdminAuditDrawer, { AdminAuditQuickPanel } from './AdminAuditDrawer'
 
@@ -251,7 +251,7 @@ function NewBookingModal({ draft, busy, onClose, onSubmit, onPreviewPrice, confi
 }
 
 export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onSwap, onLink, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onViewAuditLog, onRevertAudit, configuration }) {
-  const { bookingColorScheme } = useDisplay()
+  const { bookingColorScheme, dragLockMode, setDragLockMode } = useDisplay()
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
   const [weekStart, setWeekStart] = useState(() => mondayOfWeek(initialDate))
@@ -290,6 +290,11 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const currency = configuration?.settings?.currency || 'CAD'
   const historyLocked = configuration?.settings?.lock_historical_bookings !== false
   const timeSlots = useMemo(() => Array.from({ length: Math.max(0, Math.floor((closeMinutes - openMinutes) / slotMinutes)) }, (_, index) => timeFromMinutes(openMinutes + index * slotMinutes)), [closeMinutes, openMinutes, slotMinutes])
+  const dragLockLabelKey = dragLockMode === DRAG_LOCK_COURT_ONLY
+    ? 'admin.schedule.dragLockCourt'
+    : dragLockMode === DRAG_LOCK_TIME_ONLY
+      ? 'admin.schedule.dragLockTime'
+      : 'admin.schedule.dragLockFree'
 
   useEffect(() => {
     setSelectedBooking(null)
@@ -500,7 +505,14 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   useEffect(() => {
     if (!pointerDrag) return undefined
     const move = (event) => {
-      if (!pointerMoved.current && Math.hypot(event.clientX - pointerDrag.startX, event.clientY - pointerDrag.startY) < 5) return
+      const deltaX = event.clientX - pointerDrag.startX
+      const deltaY = event.clientY - pointerDrag.startY
+      const allowedDistance = dragLockMode === DRAG_LOCK_COURT_ONLY
+        ? Math.abs(deltaX)
+        : dragLockMode === DRAG_LOCK_TIME_ONLY
+          ? Math.abs(deltaY)
+          : Math.hypot(deltaX, deltaY)
+      if (!pointerMoved.current && allowedDistance < 5) return
       pointerMoved.current = true
       setDraggedId(pointerDrag.booking.id)
       const element = document.elementFromPoint(event.clientX, event.clientY)
@@ -510,7 +522,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
         const rect = node.getBoundingClientRect()
         return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom ? node : null
       }
-      const dayButton = element?.closest('[data-transfer-date]')
+      const dayButton = dragLockMode === DRAG_LOCK_FREE ? element?.closest('[data-transfer-date]') : null
       if (dayButton && !dayButton.disabled) {
         pointerTarget.current = { type: 'day', date: dayButton.dataset.transferDate }
         setDragDay(dayButton.dataset.transferDate)
@@ -533,13 +545,19 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
         setDragPreview(null)
         return
       }
-      const court = COURTS.find((item) => item.id === lane.dataset.courtId)
-      if (!court) return
+      const pointerCourt = COURTS.find((item) => item.id === lane.dataset.courtId)
+      const sourceCourt = COURTS.find((item) => item.id === pointerDrag.booking.court_id)
+      const court = dragLockMode === DRAG_LOCK_TIME_ONLY ? sourceCourt : pointerCourt
+      if (!court || !pointerCourt) return
       const rect = lane.getBoundingClientRect()
       const slotHeight = rect.height / timeSlots.length
       const duration = durationMinutes(pointerDrag.booking)
       const maxIndex = Math.max(0, Math.floor((closeMinutes - openMinutes - duration) / slotMinutes))
-      const index = Math.max(0, Math.min(maxIndex, Math.round((event.clientY - rect.top - pointerDrag.grabOffset) / slotHeight)))
+      const sourceTime = timeFromDateTime(pointerDrag.booking.start_at)
+      const sourceStartMinutes = Number(sourceTime.slice(0, 2)) * 60 + Number(sourceTime.slice(3))
+      const pointerIndex = Math.max(0, Math.min(maxIndex, Math.round((event.clientY - rect.top - pointerDrag.grabOffset) / slotHeight)))
+      const sourceIndex = Math.max(0, Math.min(maxIndex, Math.round((sourceStartMinutes - openMinutes) / slotMinutes)))
+      const index = dragLockMode === DRAG_LOCK_COURT_ONLY ? sourceIndex : pointerIndex
       const startMinutes = openMinutes + index * slotMinutes
       const swap = bookingSwapPreview({
         bookings,
@@ -574,7 +592,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       const cancelNode = document.querySelector('.admin-schedule-cancel-drop')
       const cancelRect = cancelNode?.getBoundingClientRect()
       const insideCancel = cancelRect && event.clientX >= cancelRect.left && event.clientX <= cancelRect.right && event.clientY >= cancelRect.top && event.clientY <= cancelRect.bottom
-      const dayButton = element?.closest('[data-transfer-date]')
+      const dayButton = dragLockMode === DRAG_LOCK_FREE ? element?.closest('[data-transfer-date]') : null
       if ((dayButton && !dayButton.disabled) || pointerTarget.current?.type === 'day') {
         const nextDate = dayButton?.dataset.transferDate || pointerTarget.current.date
         pointerTarget.current = null
@@ -616,7 +634,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
     }
-  }, [bookings, closeMinutes, dateKey, historyLocked, now, onCancel, onDateChange, onReschedule, onRescheduleGroup, onSwap, openMinutes, pointerDrag, slotMinutes, timeSlots.length])
+  }, [bookings, closeMinutes, dateKey, dragLockMode, historyLocked, now, onCancel, onDateChange, onReschedule, onRescheduleGroup, onSwap, openMinutes, pointerDrag, slotMinutes, timeSlots.length])
 
   const chooseSlot = useCallback((court, time) => {
     const startMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3))
@@ -816,7 +834,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
             <span>{t('admin.schedule.preview')}</span>
             <strong>{draggedBooking.customer_name}</strong>
             <b>{dateKey.replaceAll('-', '.')} · {courtTitle(dragPreview.court)} · {t('admin.schedule.dragStart')} {dragPreview.time} → {t('admin.schedule.dragEnd')} {dragPreview.endTime}</b>
-            <small>{t(dragPreview.invalid ? (dragPreview.invalidReason === 'past' ? 'admin.schedule.pastDropBlocked' : 'admin.schedule.swapBlocked') : dragPreview.swap?.mode === 'swap' ? 'admin.schedule.releaseToSwap' : 'admin.schedule.releaseToMove', { count: dragPreview.swap?.bookings?.length || 0 })}</small>
+            <small><em>{t('admin.schedule.dragLockActive', { mode: t(dragLockLabelKey) })}</em>{t(dragPreview.invalid ? (dragPreview.invalidReason === 'past' ? 'admin.schedule.pastDropBlocked' : 'admin.schedule.swapBlocked') : dragPreview.swap?.mode === 'swap' ? 'admin.schedule.releaseToSwap' : 'admin.schedule.releaseToMove', { count: dragPreview.swap?.bookings?.length || 0 })}</small>
           </div>
         ) : focusTime ? (
           <div className="admin-phone-focus-guide" role="status" aria-live="polite">
@@ -826,7 +844,22 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
             <button onClick={onClearFocus}><X size={13} /> {t('admin.schedule.clearPhoneFocus')}</button>
           </div>
         ) : (
-          <div className="admin-schedule-hint"><GripVertical size={14} /> {t('admin.schedule.hint')}<span><CalendarPlus size={14} /> {t('admin.schedule.addHint')}</span></div>
+          <div className="admin-schedule-hint">
+            <span className="admin-schedule-hint-copy"><GripVertical size={14} /> {t('admin.schedule.hint')}</span>
+            <div className="admin-drag-lock-control" role="radiogroup" aria-label={t('admin.schedule.dragLock')}>
+              <small>{t('admin.schedule.dragLock')}</small>
+              {[
+                { id: DRAG_LOCK_FREE, icon: Move, label: 'admin.schedule.dragLockFree' },
+                { id: DRAG_LOCK_COURT_ONLY, icon: MoveHorizontal, label: 'admin.schedule.dragLockCourt' },
+                { id: DRAG_LOCK_TIME_ONLY, icon: MoveVertical, label: 'admin.schedule.dragLockTime' },
+              ].map((item) => {
+                const Icon = item.icon
+                const selected = dragLockMode === item.id
+                return <button type="button" role="radio" aria-checked={selected} className={selected ? 'active' : ''} title={t(`${item.label}Help`)} onClick={() => setDragLockMode(item.id)} key={item.id}><Icon size={12} /><span>{t(item.label)}</span></button>
+              })}
+            </div>
+            <span className="admin-schedule-add-hint"><CalendarPlus size={14} /> {t('admin.schedule.addHint')}</span>
+          </div>
         )}
       </div>
       <div className="admin-schedule-workbench">
@@ -838,7 +871,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
             {quickDays.map((day) => (
               <button
                 className={`${dateKey === day.key ? 'active' : ''} ${day.key < nowAtVenue.dateKey ? 'past' : ''} ${dragDay === day.key ? 'drop-target' : ''}`}
-                data-transfer-date={day.key >= nowAtVenue.dateKey || historicalDragCanUsePastDates ? day.key : undefined}
+                data-transfer-date={dragLockMode === DRAG_LOCK_FREE && (day.key >= nowAtVenue.dateKey || historicalDragCanUsePastDates) ? day.key : undefined}
                 key={day.key}
                 onClick={() => chooseTransferDay(day.key)}
               >

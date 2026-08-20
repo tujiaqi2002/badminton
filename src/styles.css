@@ -130,6 +130,15 @@ a { color: inherit; text-decoration: none; }
 .language-options button:first-child { border-left: 0; }
 .language-options button:hover { color: var(--ink); background: rgba(34,36,33,.045); }
 .language-options button.selected { color: white; background: var(--ink); }
+.drag-lock-settings-options { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: rgba(255,255,255,.38); }
+.drag-lock-settings-options button { min-width: 0; min-height: 68px; padding: 9px 10px; display: grid; grid-template-columns: 18px minmax(0,1fr) 14px; align-items: center; gap: 7px; border: 0; border-left: 1px solid var(--line); color: var(--ink-soft); background: transparent; text-align: left; cursor: pointer; }
+.drag-lock-settings-options button:first-child { border-left: 0; }
+.drag-lock-settings-options button:hover { color: var(--ink); background: rgba(34,36,33,.045); }
+.drag-lock-settings-options button.selected { color: white; background: var(--ink); }
+.drag-lock-settings-options button > span { min-width: 0; display: grid; gap: 3px; }
+.drag-lock-settings-options strong, .drag-lock-settings-options small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drag-lock-settings-options strong { font-size: 0.5625rem; }
+.drag-lock-settings-options small { opacity: .68; font-size: 0.4375rem; }
 .font-scale-control { min-width: 0; padding: 13px 16px 11px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,.46); }
 .font-scale-value { min-height: 25px; display: flex; align-items: center; justify-content: space-between; gap: 15px; color: var(--ink-soft); font-size: 0.5625rem; }
 .font-scale-value output { color: var(--ink); font: 1.125rem/1 "Songti SC",serif; font-variant-numeric: tabular-nums; }
@@ -632,6 +641,7 @@ a { color: inherit; text-decoration: none; }
 .admin-drag-readout > strong { font-size: 0.625rem; }
 .admin-drag-readout > b { padding: 7px 10px; color: var(--ink); background: white; font-size: 0.625rem; }
 .admin-drag-readout > small { margin-left: auto; opacity: .72; font-size: 0.5rem; }
+.admin-drag-readout > small em { margin-right: 3px; color: #f2cf78; font-style: normal; font-weight: 700; }
 .admin-drag-readout.range-create > strong { display: inline-flex; align-items: center; gap: 5px; }
 .admin-drag-readout.range-create.invalid { background: #57544f; }
 .admin-drag-readout.range-create.invalid > b { color: var(--ink-soft); background: #efede7; }
@@ -647,8 +657,15 @@ a { color: inherit; text-decoration: none; }
 .admin-phone-focus-guide strong { font-size: 0.625rem; white-space: nowrap; }
 .admin-phone-focus-guide span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); }
 .admin-phone-focus-guide button { margin-left: auto; padding: 6px 9px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(199,70,54,.22); background: rgba(255,255,255,.62); color: var(--red-dark); cursor: pointer; font-size: 0.5rem; white-space: nowrap; }
-.admin-schedule-hint { height: 40px; padding: 0 14px; display: flex; align-items: center; gap: 7px; color: var(--ink-soft); font-size: 0.5rem; }
-.admin-schedule-hint span { margin-left: auto; display: flex; align-items: center; gap: 7px; }
+.admin-schedule-hint { height: 40px; padding: 0 10px 0 14px; display: flex; align-items: center; gap: 10px; color: var(--ink-soft); font-size: 0.5rem; }
+.admin-schedule-hint-copy, .admin-schedule-add-hint { min-width: 0; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.admin-schedule-hint-copy { overflow: hidden; text-overflow: ellipsis; }
+.admin-schedule-add-hint { margin-left: 0; }
+.admin-drag-lock-control { margin-left: auto; padding: 2px; display: inline-flex; align-items: center; gap: 2px; border: 1px solid rgba(34,36,33,.14); border-radius: 999px; background: rgba(255,255,255,.58); }
+.admin-drag-lock-control > small { padding: 0 5px 0 7px; color: var(--ink-soft); font-size: 0.4375rem; font-weight: 700; letter-spacing: .05em; }
+.admin-drag-lock-control button { min-height: 26px; padding: 0 7px; display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 999px; color: var(--ink-soft); background: transparent; cursor: pointer; font-size: 0.46875rem; white-space: nowrap; }
+.admin-drag-lock-control button:hover { color: var(--ink); background: rgba(34,36,33,.055); }
+.admin-drag-lock-control button.active { color: white; background: var(--ink); box-shadow: 0 3px 8px rgba(34,36,33,.13); }
 .admin-undo-bar { grid-column: 1/-1; grid-row: 3; }
 .admin-schedule-scroll { grid-column: 2; grid-row: 3; min-width: 0; overflow-x: auto; border-bottom: 1px solid var(--line); }
 .admin-schedule-grid { --slot-height: 26px; width: 100%; min-width: 0; position: relative; display: grid; grid-template-columns: clamp(52px,5vw,64px) repeat(5,minmax(0,1fr)); }
@@ -854,6 +871,7 @@ footer small { text-align: right; }
   .admin-booking-details { grid-column: 2/-1; }
   .admin-schedule-editor { --inspector-width: 180px; --cancel-width: 170px; }
   .admin-schedule-inspector, .admin-schedule-side-right { height: min(732px, calc(100vh - 76px)); }
+  .admin-schedule-add-hint { display: none; }
 }
 
 @media (max-width: 900px) and (min-width: 761px) {
@@ -902,6 +920,8 @@ footer small { text-align: right; }
   .admin-drag-readout { align-items: flex-start; flex-wrap: wrap; }
   .admin-drag-readout > b { order: 3; width: 100%; }
   .admin-drag-readout > small { margin-left: auto; }
+  .admin-schedule-hint-copy, .admin-schedule-add-hint { display: none; }
+  .admin-drag-lock-control { margin-inline: auto; }
   .admin-schedule-grid { min-width: 890px; }
   .admin-create-modal, .admin-reschedule-modal { padding: 29px 20px; }
   .admin-create-fields, .admin-reschedule-fields { grid-template-columns: 1fr; }
