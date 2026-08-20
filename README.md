@@ -4,14 +4,14 @@
 
 ## 已实现
 
-- 风、林、火、山、雷五片场地的 7 天实时排期
+- 壹、贰、叁、肆、伍五片场地的实时排期
 - 桌面二维时间矩阵与手机场地卡片视图
-- 60 / 90 / 120 分钟预订、人数、动态价格、到店付款
+- 可配置的客户/馆长最短与最长预订、人数、动态价格、到店付款
 - Supabase 邮箱 Magic Link 和 Google OAuth 接口
 - “我的预订”、取消、状态与支付信息
 - 馆长专属预订管理：日期范围、状态、客户搜索、场地、时长与营收概览
 - 馆长可安全取消客户订单，数据库校验角色并记录操作审计；“我的预订”始终只显示本人订单
-- 私有馆长工作台：进入网站必须先登录，仅白名单内两位馆长可访问；预订管理支持可视化拖动/点选改期与代客新增预订
+- 私有馆长工作台：进入网站必须先登录，仅数据库授权的馆长可访问；预订管理支持拖动、缩放、置换、关联、代客新增与操作撤回
 - 中文 / English 全站切换，自动识别浏览器语言并记住访客选择
 - 七套可切换视觉主题：留白水墨、如虎添翼、黄黑竞技、专注超越、金羽飞虎、彩翼专注、五色墨场，并记住访客选择
 - PostgreSQL `EXCLUDE` 时间区间约束，防止任意重叠和并发超卖
@@ -46,7 +46,7 @@ VITE_STRIPE_ENABLED=false
 ## Supabase 上线
 
 1. 在 Supabase 新建项目。
-2. 打开 SQL Editor，执行 [`supabase/schema.sql`](./supabase/schema.sql)。
+2. 新项目先应用 [`supabase/schema.sql`](./supabase/schema.sql) 的基础结构，再按版本顺序应用 [`supabase/migrations`](./supabase/migrations)；已有项目只应用尚未执行的新 migration，不能重新覆盖基础快照。
 3. 在 Authentication → URL Configuration 设置：
    - Site URL：实际 GitHub Pages 地址
    - Redirect URLs：同一地址加 `/**`
@@ -59,17 +59,9 @@ VITE_STRIPE_ENABLED=false
 
 ### 设置馆长账号
 
-用户至少登录一次后，在 Supabase SQL Editor 运行以下一次性语句。不要在前端通过邮箱判断管理员，也不要把真实馆长邮箱提交到公开仓库。
+首位馆长完成数据库引导后，后续馆长通过应用内的“馆务中心 → 管理员管理”邀请、启用或停用。不要在前端通过邮箱判断管理员，也不要把真实馆长邮箱提交到公开仓库。
 
-```sql
-insert into public.staff_members (user_id, role)
-select id, 'admin'
-from auth.users
-where lower(email) = lower('OWNER_EMAIL')
-on conflict (user_id) do update set role = excluded.role;
-```
-
-客户端只有 `staff_members` 的只读权限，而且只能读取自己的角色；全部订单的可见性由 `bookings` RLS 在数据库端裁决。
+客户端只能读取自己的 `staff_members` 角色；馆长邀请源保存在 private schema，全部订单可见性和馆长 RPC 权限都由数据库裁决。
 
 ## Stripe（可选）
 
@@ -103,6 +95,9 @@ Stripe 订单先锁定 10 分钟。下一次创建订单会清理过期锁；生
 
 ## 资料
 
-- 产品与运营设计：[`docs/PRODUCT.md`](./docs/PRODUCT.md)
-- 数据库与 RLS：[`supabase/schema.sql`](./supabase/schema.sql)
+- 当前产品规则：[`PRODUCT_CONTEXT.md`](./PRODUCT_CONTEXT.md)
+- 技术、数据库、权限与部署：[`TECHNICAL_CONTEXT.md`](./TECHNICAL_CONTEXT.md)
+- 历史产品蓝图（已归档）：[`docs/PRODUCT.md`](./docs/PRODUCT.md)
+- 数据库基础结构：[`supabase/schema.sql`](./supabase/schema.sql)
+- 数据库演进与 RLS：[`supabase/migrations`](./supabase/migrations)
 - 部署工作流：[`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml)
