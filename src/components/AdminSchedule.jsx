@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, Clock3, GripVertical, Layers3, Link2, LockKeyhole, MessageSquareText, Pencil, PhoneCall, Plus, Repeat2, RotateCcw, Save, Trash2, Unlink, UnlockKeyhole, UsersRound, X } from 'lucide-react'
+import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, Clock3, GripVertical, Layers3, Link2, MessageSquareText, Pencil, PhoneCall, Plus, Repeat2, RotateCcw, Save, Trash2, Unlink, UsersRound, X } from 'lucide-react'
 import { addDays, bookingDurations, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { createCustomerColorMap, customerColorForBooking } from '../lib/bookingColors'
 import { activeBookingGroup, activeBookingGroupSize, BOOKING_MOVE_SCOPE_GROUP, bookingMoveScope, resizeAppliesToBooking } from '../lib/bookingMoveScope'
@@ -928,13 +928,6 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               </form>
             ) : (
               <dl>
-                {activeGroup.length > 1 && <div className={`admin-move-scope-note ${multiCourtMoveTogether ? 'group' : 'single'}`}>
-                  <dt>{t('admin.schedule.moveScope')}</dt>
-                  <dd>
-                    {multiCourtMoveTogether ? <LockKeyhole size={14} /> : <UnlockKeyhole size={14} />}
-                    <span><strong>{t(multiCourtMoveTogether ? 'admin.schedule.moveTogetherOn' : 'admin.schedule.moveTogetherOff')}</strong><small>{t('admin.schedule.moveScopeVenueSetting')}</small></span>
-                  </dd>
-                </div>}
                 <div><dt>{t('admin.schedule.courtTime')}</dt><dd>{(activeGroupSharesSchedule ? activeGroup : [activeSelection]).map((booking) => courtTitle(COURTS.find((court) => court.id === booking.court_id) || COURTS[0])).join(' + ')} · {activeSelection.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(activeSelection.start_at)}–{endTimeFromDateTime(activeSelection.start_at, activeSelection.end_at)}</dd></div>
                 {!activeGroupSharesSchedule && <div className="admin-group-schedule"><dt>{t('admin.schedule.groupSchedule')}</dt><dd>{activeGroup.map((booking) => <span key={booking.id}>{courtTitle(COURTS.find((court) => court.id === booking.court_id) || COURTS[0])} · {booking.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(booking.start_at)}–{endTimeFromDateTime(booking.start_at, booking.end_at)}</span>)}</dd></div>}
                 <div><dt>{t('admin.schedule.bookedAt')}</dt><dd>{activeSelection.created_at ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activeSelection.created_at)) : t('admin.schedule.notRecorded')}</dd></div>
