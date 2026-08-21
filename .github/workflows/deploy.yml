@@ -31,6 +31,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SITE_URL: ${{ vars.VITE_SITE_URL || 'https://tujiaqi2002.github.io/badminton/' }}
           VITE_GOOGLE_AUTH_ENABLED: ${{ vars.VITE_GOOGLE_AUTH_ENABLED || 'false' }}
           VITE_STRIPE_ENABLED: ${{ vars.VITE_STRIPE_ENABLED || 'false' }}
       - uses: actions/configure-pages@v5

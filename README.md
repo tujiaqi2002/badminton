@@ -37,6 +37,7 @@ pnpm dev
 ```env
 VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+VITE_SITE_URL=https://tujiaqi2002.github.io/badminton/
 VITE_GOOGLE_AUTH_ENABLED=false
 VITE_STRIPE_ENABLED=false
 ```
@@ -50,6 +51,7 @@ VITE_STRIPE_ENABLED=false
 3. 在 Authentication → URL Configuration 设置：
    - Site URL：实际 GitHub Pages 地址，例如 `https://tujiaqi2002.github.io/badminton/`
    - Redirect URLs：加入生产地址及 `/**`，本地开发再加入 `http://localhost:5173/**`
+   - `/**` 只用于 Supabase 的 Redirect URLs 允许列表；应用实际发送的 `redirectTo` 必须是上面的精确站点根地址
 4. 如使用 Google 登录：
    - 在 Google Cloud 创建 Web OAuth Client；Authorized JavaScript origins 加入生产站点 origin 和 `http://localhost:5173`
    - Authorized redirect URI 必须使用 Supabase Provider 页面显示的 callback URL，格式为 `https://<project-ref>.supabase.co/auth/v1/callback`
@@ -60,6 +62,7 @@ VITE_STRIPE_ENABLED=false
 6. 在 GitHub 仓库 Settings → Secrets and variables → Actions 添加：
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
+   - 可选 Variable `VITE_SITE_URL`；未填写时部署工作流使用当前 GitHub Pages 根地址
 7. 在 GitHub Settings → Pages → Build and deployment，把 Source 设为 **GitHub Actions**。
 
 Google 登录只负责确认身份，不会直接授予馆长权限。账号仍需存在于馆长邀请名单中，并由数据库写入 `staff_members` 后才能进入馆长工作台。
