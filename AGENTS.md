@@ -41,6 +41,8 @@ pnpm run build
 
 涉及交互时必须浏览器验证；涉及 Supabase 时还要检查 migration/RLS/RPC 与远端历史。当前没有完整自动化测试套件，因此不能只凭构建成功宣称业务正确。
 
+UI 或交互变更在浏览器验证时必须保存 Before / After 截图，并附到对应 Issue 或 PR，供开发团队直接比较。Before 优先使用需求截图或修改前页面，After 必须来自实际验证页面；桌面和手机存在不同布局时分别保留证据。
+
 ## 完成后
 
 - 当前阶段、PR、风险变化：更新 `PROJECT_STATUS.md`。

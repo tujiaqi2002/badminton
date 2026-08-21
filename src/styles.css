@@ -597,17 +597,24 @@ a { color: inherit; text-decoration: none; }
 .admin-payment-status { font-weight: 700; }
 .admin-payment-status.paid { color: #315c3f; }
 .admin-payment-status.unpaid { color: #9a5c1f; }
-.admin-booking-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.admin-booking-meta > span:first-child { margin-right: 1px; }
-.admin-quick-payment { min-height: 27px; padding: 0 7px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid rgba(34,36,33,.15); background: rgba(255,255,255,.54); font-weight: 700; cursor: pointer; }
-.admin-quick-payment input { width: 12px; height: 12px; margin: 0; accent-color: #315c3f; cursor: pointer; }
-.admin-quick-payment.paid { color: #315c3f; border-color: rgba(49,92,63,.22); background: rgba(49,92,63,.055); cursor: default; }
-.admin-quick-payment.unpaid { color: #82511f; }
+.admin-booking-meta { display: grid; gap: 7px; }
+.admin-party-count { min-height: 18px; display: inline-flex; align-items: center; gap: 5px; color: var(--ink-soft); font-size: max(.5625rem,9px); font-weight: 600; line-height: 1.25; }
+.admin-party-count svg { width: 13px; height: 13px; flex: 0 0 auto; color: var(--red-dark); stroke-width: 1.8; }
+.admin-payment-actions { min-width: 0; display: grid; grid-template-columns: repeat(auto-fit,minmax(76px,1fr)); gap: 6px; }
+.admin-quick-payment, .admin-related-payment { min-width: 0; min-height: 34px; padding: 6px 8px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(34,36,33,.16); border-radius: 3px; background: rgba(255,255,255,.6); color: var(--ink); font: inherit; font-size: max(.5625rem,9px); font-weight: 700; line-height: 1.25; text-align: center; transition: border-color .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease; }
+.admin-quick-payment { cursor: pointer; }
+.admin-quick-payment input { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin: 0; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid rgba(34,36,33,.38); border-radius: 3px; background: rgba(255,255,255,.72); cursor: pointer; }
+.admin-quick-payment input::before { content: '✓'; color: white; font-size: 10px; font-weight: 900; line-height: 1; opacity: 0; transform: translateY(-.5px); }
+.admin-quick-payment input:checked { border-color: #315c3f; background: #315c3f; }
+.admin-quick-payment input:checked::before { opacity: 1; }
+.admin-quick-payment:not(:has(input:disabled)):hover, .admin-quick-payment:focus-within, .admin-related-payment:not(:disabled):hover, .admin-related-payment:focus-visible { border-color: rgba(34,36,33,.45); background: rgba(34,36,33,.055); box-shadow: 0 0 0 2px rgba(34,36,33,.045); outline: 0; }
+.admin-quick-payment.paid, .admin-related-payment.paid { color: #315c3f; border-color: rgba(49,92,63,.24); background: rgba(49,92,63,.065); box-shadow: none; cursor: default; }
 .admin-quick-payment input:disabled { opacity: 1; cursor: default; }
-.admin-related-payment { min-height: 27px; padding: 0 7px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid rgba(34,36,33,.18); background: transparent; color: var(--ink); cursor: pointer; font: inherit; font-size: .46875rem; font-weight: 700; }
-.admin-related-payment:hover, .admin-related-payment:focus-visible { border-color: var(--ink); background: rgba(34,36,33,.055); outline: 0; }
-.admin-related-payment.paid { color: #315c3f; border-color: rgba(49,92,63,.22); background: rgba(49,92,63,.055); }
-.admin-related-payment:disabled { cursor: default; opacity: .72; }
+.admin-quick-payment:not(.paid):has(input:disabled) { opacity: .55; cursor: wait; }
+.admin-related-payment { cursor: pointer; }
+.admin-related-payment svg { width: 14px; height: 14px; flex: 0 0 auto; stroke-width: 1.8; }
+.admin-related-payment:disabled { cursor: default; opacity: .55; }
+.admin-related-payment.paid:disabled { opacity: 1; }
 .admin-price-summary dd { display: grid; gap: 5px; }
 .admin-price-summary dd > span { min-height: 24px; padding: 2px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid rgba(34,36,33,.08); }
 .admin-price-summary dd > span:last-child { border-bottom: 0; }
@@ -975,7 +982,8 @@ footer small { text-align: right; }
   .admin-link-menu { right: 0; }
   .admin-schedule-inspector dl { width: auto; min-width: 0; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 12px; }
   .admin-schedule-inspector.has-booking dl { min-width: 0; overflow-y: auto; padding-right: 3px; }
-  .admin-schedule-inspector dl > div.admin-group-schedule { grid-column: 1/-1; }
+  .admin-schedule-inspector dl > div.admin-group-schedule, .admin-schedule-inspector dl > div.admin-booking-status { grid-column: 1/-1; }
+  .admin-quick-payment, .admin-related-payment { min-height: 38px; }
   .admin-inspector-form { min-width: 0; grid-template-columns: 1fr; }
   .admin-inspector-form .notes { grid-column: 1/-1; }
   .admin-inspector-form-actions { grid-column: 1/-1; grid-row: auto; display: flex; flex-direction: row; justify-content: flex-end; }
