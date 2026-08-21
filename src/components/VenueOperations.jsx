@@ -46,6 +46,7 @@ const COPY = {
     nameZh: '中文名称', nameEn: '英文名称', timezone: '时区', currency: '币种', bookingWindow: '开放预订天数',
     slotMinutes: '最小时间刻度', customerMin: '客户最短预订', customerMax: '客户最长预订', managerMax: '馆长最长预订', cancelHours: '免费取消提前小时', minutes: '分钟', hoursUnit: '小时', days: '天',
     historyLock: '锁定历史订单', historyLockOn: '历史订单已锁定', historyLockOff: '允许馆长修正历史订单', historyLockHelp: '开启后，已经开始或结束的订单只能查看；关闭后，馆长可移动、调整时长或修改这些订单。新订单仍不能创建在过去。',
+    dragModeTitle: '多场订单拖拽方式', dragModeHelp: '统一决定馆长拖动或调整多场订单时的默认范围。', dragModeGroup: '整组一起移动', dragModeGroupHelp: '拖动任一场地，整笔多场订单同步移动或调整时长。', dragModeSingle: '只移动选中场地', dragModeSingleHelp: '只修改当前场地，仍保留它原来的订单组与关联关系。',
     hoursTitle: '每周营业时间', hoursHelp: '关闭某一天不会删除历史订单；新的预订会使用这份时间表。', closed: '闭馆', open: '营业', from: '开始', to: '结束', note: '当日说明',
     pricingTitle: '定价规则', pricingHelp: '不再计算优先级数字。系统自动选择范围最具体的规则：限时日期 → 会员专属 → 指定场地 → 指定星期 → 基础价；同层级选择覆盖更窄的时段。', addPrice: '新增定价', ruleNameZh: '规则中文名', ruleNameEn: '规则英文名',
     weekday: '星期', startTime: '开始时间', endTime: '结束时间', hourlyRate: '每小时价格', memberTier: '会员等级', matchOrder: '自动匹配', active: '启用', effective: '有效日期', noLimit: '不限',
@@ -83,6 +84,7 @@ const COPY = {
     nameZh: 'Chinese name', nameEn: 'English name', timezone: 'Time zone', currency: 'Currency', bookingWindow: 'Booking window',
     slotMinutes: 'Smallest time step', customerMin: 'Customer minimum', customerMax: 'Customer maximum', managerMax: 'Manager maximum', cancelHours: 'Free-cancellation notice', minutes: 'min', hoursUnit: 'hours', days: 'days',
     historyLock: 'Lock historical bookings', historyLockOn: 'Historical bookings are locked', historyLockOff: 'Managers may correct historical bookings', historyLockHelp: 'When enabled, bookings that have started or ended are read-only. Disable it to move, resize or edit those bookings. New bookings still cannot be created in the past.',
+    dragModeTitle: 'Multi-court drag behavior', dragModeHelp: 'Set the default scope when managers drag or resize a multi-court booking.', dragModeGroup: 'Move the whole group', dragModeGroupHelp: 'Dragging any court moves or resizes the complete multi-court business booking.', dragModeSingle: 'Move only the selected court', dragModeSingleHelp: 'Only the selected court changes while its booking group and relationships remain intact.',
     hoursTitle: 'Weekly opening hours', hoursHelp: 'Closing a day keeps historical bookings intact; new bookings use this schedule.', closed: 'Closed', open: 'Open', from: 'From', to: 'To', note: 'Day note',
     pricingTitle: 'Pricing rules', pricingHelp: 'No numeric priority is needed. The most specific match wins: dated rule → member → court → weekday → base rate; narrower windows win within a level.', addPrice: 'Add rate', ruleNameZh: 'Chinese rule name', ruleNameEn: 'English rule name',
     weekday: 'Weekday', startTime: 'Start', endTime: 'End', hourlyRate: 'Hourly rate', memberTier: 'Member tier', matchOrder: 'Automatic match', active: 'Active', effective: 'Effective dates', noLimit: 'No limit',
@@ -164,6 +166,33 @@ const emptyMemberTier = (rank = 50) => ({
   discount_percent: 0, default_validity_days: 365, color: 'ink', benefits: [], is_active: true,
 })
 const MEMBER_TIER_COLORS = ['ink', 'jade', 'silver', 'gold', 'cinnabar']
+
+const demoOperationsOverview = () => ({
+  settings: {
+    name_zh: '虎羽球馆',
+    name_en: 'Tiger Badminton',
+    timezone: 'America/Toronto',
+    currency: 'CAD',
+    booking_window_days: 30,
+    slot_minutes: 30,
+    customer_min_minutes: 60,
+    customer_max_minutes: 120,
+    manager_max_minutes: 240,
+    cancellation_notice_hours: 12,
+    lock_historical_bookings: true,
+    multi_court_drag_mode: 'group',
+  },
+  hours: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+    day_of_week: dayOfWeek,
+    open_minute: 600,
+    close_minute: 1440,
+    is_closed: false,
+    label: '',
+  })),
+  pricing_rules: [],
+  events: [],
+  member_summary: { active: 18 },
+})
 
 function PanelHeader({ eyebrow, title, help, action }) {
   return <header className="operations-panel-header">
@@ -257,7 +286,7 @@ function EventDateTimeField({ label, value, minValue = '', locale, c, onChange }
   </label>
 }
 
-export default function VenueOperations({ onNotify, onConfigurationLoaded, initialTab = 'overview' }) {
+export default function VenueOperations({ onNotify, onConfigurationLoaded, initialTab = 'overview', isDemo = false, demoConfiguration = null }) {
   const { language, locale } = useI18n()
   const c = COPY[language] || COPY.en
   const [tab, setTab] = useState(initialTab)
@@ -288,16 +317,39 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded, initi
   const [auditPage, setAuditPage] = useState(1)
   const [auditDetail, setAuditDetail] = useState(null)
   const configurationLoadedRef = useRef(onConfigurationLoaded)
+  const demoConfigurationRef = useRef(demoConfiguration)
 
   useEffect(() => {
     configurationLoadedRef.current = onConfigurationLoaded
   }, [onConfigurationLoaded])
+
+  useEffect(() => {
+    demoConfigurationRef.current = demoConfiguration
+  }, [demoConfiguration])
 
   const notify = useCallback((message, tone = 'success') => {
     if (onNotify) onNotify(message, tone)
   }, [onNotify])
 
   const loadOverview = useCallback(async () => {
+    if (isDemo) {
+      const defaults = demoOperationsOverview()
+      const current = demoConfigurationRef.current
+      const result = current ? {
+        ...defaults,
+        ...current,
+        settings: { ...defaults.settings, ...current.settings },
+        hours: current.hours?.length ? current.hours : defaults.hours,
+      } : defaults
+      setLoading(false)
+      setError('')
+      setData(result)
+      setSettings(result.settings)
+      setHours(result.hours)
+      setMemberTiers([])
+      configurationLoadedRef.current?.(result)
+      return
+    }
     if (!isSupabaseConfigured) {
       setLoading(false)
       setError(c.loadError)
@@ -316,7 +368,7 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded, initi
     setHours(result.hours || [])
     setMemberTiers(tierResult || [])
     configurationLoadedRef.current?.(result)
-  }, [c.loadError])
+  }, [c.loadError, isDemo])
 
   const queryMembers = useCallback(async (cursor = null, page = 1) => {
     const { data: result, error: requestError } = await supabase.rpc('admin_search_members', {
@@ -383,6 +435,14 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded, initi
   const saveSettings = () => {
     if (Number(settings?.customer_min_minutes || 60) > Number(settings?.customer_max_minutes || 120)) {
       notify(c.customerDurationInvalid, 'error')
+      return
+    }
+    if (isDemo) {
+      const result = { ...data, settings: { ...settings } }
+      demoConfigurationRef.current = result
+      setData(result)
+      configurationLoadedRef.current?.(result)
+      notify(c.saved)
       return
     }
     mutate('admin_update_venue_settings', { p_settings: settings })
@@ -564,6 +624,22 @@ export default function VenueOperations({ onNotify, onConfigurationLoaded, initi
               <span />
             </span>
           </label>
+          <section className="operations-drag-mode">
+            <header><strong>{c.dragModeTitle}</strong><small>{c.dragModeHelp}</small></header>
+            <div role="radiogroup" aria-label={c.dragModeTitle}>
+              {[
+                ['group', c.dragModeGroup, c.dragModeGroupHelp],
+                ['single', c.dragModeSingle, c.dragModeSingleHelp],
+              ].map(([value, label, help]) => <button
+                type="button"
+                role="radio"
+                aria-checked={(settings?.multi_court_drag_mode || 'group') === value}
+                className={(settings?.multi_court_drag_mode || 'group') === value ? 'selected' : ''}
+                onClick={() => setSettings({ ...settings, multi_court_drag_mode: value })}
+                key={value}
+              ><span><i /> <strong>{label}</strong></span><small>{help}</small></button>)}
+            </div>
+          </section>
         </article>
         <article className="operations-next-events">
           <header><span>{c.upcomingEvents}</span><button onClick={() => setTab('events')}>{c.events}<ChevronRight size={14} /></button></header>
