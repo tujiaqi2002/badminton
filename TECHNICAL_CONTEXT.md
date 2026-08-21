@@ -189,7 +189,7 @@ Magic Link 与 Google OAuth 都回到当前站点的 `origin + pathname`，不�
 - 编辑订单详情。
 - 最近操作撤回和指定 audit operation 回滚。
 
-管理端多场地移动范围是前端的单次交互状态：默认调用现有 group move/reschedule RPC；馆长临时解锁当前 booking 后，下一次拖动到空位或缩放调用现有 `admin_reschedule_booking`。该模式保留 `booking_group_id`，不新增 schema、RPC contract 或持久化设置；冲突、计价、权限和审计仍由数据库现有 trigger/RPC 最终裁决。
+管理端多场地移动范围由 `venue_settings.multi_court_drag_mode` 持久化为 `group` 或 `single`，并在馆务中心统一设置。排期详情不重复展示这项配置，拖动预览会说明本次实际生效范围；整组模式调用现有 group move/reschedule RPC，单场模式调用现有 `admin_reschedule_booking`。两种模式都保留 `booking_group_id` 和 `booking_link_id`，冲突、计价、权限和审计仍由数据库现有 trigger/RPC 最终裁决。
 
 禁止用多次前端顺序写入替代原子多行 RPC。
 
