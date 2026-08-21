@@ -19,6 +19,10 @@ export const authRedirectUrl = ({ siteUrl = '', baseUrl = './', currentUrl }) =>
   return redirectUrl.href
 }
 
+export const shouldFetchSchedule = ({ supabaseConfigured, authReady, user, isAdmin }) => (
+  !supabaseConfigured || Boolean(authReady && user && isAdmin)
+)
+
 export const isTransientAuthFailure = (result) => {
   const status = Number(result?.status ?? result?.error?.status)
   if (status === 0 || status === 401) return true
