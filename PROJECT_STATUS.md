@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-20。Canonical worktree 分支：`codex/project-context-system`。
+> 项目：`project-001-badminton`。核对日期：2026-08-21。Canonical worktree 分支：`codex/project-context-system`。
 
 ## 1. 一句话结论
 
@@ -37,6 +37,14 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 | 多商户 SaaS、AI 助理、市场平台 | 未开始 / 非当前范围 | 来自早期长期蓝图，不应在单馆核心稳定前启动 |
 
 ## 4. 当前进行中工作
+
+### PR #111 / Issue #110：Remove redundant move scope note
+
+- 分支：`codex/issue-110-remove-move-scope-note`。
+- PR：`https://github.com/tujiaqi2002/badminton/pull/111`，Draft，等待检查与评审。
+- 内容：从馆长选中预订详情中移除重复的“移动范围 / Linked move”说明；馆务中心里的多场订单拖拽设置、拖动预览和整组/单场移动逻辑保持不变。
+- Supabase：不需要 schema、migration、RLS 或 RPC 变更。
+- 已记录验证：lint、build、22 个单元测试、桌面与 390px 手机浏览器检查，以及中英文详情和馆务设置保留检查。
 
 ### PR #93 / Issue #92：Multi-court Individual Move
 
