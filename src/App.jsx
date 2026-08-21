@@ -13,6 +13,7 @@ import { useI18n } from './lib/i18n'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
 
+const authRedirectUrl = () => `${window.location.origin}${window.location.pathname}`
 const todayKey = () => venueNow().dateKey
 const VenueOperations = lazy(() => import('./components/VenueOperations'))
 const defaultAdminOrderFilters = () => ({
@@ -1078,7 +1079,7 @@ export default function App() {
     if (!isSupabaseConfigured) return false
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
-      options: { emailRedirectTo: window.location.href.split('#')[0], shouldCreateUser: true },
+      options: { emailRedirectTo: authRedirectUrl(), shouldCreateUser: true },
     })
     if (error) {
       const message = error.message.toLowerCase()
@@ -1093,8 +1094,19 @@ export default function App() {
   }
 
   const loginWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href.split('#')[0], queryParams: { prompt: 'select_account' } } })
-    if (error) notify(t('errors.auth'), 'error')
+    if (!isSupabaseConfigured || !googleAuthEnabled) return false
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: authRedirectUrl(),
+        queryParams: { prompt: 'select_account' },
+      },
+    })
+    if (error) {
+      notify(t('errors.auth'), 'error')
+      return false
+    }
+    return true
   }
 
   const enterDemo = () => {
