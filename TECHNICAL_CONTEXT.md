@@ -83,6 +83,8 @@ GitHub Pages 没有可信服务器运行时。特权写入、权限裁决、并�
 
 Supabase client 启用 session persistence、自动刷新和 OAuth redirect 检测。session 只证明身份；前端还会读取 `staff_members`，数据库 RPC/RLS 会独立验证馆长权限。
 
+Magic Link 与 Google OAuth 都回到当前站点的 `origin + pathname`，不携带页面查询参数或 hash。Google OAuth 先经过 Supabase 的 `/auth/v1/callback`，Google Cloud 中不能把应用页面误填成 OAuth callback。`VITE_GOOGLE_AUTH_ENABLED` 只控制入口是否显示，不参与权限判断。
+
 任何 `VITE_` 变量都会进入浏览器包，绝不能放 `service_role`、数据库密码或 Stripe secret。
 
 ## 6. Auth 与馆长权限
@@ -90,7 +92,7 @@ Supabase client 启用 session persistence、自动刷新和 OAuth redirect 检�
 ### 当前链路
 
 1. 应用在 Auth 完成前锁住主界面。
-2. Supabase Before User Created hook 调用 `public.hook_allow_manager_accounts`。
+2. Magic Link 与 Google OAuth 都经过 Supabase Before User Created hook，并调用 `public.hook_allow_manager_accounts`。
 3. Hook 在 `private.manager_accounts` 检查 invited/active 邮箱。
 4. 新用户创建后，`private.activate_invited_manager` 关联 Auth user，并写入 `public.staff_members(role='admin')`。
 5. 客户端只能读取自己的 `staff_members` 角色。

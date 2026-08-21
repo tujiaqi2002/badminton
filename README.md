@@ -48,14 +48,31 @@ VITE_STRIPE_ENABLED=false
 1. 在 Supabase 新建项目。
 2. 新项目先应用 [`supabase/schema.sql`](./supabase/schema.sql) 的基础结构，再按版本顺序应用 [`supabase/migrations`](./supabase/migrations)；已有项目只应用尚未执行的新 migration，不能重新覆盖基础快照。
 3. 在 Authentication → URL Configuration 设置：
-   - Site URL：实际 GitHub Pages 地址
-   - Redirect URLs：同一地址加 `/**`
-4. 如使用 Google 登录，在 Authentication → Providers 启用 Google，并把 GitHub Actions Variable `VITE_GOOGLE_AUTH_ENABLED` 设为 `true`。
+   - Site URL：实际 GitHub Pages 地址，例如 `https://tujiaqi2002.github.io/badminton/`
+   - Redirect URLs：加入生产地址及 `/**`，本地开发再加入 `http://localhost:5173/**`
+4. 如使用 Google 登录：
+   - 在 Google Cloud 创建 Web OAuth Client；Authorized JavaScript origins 加入生产站点 origin 和 `http://localhost:5173`
+   - Authorized redirect URI 必须使用 Supabase Provider 页面显示的 callback URL，格式为 `https://<project-ref>.supabase.co/auth/v1/callback`
+   - 在 Authentication → Providers → Google 填入 Client ID 和 Client Secret 并启用 Provider
+   - 本地把 `VITE_GOOGLE_AUTH_ENABLED` 设为 `true`，GitHub Actions Variable 同样设为 `true`
+   - Google Client Secret 只能保存在 Supabase，不能写入任何 `VITE_` 变量或提交到仓库
 5. 从 Project Settings → API 复制 Project URL 与浏览器可用的 publishable/anon key。
 6. 在 GitHub 仓库 Settings → Secrets and variables → Actions 添加：
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
 7. 在 GitHub Settings → Pages → Build and deployment，把 Source 设为 **GitHub Actions**。
+
+Google 登录只负责确认身份，不会直接授予馆长权限。账号仍需存在于馆长邀请名单中，并由数据库写入 `staff_members` 后才能进入馆长工作台。
+
+### 测试 Google 登录
+
+1. 确认 `.env.local` 中 `VITE_GOOGLE_AUTH_ENABLED=true`，修改后重启开发服务器。
+2. 运行 `pnpm dev`，打开 `http://localhost:5173/`。
+3. 登录弹窗应显示“使用 Google 继续”；点击后应进入 `accounts.google.com`。
+4. 使用已邀请的馆长邮箱完成 Google 登录，应返回本地页面并进入馆长工作台。
+5. 未邀请账号不应获得馆长权限；最终权限以 `staff_members`、RLS 和馆长 RPC 的数据库校验为准。
+
+若 PowerShell 提示找不到 `pnpm`，可先运行 `npm install --global pnpm@11.16.0`，关闭并重新打开终端后再执行上述命令。
 
 ### 设置馆长账号
 
