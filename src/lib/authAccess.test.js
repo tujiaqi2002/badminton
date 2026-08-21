@@ -4,6 +4,7 @@ import {
   ADMIN_ACCESS_STATUS,
   authRedirectUrl,
   checkAdminAccess,
+  shouldFetchSchedule,
 } from './authAccess.js'
 
 const managerId = 'manager-1'
@@ -40,6 +41,49 @@ test('relative Vite base preserves the GitHub Pages deployment directory', () =>
     baseUrl: './',
     currentUrl: 'https://tujiaqi2002.github.io/badminton/**?next=admin#oauth',
   }), 'https://tujiaqi2002.github.io/badminton/')
+})
+
+test('configured Supabase does not load schedule before auth is ready', () => {
+  assert.equal(shouldFetchSchedule({
+    supabaseConfigured: true,
+    authReady: false,
+    user: null,
+    isAdmin: false,
+  }), false)
+})
+
+test('configured Supabase does not load schedule for a signed-out visitor', () => {
+  assert.equal(shouldFetchSchedule({
+    supabaseConfigured: true,
+    authReady: true,
+    user: null,
+    isAdmin: false,
+  }), false)
+})
+
+test('configured Supabase waits for verified manager access', () => {
+  const user = { id: managerId }
+  assert.equal(shouldFetchSchedule({
+    supabaseConfigured: true,
+    authReady: true,
+    user,
+    isAdmin: false,
+  }), false)
+  assert.equal(shouldFetchSchedule({
+    supabaseConfigured: true,
+    authReady: true,
+    user,
+    isAdmin: true,
+  }), true)
+})
+
+test('demo mode can load its local schedule without auth', () => {
+  assert.equal(shouldFetchSchedule({
+    supabaseConfigured: false,
+    authReady: false,
+    user: null,
+    isAdmin: false,
+  }), true)
 })
 
 test('transient staff 401 is retried and can authorize', async () => {

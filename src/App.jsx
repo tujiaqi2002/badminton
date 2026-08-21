@@ -8,7 +8,7 @@ import BookingDrawer from './components/BookingDrawer'
 import DateStrip from './components/DateStrip'
 import Header from './components/Header'
 import MyBookings from './components/MyBookings'
-import { ADMIN_ACCESS_STATUS, authRedirectUrl, checkAdminAccess } from './lib/authAccess'
+import { ADMIN_ACCESS_STATUS, authRedirectUrl, checkAdminAccess, shouldFetchSchedule } from './lib/authAccess'
 import { addDays, addMinutes, bookingDurations, COURTS, customerSlotsFromConfiguration, demoSchedule, isPastSlot, mondayOfWeek, openingHoursForDate, overlaps, priceBreakdownFromConfiguration, setVenueTimezone, slotDateTime, toDateKey, venueNow } from './lib/booking'
 import { useI18n } from './lib/i18n'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
@@ -153,6 +153,15 @@ export default function App() {
   }, [])
 
   const fetchSchedule = useCallback(async () => {
+    if (!shouldFetchSchedule({
+      supabaseConfigured: isSupabaseConfigured,
+      authReady,
+      user,
+      isAdmin,
+    })) {
+      setLoadingSchedule(false)
+      return
+    }
     if (!isSupabaseConfigured) {
       setSchedule((current) => {
         const userMade = current.filter((item) => item.id.startsWith('local-') && item.start_at.startsWith(dateKey))
@@ -161,13 +170,6 @@ export default function App() {
       return
     }
     setLoadingSchedule(true)
-    if (!isAdmin) {
-      const { data, error } = await supabase.rpc('get_customer_court_slots', { p_date: dateKey })
-      setLoadingSchedule(false)
-      if (error) notify(t('errors.schedule'), 'error')
-      else setSchedule((data || []).map((slot, index) => ({ ...slot, id: `busy-${dateKey}-${index}`, status: 'confirmed' })))
-      return
-    }
     const { data, error } = await supabase
       .from('court_slots')
       .select('id, court_id, start_at, end_at, status')
@@ -178,7 +180,7 @@ export default function App() {
     setLoadingSchedule(false)
     if (error) notify(t('errors.schedule'), 'error')
     else setSchedule(data || [])
-  }, [dateKey, isAdmin, notify, t])
+  }, [authReady, dateKey, isAdmin, notify, t, user])
 
   const fetchBookingConfiguration = useCallback(async () => {
     if (!isSupabaseConfigured || !user) { setBookingConfiguration(null); return }
@@ -472,11 +474,7 @@ export default function App() {
   }, [view, adminAccessStatus])
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !user) return undefined
-    if (!isAdmin) {
-      const timer = window.setInterval(fetchSchedule, 30_000)
-      return () => window.clearInterval(timer)
-    }
+    if (!isSupabaseConfigured || !user || !isAdmin) return undefined
     const channel = supabase
       .channel('public-court-schedule')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'court_slots' }, fetchSchedule)
