@@ -356,19 +356,45 @@ a { color: inherit; text-decoration: none; }
 .my-bookings-page, .empty-page { max-width: 1100px; min-height: calc(100vh - 150px); margin: 0 auto; padding: 85px 42px 120px; }
 .page-heading h1, .empty-page h1 { margin: 12px 0 9px; font: 400 clamp(43px, 6vw, 67px)/1.15 "Songti SC", serif; }
 .page-heading p, .empty-page p, .bookings-empty p { color: var(--ink-soft); font-size: 0.75rem; }
-.booking-list { margin-top: 55px; display: grid; gap: 13px; }
-.booking-card { display: grid; grid-template-columns: 90px 1fr; min-height: 150px; background: rgba(255,255,255,.4); border: 1px solid var(--line); }
-.booking-card-seal { display: grid; place-items: center; background: var(--ink); color: white; font: 2.125rem/1 "Songti SC", serif; }
-.booking-card-main { padding: 23px 28px; }
+.booking-list { margin-top: 43px; display: grid; gap: 14px; }
+.booking-card { display: grid; grid-template-columns: 112px minmax(0,1fr); min-height: 168px; overflow: hidden; background: rgba(255,255,255,.48); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 14px 38px rgba(34,36,33,.055); }
+.booking-card.is-cancelled, .booking-card.is-expired, .booking-card.is-no_show { background: rgba(255,255,255,.28); }
+.booking-card-date { padding: 18px 12px; display: grid; align-content: center; justify-items: center; gap: 6px; color: var(--paper-light); background: linear-gradient(160deg, var(--ink), color-mix(in srgb, var(--ink) 82%, var(--red))); text-align: center; }
+.booking-card-date span, .booking-card-date small { font-size: 0.625rem; font-weight: 800; line-height: 1; }
+.booking-card-date strong { font: 2.875rem/1 "Songti SC", serif; }
+.booking-card-main { min-width: 0; padding: 24px 28px 20px; display: grid; gap: 19px; }
 .booking-card-title { display: flex; justify-content: space-between; align-items: start; gap: 20px; }
-.booking-card-title small { color: var(--red); font-size: 0.5625rem; letter-spacing: .08em; }
-.booking-card-title h2 { margin: 6px 0 18px; font: 1.375rem/1 "Songti SC", serif; }
-.status-pill { padding: 5px 8px; font-size: 0.5rem; background: rgba(34,36,33,.07); }
+.booking-card-title > div:first-child { min-width: 0; }
+.booking-card-title small { color: var(--red); font-size: 0.5625rem; font-weight: 800; }
+.booking-card-title h2 { margin: 7px 0 0; color: var(--ink); font: 1.75rem/1.05 "Songti SC", serif; }
+.booking-card-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.status-pill { padding: 7px 10px; font-size: 0.5625rem; line-height: 1; background: rgba(34,36,33,.07); }
 .status-pill.confirmed { color: #3f6a4c; background: rgba(63,106,76,.1); }
 .status-pill.held { color: var(--red-dark); background: rgba(199,70,54,.1); }
-.booking-meta { display: flex; flex-wrap: wrap; gap: 22px; color: var(--ink-soft); font-size: 0.625rem; }
-.booking-meta span { display: flex; align-items: center; gap: 6px; }
-.text-button { border: 0; background: none; padding: 0; margin-top: 20px; cursor: pointer; font-size: 0.625rem; text-decoration: underline; text-underline-offset: 3px; }
+.status-pill.cancelled, .status-pill.expired, .status-pill.no_show { color: var(--ink-soft); background: rgba(34,36,33,.08); }
+.status-pill.mixed, .payment-pill.mixed { color: var(--ink); background: rgba(34,36,33,.1); }
+.multi-court-pill { padding: 7px 10px; color: var(--paper-light); background: var(--ink); font-size: 0.5625rem; line-height: 1; }
+.payment-pill { padding: 7px 10px; color: var(--ink-soft); background: rgba(34,36,33,.06); font-size: 0.5625rem; line-height: 1; }
+.payment-pill.paid { color: #315c3f; background: rgba(55,113,75,.1); }
+.payment-pill.pending, .payment-pill.pay_at_venue { color: #7a5520; background: rgba(146,106,39,.12); }
+.payment-pill.failed, .payment-pill.refunded { color: var(--red-dark); background: rgba(199,70,54,.1); }
+.booking-meta { display: grid; grid-template-columns: repeat(5, minmax(126px,1fr)); gap: 10px; color: var(--ink-soft); font-size: 0.625rem; }
+.booking-meta > span { min-width: 0; min-height: 58px; padding: 10px 11px; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(34,36,33,.07); background: rgba(255,255,255,.36); }
+.booking-meta svg { flex: 0 0 auto; color: var(--red); }
+.booking-meta > span > span { min-width: 0; display: grid; gap: 4px; }
+.booking-meta small { color: var(--ink-soft); font-size: 0.5rem; }
+.booking-meta strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-size: 0.6875rem; }
+.booking-court-chip { grid-column: span 1; color: var(--ink); border-color: color-mix(in srgb, var(--red) 20%, transparent); background: color-mix(in srgb, var(--red) 7%, white 28%, transparent); }
+.booking-court-chip > strong { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; overflow: visible; color: var(--paper-light); background: var(--ink); font: 1.125rem/1 "Songti SC", serif; }
+.booking-court-chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
+.booking-court-chip.multi-court { flex-direction: column; align-items: flex-start; justify-content: center; gap: 7px; background: color-mix(in srgb, var(--ink) 8%, white 28%, transparent); }
+.booking-meta > span > .booking-court-stack { min-width: 0; display: flex; flex-wrap: nowrap; gap: 2px; }
+.booking-court-chip.multi-court > span:last-child { min-width: 0; overflow: visible; text-overflow: clip; white-space: nowrap; }
+.booking-court-stack strong { width: 19px; height: 19px; display: grid; place-items: center; color: var(--paper-light); background: var(--ink); font: .65625rem/1 "Songti SC", serif; }
+.booking-court-stack strong.wind, .booking-court-stack strong.forest, .booking-court-stack strong.fire, .booking-court-stack strong.mountain, .booking-court-stack strong.thunder { background: var(--ink); }
+.booking-card-footer { min-height: 26px; display: flex; align-items: center; justify-content: space-between; gap: 18px; color: var(--ink-soft); font-size: 0.5625rem; }
+.booking-card-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 14px; }
+.text-button { border: 0; background: none; padding: 0; margin: 0; cursor: pointer; font-size: 0.625rem; text-decoration: underline; text-underline-offset: 3px; }
 .danger { color: var(--red-dark); }
 .bookings-empty { margin-top: 55px; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid var(--line); }
 .bookings-empty h2 { font: 1.5625rem/1 "Songti SC", serif; }
@@ -907,6 +933,13 @@ footer small { text-align: right; }
 }
 
 @media (max-width: 900px) and (min-width: 761px) {
+  .my-bookings-page, .empty-page { padding-inline: 28px; }
+  .booking-card { grid-template-columns: 96px minmax(0,1fr); }
+  .booking-card-main { padding: 22px 22px 19px; }
+  .booking-card-title { gap: 14px; }
+  .booking-card-title h2 { font-size: 1.625rem; }
+  .booking-meta { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .booking-meta > span { padding-inline: 10px; }
   .settings-center { grid-template-columns: 225px minmax(0,1fr); }
   .settings-content > header { padding-inline: 24px; }
   .settings-page { padding-inline: 24px; }
@@ -1050,10 +1083,19 @@ footer small { text-align: right; }
   .booking-summary-card { grid-template-columns: 61px 1fr 1fr; }
   .auth-modal { padding: 40px 25px 30px; }
   .my-bookings-page, .empty-page { padding: 58px 18px 95px; }
-  .booking-card { grid-template-columns: 59px 1fr; }
-  .booking-card-main { padding: 19px 16px; }
-  .booking-card-title { gap: 8px; }
-  .booking-meta { gap: 9px 15px; }
+  .booking-list { margin-top: 34px; }
+  .booking-card { grid-template-columns: 1fr; min-height: 0; }
+  .booking-card-date { padding: 12px 16px; grid-template-columns: auto auto 1fr; align-items: baseline; justify-items: start; gap: 9px; text-align: left; }
+  .booking-card-date strong { font-size: 2rem; }
+  .booking-card-main { padding: 19px 16px 17px; gap: 16px; }
+  .booking-card-title { flex-direction: column; gap: 11px; }
+  .booking-card-title h2 { font-size: 1.5625rem; }
+  .booking-card-badges { justify-content: flex-start; }
+  .booking-meta { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; }
+  .booking-meta > span { min-height: 54px; padding: 9px; }
+  .booking-court-chip { grid-column: 1/-1; }
+  .booking-card-actions { justify-content: flex-start; }
+  .booking-card-footer { align-items: flex-start; flex-direction: column; gap: 10px; }
   .admin-bookings-page { padding: 8px 17px 95px; }
   .admin-summary { grid-template-columns: repeat(2, 1fr); margin-top: 34px; }
   .admin-summary article { min-height: 93px; padding: 16px; border-bottom: 1px solid var(--line); }
