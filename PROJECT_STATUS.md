@@ -68,6 +68,12 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 这些 issue 有明显 UI 重叠，合并前需要指定每个 issue 的页面边界，避免同时修改 `styles.css`、`App.jsx` 或同一组件造成冲突。
 
+### 本地进行中：Issue #87 My Booking section redesign
+
+- 分支：`codex-87-my-bookings-redesign`。
+- 内容：客户“我的预订”列表改为扫描优先的订单卡片，突出日期、时段、场地、订单状态、支付状态、金额和下单时间；同时间多场地订单合并为一张可识别的多场地卡片，但取消入口仍按单条 booking 沿用原有条件与回调。
+- Supabase：不需要 schema、migration 或 RPC 变更。
+
 ## 5. 早期蓝图完成度
 
 之前分享的预约系统蓝图分为 MVP、并发、日历、支付、通知、多租户、经营面板、CRM、AI 和 marketplace。Tiger 当前对应关系如下：
