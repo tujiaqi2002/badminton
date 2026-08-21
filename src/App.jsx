@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, CalendarDays, CircleUserRound, Clock3, Gauge, MapPin, Radio, ShieldCheck, Sparkles } from 'lucide-react'
+import { Building2, CalendarDays, CircleUserRound, Clock3, Gauge, MapPin, Radio, ShieldAlert, ShieldCheck, Sparkles } from 'lucide-react'
 import AdminCapacity from './components/AdminCapacity'
 import AdminBookings from './components/AdminBookings'
 import AuthModal from './components/AuthModal'
@@ -8,12 +8,17 @@ import BookingDrawer from './components/BookingDrawer'
 import DateStrip from './components/DateStrip'
 import Header from './components/Header'
 import MyBookings from './components/MyBookings'
+import { ADMIN_ACCESS_STATUS, authRedirectUrl, checkAdminAccess } from './lib/authAccess'
 import { addDays, addMinutes, bookingDurations, COURTS, customerSlotsFromConfiguration, demoSchedule, isPastSlot, mondayOfWeek, openingHoursForDate, overlaps, priceBreakdownFromConfiguration, setVenueTimezone, slotDateTime, toDateKey, venueNow } from './lib/booking'
 import { useI18n } from './lib/i18n'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
 
-const authRedirectUrl = () => `${window.location.origin}${window.location.pathname}`
+const getAuthRedirectUrl = () => authRedirectUrl({
+  siteUrl: import.meta.env.VITE_SITE_URL,
+  baseUrl: import.meta.env.BASE_URL,
+  currentUrl: window.location.href,
+})
 const todayKey = () => venueNow().dateKey
 const VenueOperations = lazy(() => import('./components/VenueOperations'))
 const defaultAdminOrderFilters = () => ({
@@ -112,9 +117,10 @@ export default function App() {
     return { start, end: toDateKey(addDays(new Date(`${start}T12:00:00`), 6)) }
   })
   const [user, setUser] = useState(null)
-  const [isAdmin, setIsAdmin] = useState(false)
   const [authReady, setAuthReady] = useState(false)
-  const [adminAccessReady, setAdminAccessReady] = useState(false)
+  const [adminAccessStatus, setAdminAccessStatus] = useState(ADMIN_ACCESS_STATUS.CHECKING)
+  const isAdmin = adminAccessStatus === ADMIN_ACCESS_STATUS.AUTHORIZED
+  const adminAccessReady = adminAccessStatus !== ADMIN_ACCESS_STATUS.CHECKING
   const [selection, setSelection] = useState(null)
   const [showAuth, setShowAuth] = useState(false)
   const [loadingSchedule, setLoadingSchedule] = useState(false)
@@ -130,6 +136,7 @@ export default function App() {
   const [adminFocus, setAdminFocus] = useState(null)
   const adminDemoHistory = useRef([])
   const adminOrderRequestRef = useRef(0)
+  const adminAccessRequestRef = useRef(0)
   const authUserIdRef = useRef(null)
   const adminLandingUserRef = useRef(null)
   const [busy, setBusy] = useState(false)
@@ -197,30 +204,41 @@ export default function App() {
   }, [user, notify, t])
 
   const fetchAdminAccess = useCallback(async () => {
+    const requestId = ++adminAccessRequestRef.current
     if (!user) {
-      setIsAdmin(false)
-      setAdminAccessReady(true)
+      setAdminAccessStatus(ADMIN_ACCESS_STATUS.DENIED)
       return
     }
     if (!isSupabaseConfigured) {
-      setAdminAccessReady(true)
+      setAdminAccessStatus(ADMIN_ACCESS_STATUS.AUTHORIZED)
       return
     }
-    setAdminAccessReady(false)
-    const { data, error } = await supabase
-      .from('staff_members')
-      .select('role')
-      .eq('user_id', user.id)
-      .maybeSingle()
-    if (error) {
-      setIsAdmin(false)
-      setAdminAccessReady(true)
-      notify(t('errors.adminAccess'), 'error')
-      return
-    }
-    setIsAdmin(data?.role === 'admin')
-    setAdminAccessReady(true)
-  }, [user, notify, t])
+    setAdminAccessStatus(ADMIN_ACCESS_STATUS.CHECKING)
+
+    const result = await checkAdminAccess({
+      expectedUserId: user.id,
+      getSession: async () => {
+        const { data, error } = await supabase.auth.getSession()
+        return { session: data?.session || null, error }
+      },
+      getVerifiedUser: async (accessToken) => {
+        const { data, error } = await supabase.auth.getUser(accessToken)
+        return { user: data?.user || null, error }
+      },
+      getStaffRole: async (userId) => {
+        const { data, error, status } = await supabase
+          .from('staff_members')
+          .select('role')
+          .eq('user_id', userId)
+          .maybeSingle()
+        return { data, error, status }
+      },
+      isCurrent: () => adminAccessRequestRef.current === requestId,
+    })
+
+    if (adminAccessRequestRef.current !== requestId || result.status === 'stale') return
+    setAdminAccessStatus(result.status)
+  }, [user])
 
   const fetchVenueOperationsConfiguration = useCallback(async () => {
     if (!user || !isAdmin || !isSupabaseConfigured) {
@@ -397,7 +415,7 @@ export default function App() {
   useEffect(() => {
     if (!isSupabaseConfigured) {
       setAuthReady(true)
-      setAdminAccessReady(true)
+      setAdminAccessStatus(ADMIN_ACCESS_STATUS.DENIED)
       return
     }
     const applySession = (session) => {
@@ -409,11 +427,10 @@ export default function App() {
         current?.id === nextUserId && current?.email === nextUser?.email ? current : nextUser
       ))
       if (identityChanged) {
-        setIsAdmin(false)
-        setAdminAccessReady(!nextUser)
+        adminAccessRequestRef.current += 1
+        setAdminAccessStatus(nextUser ? ADMIN_ACCESS_STATUS.CHECKING : ADMIN_ACCESS_STATUS.DENIED)
       } else if (!nextUser) {
-        setIsAdmin(false)
-        setAdminAccessReady(true)
+        setAdminAccessStatus(ADMIN_ACCESS_STATUS.DENIED)
       }
       setAuthReady(true)
     }
@@ -429,7 +446,10 @@ export default function App() {
   useEffect(() => { fetchSchedule() }, [fetchSchedule])
   useEffect(() => { if (view === 'book' || view === 'mine') fetchBookingConfiguration() }, [view, fetchBookingConfiguration])
   useEffect(() => { if (view === 'mine') fetchBookings() }, [view, fetchBookings])
-  useEffect(() => { fetchAdminAccess() }, [fetchAdminAccess])
+  useEffect(() => {
+    fetchAdminAccess()
+    return () => { adminAccessRequestRef.current += 1 }
+  }, [fetchAdminAccess])
   useEffect(() => { fetchVenueOperationsConfiguration() }, [fetchVenueOperationsConfiguration])
   useEffect(() => { if (view === 'admin' || view === 'capacity') fetchAdminBookings() }, [view, fetchAdminBookings])
   useEffect(() => { if (view === 'admin') fetchAdminOrderBookings() }, [view, fetchAdminOrderBookings])
@@ -448,8 +468,8 @@ export default function App() {
     window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }))
   }, [view])
   useEffect(() => {
-    if ((view === 'admin' || view === 'capacity' || view === 'operations') && adminAccessReady && !isAdmin) setView('mine')
-  }, [view, isAdmin, adminAccessReady])
+    if ((view === 'admin' || view === 'capacity' || view === 'operations') && adminAccessStatus === ADMIN_ACCESS_STATUS.DENIED) setView('mine')
+  }, [view, adminAccessStatus])
 
   useEffect(() => {
     if (!isSupabaseConfigured || !user) return undefined
@@ -1079,7 +1099,7 @@ export default function App() {
     if (!isSupabaseConfigured) return false
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
-      options: { emailRedirectTo: authRedirectUrl(), shouldCreateUser: true },
+      options: { emailRedirectTo: getAuthRedirectUrl(), shouldCreateUser: true },
     })
     if (error) {
       const message = error.message.toLowerCase()
@@ -1098,7 +1118,7 @@ export default function App() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: authRedirectUrl(),
+        redirectTo: getAuthRedirectUrl(),
         queryParams: { prompt: 'select_account' },
       },
     })
@@ -1111,8 +1131,7 @@ export default function App() {
 
   const enterDemo = () => {
     setUser({ id: 'demo-user', email: 'demo@tiger.local' })
-    setIsAdmin(true)
-    setAdminAccessReady(true)
+    setAdminAccessStatus(ADMIN_ACCESS_STATUS.AUTHORIZED)
     setView('admin')
     setAdminBookings([{
       id: 'local-admin-preview', user_id: 'demo-user', court_id: COURTS[1].id,
@@ -1127,10 +1146,10 @@ export default function App() {
   }
 
   const signOut = async () => {
+    adminAccessRequestRef.current += 1
     if (isSupabaseConfigured && user?.id !== 'demo-user') await supabase.auth.signOut()
     setUser(null)
-    setIsAdmin(false)
-    setAdminAccessReady(true)
+    setAdminAccessStatus(ADMIN_ACCESS_STATUS.DENIED)
     setAdminBookings([])
     setAdminOrderBookings([])
     setAdminOrderSummary(emptyAdminOrderSummary)
@@ -1141,11 +1160,12 @@ export default function App() {
     setView('book')
   }
 
-  const accessLoading = !authReady || (user && !adminAccessReady)
-  const accessDenied = authReady && adminAccessReady && user && !isAdmin
+  const accessLoading = !authReady || (user && adminAccessStatus === ADMIN_ACCESS_STATUS.CHECKING)
+  const accessDenied = authReady && user && adminAccessStatus === ADMIN_ACCESS_STATUS.DENIED
+  const accessError = authReady && user && adminAccessStatus === ADMIN_ACCESS_STATUS.ERROR
   const accessLocked = authReady && !user
 
-  if (accessLoading || accessDenied || accessLocked) {
+  if (accessLoading || accessDenied || accessError || accessLocked) {
     return (
       <div className="private-login-shell">
         <div className="private-login-brand"><span>虎</span><strong>TIGER</strong><small>{t('auth.privateSubtitle')}</small></div>
@@ -1153,6 +1173,8 @@ export default function App() {
           <div className="private-login-loading"><Clock3 size={22} className="spin" /><p>{t('auth.checkingAccess')}</p></div>
         ) : accessDenied ? (
           <div className="private-access-denied"><ShieldCheck size={30} /><h1>{t('auth.deniedTitle')}</h1><p>{t('auth.deniedText')}</p><button className="primary-button" onClick={signOut}>{t('account.signOut')}</button></div>
+        ) : accessError ? (
+          <div className="private-access-denied private-access-error"><ShieldAlert size={30} /><h1>{t('auth.accessErrorTitle')}</h1><p>{t('auth.accessErrorText')}</p><div className="private-access-actions"><button className="primary-button" onClick={fetchAdminAccess}>{t('auth.retryAccess')}</button><button className="outline-button" onClick={signOut}>{t('account.signOut')}</button></div></div>
         ) : (
           <AuthModal onClose={() => {}} onEmail={loginByEmail} onGoogle={loginWithGoogle} onDemo={enterDemo} demoMode={!isSupabaseConfigured} googleEnabled={googleAuthEnabled} locked />
         )}
