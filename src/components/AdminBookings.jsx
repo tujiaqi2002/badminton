@@ -45,6 +45,9 @@ export default function AdminBookings({
   onRescheduleGroup,
   onSwap,
   onLink,
+  onLoadRelationship,
+  onUnlink,
+  onMarkPaid,
   onUndo,
   undoDepth,
   onUpdateDetails,
@@ -151,6 +154,9 @@ export default function AdminBookings({
         onRescheduleGroup={onRescheduleGroup}
         onSwap={onSwap}
         onLink={onLink}
+        onLoadRelationship={onLoadRelationship}
+        onUnlink={onUnlink}
+        onMarkPaid={onMarkPaid}
         onUpdateDetails={onUpdateDetails}
         onCancel={onCancel}
         auditOperations={auditOperations}

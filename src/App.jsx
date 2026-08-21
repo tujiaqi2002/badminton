@@ -10,6 +10,7 @@ import Header from './components/Header'
 import MyBookings from './components/MyBookings'
 import { ADMIN_ACCESS_STATUS, authRedirectUrl, checkAdminAccess, shouldFetchSchedule } from './lib/authAccess'
 import { addDays, addMinutes, bookingDurations, COURTS, customerSlotsFromConfiguration, demoSchedule, isPastSlot, mondayOfWeek, openingHoursForDate, overlaps, priceBreakdownFromConfiguration, setVenueTimezone, slotDateTime, toDateKey, venueNow } from './lib/booking'
+import { buildBookingRelationship, bookingGroupKey } from './lib/bookingRelationships'
 import { useI18n } from './lib/i18n'
 import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
@@ -1019,6 +1020,74 @@ export default function App() {
     return { saved: true, bookingLinkId: data?.[0]?.booking_link_id }
   }
 
+  const adminLoadBookingRelationship = useCallback(async (booking) => {
+    const localRelationship = buildBookingRelationship(adminBookings, booking)
+    if (!isSupabaseConfigured) return localRelationship
+    const { data, error } = await supabase.rpc('admin_get_booking_relationship', { p_booking_id: booking.id })
+    return error ? { ...localRelationship, limited: true } : data
+  }, [adminBookings])
+
+  const adminUnlinkBookingGroup = async (bookingId) => {
+    const source = adminBookings.find((booking) => booking.id === bookingId)
+    if (!source?.booking_link_id) return false
+    if (!isSupabaseConfigured) {
+      const linkId = source.booking_link_id
+      const sourceGroupId = bookingGroupKey(source)
+      const linkedGroups = new Set(adminBookings.filter((booking) => booking.booking_link_id === linkId && ['held', 'confirmed'].includes(booking.status)).map(bookingGroupKey))
+      const update = (booking) => {
+        if (booking.booking_link_id !== linkId) return booking
+        if (linkedGroups.size <= 2 || bookingGroupKey(booking) === sourceGroupId) return { ...booking, booking_link_id: null }
+        return booking
+      }
+      rememberAdminAction({ adminBookings, schedule })
+      setAdminBookings((current) => current.map(update))
+      setSchedule((current) => current.map(update))
+      notify(t('success.adminUnlink'))
+      return true
+    }
+    setAdminScheduleBusy(true)
+    const { error } = await supabase.rpc('admin_unlink_booking_group', { p_booking_id: bookingId })
+    setAdminScheduleBusy(false)
+    if (error) {
+      notify(t('errors.adminUnlink'), 'error')
+      return false
+    }
+    rememberAdminAction()
+    notify(t('success.adminUnlink'))
+    await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchSchedule(), fetchAdminAuditOperations()])
+    return true
+  }
+
+  const adminMarkBookingPaid = async (bookingId, scope = 'linked') => {
+    const source = adminBookings.find((booking) => booking.id === bookingId)
+    if (!source) return false
+    if (!isSupabaseConfigured) {
+      const sourceGroupId = bookingGroupKey(source)
+      const update = (booking) => {
+        const belongsToScope = scope === 'linked'
+          ? source.booking_link_id && booking.booking_link_id === source.booking_link_id
+          : bookingGroupKey(booking) === sourceGroupId
+        return belongsToScope && ['held', 'confirmed'].includes(booking.status) ? { ...booking, payment_status: 'paid' } : booking
+      }
+      rememberAdminAction({ adminBookings, schedule })
+      setAdminBookings((current) => current.map(update))
+      setSchedule((current) => current.map(update))
+      notify(t(scope === 'linked' ? 'success.adminLinkedPaid' : 'success.adminGroupPaid'))
+      return true
+    }
+    setAdminScheduleBusy(true)
+    const { error } = await supabase.rpc('admin_mark_booking_paid', { p_booking_id: bookingId, p_scope: scope })
+    setAdminScheduleBusy(false)
+    if (error) {
+      notify(t('errors.adminPayment'), 'error')
+      return false
+    }
+    rememberAdminAction()
+    notify(t(scope === 'linked' ? 'success.adminLinkedPaid' : 'success.adminGroupPaid'))
+    await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchSchedule(), fetchAdminAuditOperations()])
+    return true
+  }
+
   const adminUndoBookingChange = async (operationId = null) => {
     if (!operationId && adminUndoDepth < 1) return false
     if (!isSupabaseConfigured) {
@@ -1131,14 +1200,18 @@ export default function App() {
     setUser({ id: 'demo-user', email: 'demo@tiger.local' })
     setAdminAccessStatus(ADMIN_ACCESS_STATUS.AUTHORIZED)
     setView('admin')
-    setAdminBookings([{
-      id: 'local-admin-preview', user_id: 'demo-user', court_id: COURTS[1].id,
-      customer_name: 'Anna', customer_email: 'anna@example.com',
-      customer_phone: '416-555-0188', customer_notes: 'Please have two rental racquets ready.',
-      start_at: slotDateTime(todayKey(), '10:00'), end_at: slotDateTime(todayKey(), '11:30'),
-      status: 'confirmed', payment_status: 'pay_at_venue', payment_method: 'venue', total_amount: 42, party_size: 2,
-      created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    }])
+    const demoCreatedAt = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+    setAdminBookings([
+      { id: 'demo-anna-one', booking_group_id: 'demo-anna-group', booking_link_id: 'demo-link', user_id: 'demo-user', court_id: COURTS[0].id, customer_name: 'Anna', customer_email: 'anna@example.com', customer_phone: '416-555-0188', customer_notes: 'Please have two rental racquets ready.', start_at: slotDateTime(todayKey(), '10:00'), end_at: slotDateTime(todayKey(), '11:00'), status: 'confirmed', payment_status: 'pay_at_venue', payment_method: 'venue', total_amount: 28, currency: 'CAD', party_size: 4, created_at: demoCreatedAt },
+      { id: 'demo-anna-two', booking_group_id: 'demo-anna-group', booking_link_id: 'demo-link', user_id: 'demo-user', court_id: COURTS[1].id, customer_name: 'Anna', customer_email: 'anna@example.com', customer_phone: '416-555-0188', customer_notes: 'Please have two rental racquets ready.', start_at: slotDateTime(todayKey(), '10:00'), end_at: slotDateTime(todayKey(), '11:00'), status: 'confirmed', payment_status: 'pay_at_venue', payment_method: 'venue', total_amount: 28, currency: 'CAD', party_size: 4, created_at: demoCreatedAt },
+      { id: 'demo-anna-followup', booking_group_id: 'demo-followup-group', booking_link_id: 'demo-link', user_id: 'demo-user', court_id: COURTS[2].id, customer_name: 'Anna', customer_email: 'anna@example.com', customer_phone: '416-555-0188', customer_notes: null, start_at: slotDateTime(todayKey(), '11:30'), end_at: slotDateTime(todayKey(), '12:30'), status: 'confirmed', payment_status: 'pay_at_venue', payment_method: 'venue', total_amount: 32, currency: 'CAD', party_size: 2, created_at: demoCreatedAt },
+      { id: 'demo-ben', booking_group_id: 'demo-ben-group', booking_link_id: null, user_id: 'demo-user', court_id: COURTS[3].id, customer_name: 'Ben', customer_email: 'ben@example.com', customer_phone: '416-555-0142', customer_notes: null, start_at: slotDateTime(todayKey(), '13:00'), end_at: slotDateTime(todayKey(), '14:00'), status: 'confirmed', payment_status: 'pay_at_venue', payment_method: 'venue', total_amount: 28, currency: 'CAD', party_size: 2, created_at: demoCreatedAt },
+    ])
+    setVenueOperationsConfiguration((current) => current || {
+      settings: { currency: 'CAD', slot_minutes: 30, manager_max_minutes: 240, lock_historical_bookings: true, multi_court_drag_mode: 'group' },
+      hours: Array.from({ length: 7 }, (_, dayOfWeek) => ({ day_of_week: dayOfWeek, open_minute: 600, close_minute: 1440, is_closed: false })),
+      pricing_rules: [],
+    })
     setShowAuth(false)
     notify(t('success.demoMode'))
   }
@@ -1253,6 +1326,9 @@ export default function App() {
           onRescheduleGroup={adminRescheduleBookingGroup}
           onSwap={adminSwapBookings}
           onLink={adminLinkBookings}
+          onLoadRelationship={adminLoadBookingRelationship}
+          onUnlink={adminUnlinkBookingGroup}
+          onMarkPaid={adminMarkBookingPaid}
           onUndo={adminUndoBookingChange}
           undoDepth={adminUndoDepth}
           onUpdateDetails={adminUpdateBookingDetails}
@@ -1286,7 +1362,7 @@ export default function App() {
         />
       ) : view === 'operations' && isAdmin ? (
         <Suspense fallback={<main className="operations-page"><div className="operations-loading"><Clock3 className="spin" /><span>{t('auth.checkingAccess')}</span></div></main>}>
-          <VenueOperations initialTab={operationsInitialTab} onNotify={notify} onConfigurationLoaded={handleVenueOperationsConfiguration} />
+          <VenueOperations initialTab={operationsInitialTab} onNotify={notify} onConfigurationLoaded={handleVenueOperationsConfiguration} isDemo={user?.id === 'demo-user'} demoConfiguration={venueOperationsConfiguration} />
         </Suspense>
       ) : (
         <MyBookings user={user} bookings={bookings} loading={loadingBookings} onLogin={() => setShowAuth(true)} onCancel={cancelBooking} configuration={bookingConfiguration || venueOperationsConfiguration} />

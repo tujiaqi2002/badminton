@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock3, GripVertical, Link2, LockKeyhole, MessageSquareText, Move, MoveHorizontal, MoveVertical, Pencil, PhoneCall, Repeat2, RotateCcw, Save, Trash2, UnlockKeyhole, X } from 'lucide-react'
+import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, Clock3, GripVertical, Layers3, Link2, LockKeyhole, MessageSquareText, Pencil, PhoneCall, Plus, Repeat2, RotateCcw, Save, Trash2, Unlink, UnlockKeyhole, X } from 'lucide-react'
 import { addDays, bookingDurations, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { createCustomerColorMap, customerColorForBooking } from '../lib/bookingColors'
 import { activeBookingGroup, activeBookingGroupSize, BOOKING_MOVE_SCOPE_GROUP, bookingMoveScope, resizeAppliesToBooking } from '../lib/bookingMoveScope'
+import { canLinkBookings } from '../lib/bookingRelationships'
 import { bookingSwapPreview } from '../lib/bookingSwap'
 import { DRAG_LOCK_COURT_ONLY, DRAG_LOCK_FREE, DRAG_LOCK_TIME_ONLY, useDisplay } from '../lib/display'
 import { useI18n } from '../lib/i18n'
@@ -251,8 +252,8 @@ function NewBookingModal({ draft, busy, onClose, onSubmit, onPreviewPrice, confi
   )
 }
 
-export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onSwap, onLink, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onViewAuditLog, onRevertAudit, configuration }) {
-  const { bookingColorScheme, dragLockMode, setDragLockMode } = useDisplay()
+export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onSwap, onLink, onLoadRelationship, onUnlink, onMarkPaid, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onViewAuditLog, onRevertAudit, configuration }) {
+  const { bookingColorScheme, dragLockMode } = useDisplay()
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
   const [weekStart, setWeekStart] = useState(() => mondayOfWeek(initialDate))
@@ -262,7 +263,6 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const [dragDay, setDragDay] = useState(null)
   const [pointerDrag, setPointerDrag] = useState(null)
   const [selectedBooking, setSelectedBooking] = useState(null)
-  const [moveTogether, setMoveTogether] = useState(true)
   const [draft, setDraft] = useState(null)
   const [editingDetails, setEditingDetails] = useState(false)
   const [detailsForm, setDetailsForm] = useState({ name: '', email: '', phone: '', notes: '', paymentStatus: 'pay_at_venue' })
@@ -271,13 +271,21 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const [resizeDrag, setResizeDrag] = useState(null)
   const [linkDrag, setLinkDrag] = useState(null)
   const [linkDropId, setLinkDropId] = useState(null)
+  const [linkMode, setLinkMode] = useState(null)
   const [linkConfirmation, setLinkConfirmation] = useState(null)
+  const [linkMenuOpen, setLinkMenuOpen] = useState(false)
+  const [unlinkConfirmation, setUnlinkConfirmation] = useState(false)
+  const [relationship, setRelationship] = useState(null)
+  const [relationshipLoading, setRelationshipLoading] = useState(false)
   const [auditOpen, setAuditOpen] = useState(false)
   const [auditFocusId, setAuditFocusId] = useState(null)
   const [now, setNow] = useState(() => new Date())
   const pointerMoved = useRef(false)
   const linkPointerMoved = useRef(false)
+  const linkPointerStart = useRef(null)
+  const suppressLinkClick = useRef(false)
   const linkTarget = useRef(null)
+  const relationshipRequest = useRef(0)
   const pointerTarget = useRef(null)
   const rangeTarget = useRef(null)
   const suppressSlotClick = useRef(false)
@@ -291,6 +299,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const minimumBookingDuration = Math.ceil(30 / slotMinutes) * slotMinutes
   const currency = configuration?.settings?.currency || 'CAD'
   const historyLocked = configuration?.settings?.lock_historical_bookings !== false
+  const multiCourtMoveTogether = configuration?.settings?.multi_court_drag_mode !== 'single'
   const timeSlots = useMemo(() => Array.from({ length: Math.max(0, Math.floor((closeMinutes - openMinutes) / slotMinutes)) }, (_, index) => timeFromMinutes(openMinutes + index * slotMinutes)), [closeMinutes, openMinutes, slotMinutes])
   const dragLockLabelKey = dragLockMode === DRAG_LOCK_COURT_ONLY
     ? 'admin.schedule.dragLockCourt'
@@ -301,9 +310,13 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   useEffect(() => {
     setSelectedBooking(null)
     setLinkConfirmation(null)
+    setLinkMode(null)
     setLinkDrag(null)
     setLinkDropId(null)
+    setLinkMenuOpen(false)
+    setUnlinkConfirmation(false)
     linkTarget.current = null
+    setRelationship(null)
     setDateKey(initialDate)
     setWeekStart((current) => {
       const monday = mondayOfWeek(initialDate)
@@ -389,9 +402,11 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const activeGroup = activeSelection
     ? activeBookingGroup(bookings, activeSelection).sort((left, right) => left.start_at.localeCompare(right.start_at) || left.court_id.localeCompare(right.court_id))
     : []
-  const activeLinkedGroups = activeSelection?.booking_link_id
-    ? new Set(bookings.filter((booking) => booking.booking_link_id === activeSelection.booking_link_id && ['held', 'confirmed'].includes(booking.status)).map((booking) => booking.booking_group_id || booking.id)).size
-    : 0
+  const relationshipGroupCount = Number(relationship?.group_count || 0)
+  const hasRelationship = Boolean(relationship?.booking_link_id && relationshipGroupCount > 1)
+  const relationshipAllPaid = hasRelationship
+    && Number(relationship?.paid_group_count || 0) === relationshipGroupCount
+    && !relationship?.partially_paid
   const groupPrice = activeGroup.reduce((sum, booking) => sum + Number(booking.total_amount || 0), 0)
   const activeGroupSharesSchedule = activeGroup.every((booking) => (
     booking.start_at === activeSelection?.start_at && booking.end_at === activeSelection?.end_at
@@ -427,11 +442,9 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       paymentStatus: activeSelection.payment_status || 'pay_at_venue',
     })
     setEditingDetails(false)
+    setLinkMenuOpen(false)
+    setUnlinkConfirmation(false)
   }, [activeSelection])
-
-  useEffect(() => {
-    setMoveTogether(true)
-  }, [activeSelection?.id])
 
   const markSelectionPaid = async () => {
     if (!activeSelection || activeSelection.payment_status === 'paid' || busy) return
@@ -443,6 +456,45 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       paymentStatus: 'paid',
     })
   }
+
+  const markRelationshipPaid = async () => {
+    if (!activeSelection || !hasRelationship || relationshipAllPaid || busy) return
+    await onMarkPaid(activeSelection.id, 'linked')
+  }
+
+  useEffect(() => {
+    const requestId = relationshipRequest.current + 1
+    relationshipRequest.current = requestId
+    if (!activeSelection) {
+      setRelationship(null)
+      setRelationshipLoading(false)
+      return undefined
+    }
+    setRelationshipLoading(true)
+    Promise.resolve(onLoadRelationship(activeSelection)).then((next) => {
+      if (relationshipRequest.current !== requestId) return
+      setRelationship(next)
+      setRelationshipLoading(false)
+    }).catch(() => {
+      if (relationshipRequest.current !== requestId) return
+      setRelationship(null)
+      setRelationshipLoading(false)
+    })
+    return undefined
+  }, [activeSelection, onLoadRelationship])
+
+  useEffect(() => {
+    if (!linkMode && !linkConfirmation && !linkMenuOpen && !unlinkConfirmation) return undefined
+    const cancelRelationshipMode = (event) => {
+      if (event.key !== 'Escape') return
+      setLinkMode(null)
+      setLinkConfirmation(null)
+      setLinkMenuOpen(false)
+      setUnlinkConfirmation(false)
+    }
+    document.addEventListener('keydown', cancelRelationshipMode)
+    return () => document.removeEventListener('keydown', cancelRelationshipMode)
+  }, [linkConfirmation, linkMenuOpen, linkMode, unlinkConfirmation])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000)
@@ -463,9 +515,13 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const selectDate = (next) => {
     setSelectedBooking(null)
     setLinkConfirmation(null)
+    setLinkMode(null)
     setLinkDrag(null)
     setLinkDropId(null)
+    setLinkMenuOpen(false)
+    setUnlinkConfirmation(false)
     linkTarget.current = null
+    setRelationship(null)
     setDateKey(next)
     onDateChange(next)
   }
@@ -474,36 +530,6 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
     setWeekStart(next)
     selectDate(next)
   }
-
-  useEffect(() => {
-    if (!linkDrag) return undefined
-    const move = (event) => {
-      if (!linkPointerMoved.current && Math.hypot(event.clientX - linkDrag.startX, event.clientY - linkDrag.startY) < 5) return
-      linkPointerMoved.current = true
-      const targetId = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-booking-id]')?.dataset.bookingId
-      const target = bookings.find((booking) => booking.id === targetId)
-      const sourceGroupId = linkDrag.booking.booking_group_id || linkDrag.booking.id
-      const targetGroupId = target?.booking_group_id || target?.id
-      const alreadyLinked = Boolean(linkDrag.booking.booking_link_id && linkDrag.booking.booking_link_id === target?.booking_link_id)
-      const nextTargetId = target && target.id !== linkDrag.booking.id && sourceGroupId !== targetGroupId && !alreadyLinked ? target.id : null
-      linkTarget.current = nextTargetId
-      setLinkDropId(nextTargetId)
-    }
-    const up = () => {
-      const target = bookings.find((booking) => booking.id === linkTarget.current)
-      if (linkPointerMoved.current && target) setLinkConfirmation({ source: linkDrag.booking, target })
-      setLinkDrag(null)
-      setLinkDropId(null)
-      linkTarget.current = null
-      linkPointerMoved.current = false
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up, { once: true })
-    return () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-    }
-  }, [bookings, linkDrag])
 
   const finishDrag = () => {
     setDraggedId(null)
@@ -734,7 +760,6 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       const duration = resizeDrag.duration
       setResizeDrag(null)
       if (duration === resizeDrag.initialDuration) return
-      setMoveTogether(true)
       const court = COURTS.find((item) => item.id === booking.court_id) || COURTS[0]
       resizeDrag.moveScope === BOOKING_MOVE_SCOPE_GROUP
         ? await onRescheduleGroup(booking, timeFromDateTime(booking.start_at), duration, booking.start_at.slice(0, 10))
@@ -745,10 +770,34 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
     return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
   }, [closeMinutes, managerMaxMinutes, onReschedule, onRescheduleGroup, resizeDrag, slotMinutes])
 
+  const cancelRelationshipMode = () => {
+    setLinkMode(null)
+    setLinkConfirmation(null)
+    setLinkMenuOpen(false)
+    setUnlinkConfirmation(false)
+    setLinkDrag(null)
+    setLinkDropId(null)
+    linkTarget.current = null
+  }
+
+  const confirmRelationship = async () => {
+    if (!linkConfirmation || busy) return
+    const saved = await onLink(linkConfirmation.source, linkConfirmation.target)
+    if (saved) cancelRelationshipMode()
+  }
+
+  const unlinkActiveRelationship = async () => {
+    if (!activeSelection || !hasRelationship || busy) return
+    const saved = await onUnlink(activeSelection.id)
+    if (saved) cancelRelationshipMode()
+  }
+
+  const showScheduleContext = Boolean(linkDrag || rangeDisplay || (draggedBooking && dragPreview) || focusTime)
+
   return (
     <section
       ref={editorRef}
-      className="admin-schedule-editor"
+      className={`admin-schedule-editor ${linkMode || linkDrag ? 'relationship-selecting' : ''}`}
       aria-label={t('admin.schedule.aria')}
       onContextMenu={(event) => {
         if (!rangeDraft && !activeSelection) return
@@ -757,6 +806,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
         setRangeDraft(null)
         setRangeFeedback(null)
         setSelectedBooking(null)
+        cancelRelationshipMode()
       }}
     >
       <section className={`admin-schedule-inspector ${activeSelection ? 'has-booking' : ''}`} aria-live="polite">
@@ -769,30 +819,99 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               {!editingDetails && <button className="admin-inspector-edit" onClick={() => setEditingDetails(true)}><Pencil size={12} /> {t('admin.schedule.editDetails')}</button>}
               {!editingDetails && <button
                 type="button"
-                className={`admin-link-handle ${activeSelection.booking_link_id ? 'linked' : ''} ${linkDrag ? 'dragging' : ''}`}
+                className={`admin-link-handle ${hasRelationship ? 'linked' : ''} ${linkDrag ? 'dragging' : ''}`}
                 aria-label={t('admin.schedule.linkHandle')}
+                aria-haspopup="menu"
+                aria-expanded={linkMenuOpen}
+                aria-busy={relationshipLoading}
                 title={t('admin.schedule.linkHandle')}
                 onPointerDown={(event) => {
                   if (event.button !== 0 || busy) return
                   event.stopPropagation()
-                  event.preventDefault()
                   window.getSelection()?.removeAllRanges()
+                  event.currentTarget.setPointerCapture?.(event.pointerId)
                   linkPointerMoved.current = false
+                  linkPointerStart.current = { booking: activeSelection, startX: event.clientX, startY: event.clientY }
+                  suppressLinkClick.current = false
                   linkTarget.current = null
+                  setLinkMenuOpen(false)
+                  setUnlinkConfirmation(false)
                   setLinkConfirmation(null)
                   setLinkDropId(null)
-                  setLinkDrag({ booking: activeSelection, startX: event.clientX, startY: event.clientY })
                 }}
-              ><Link2 size={15} /><small>{activeLinkedGroups > 1 ? activeLinkedGroups : ''}</small></button>}
+                onPointerMove={(event) => {
+                  const start = linkPointerStart.current
+                  if (!start) return
+                  if (!linkPointerMoved.current && Math.hypot(event.clientX - start.startX, event.clientY - start.startY) < 5) return
+                  if (!linkPointerMoved.current) {
+                    linkPointerMoved.current = true
+                    setLinkDrag(start)
+                  }
+                  const targetId = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-booking-id]')?.dataset.bookingId
+                  const target = bookings.find((booking) => booking.id === targetId)
+                  const nextTargetId = canLinkBookings(start.booking, target) ? target.id : null
+                  linkTarget.current = nextTargetId
+                  setLinkDropId(nextTargetId)
+                }}
+                onPointerUp={(event) => {
+                  const start = linkPointerStart.current
+                  if (!start) return
+                  const moved = linkPointerMoved.current
+                  const target = bookings.find((booking) => booking.id === linkTarget.current)
+                  if (moved && target) {
+                    setLinkConfirmation({ source: start.booking, target })
+                    setLinkMenuOpen(false)
+                    setUnlinkConfirmation(false)
+                  }
+                  suppressLinkClick.current = moved
+                  linkPointerStart.current = null
+                  linkPointerMoved.current = false
+                  linkTarget.current = null
+                  setLinkDrag(null)
+                  setLinkDropId(null)
+                  event.currentTarget.releasePointerCapture?.(event.pointerId)
+                }}
+                onPointerCancel={(event) => {
+                  suppressLinkClick.current = true
+                  linkPointerStart.current = null
+                  linkPointerMoved.current = false
+                  linkTarget.current = null
+                  setLinkDrag(null)
+                  setLinkDropId(null)
+                  event.currentTarget.releasePointerCapture?.(event.pointerId)
+                }}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  event.preventDefault()
+                  if (suppressLinkClick.current) {
+                    suppressLinkClick.current = false
+                    return
+                  }
+                  setLinkDrag(null)
+                  setLinkDropId(null)
+                  linkTarget.current = null
+                  setLinkMenuOpen((current) => !current)
+                  setUnlinkConfirmation(false)
+                }}
+              ><Link2 size={15} /><small>{hasRelationship ? relationshipGroupCount : ''}</small></button>}
+              {linkMenuOpen && !editingDetails && <div className="admin-link-menu" role="menu">
+                <header><strong>{t('admin.relationship.menuTitle')}</strong><small>{t('admin.relationship.dragToConnect')}</small></header>
+                <button type="button" role="menuitem" onClick={() => { setLinkMenuOpen(false); setLinkMode(activeSelection) }}><Link2 size={13} /><span>{t('admin.relationship.chooseBooking')}</span></button>
+                {hasRelationship && <button type="button" role="menuitem" className="danger" onClick={() => { setLinkMenuOpen(false); setUnlinkConfirmation(true) }}><Unlink size={13} /><span>{t('admin.relationship.disconnectCurrent')}</span></button>}
+              </div>}
             </div>
-            {linkConfirmation && <div className="admin-link-confirm" role="status" aria-live="polite">
-              <span>{t('admin.schedule.linkConfirmTitle')}</span>
+            {!editingDetails && linkMode && <div className="admin-link-selecting" role="status"><Link2 size={13} /><span><strong>{t('admin.relationship.chooseTarget')}</strong><small>{t('admin.relationship.chooseTargetHelp')}</small></span><button type="button" onClick={cancelRelationshipMode}><X size={12} /> {t('admin.relationship.cancel')}</button></div>}
+            {!editingDetails && linkConfirmation && <div className="admin-link-confirm" role="status" aria-live="polite">
+              <span>{t('admin.relationship.confirmTitle')}</span>
               <strong>{linkConfirmation.source.customer_name} <Link2 size={13} /> {linkConfirmation.target.customer_name}</strong>
-              <small>{t('admin.schedule.linkConfirmText')}</small>
-              <div><button type="button" onClick={() => setLinkConfirmation(null)}>{t('admin.schedule.linkCancel')}</button><button type="button" className="confirm" disabled={busy} onClick={async () => {
-                const saved = await onLink(linkConfirmation.source, linkConfirmation.target)
-                if (saved) setLinkConfirmation(null)
-              }}>{t('admin.schedule.linkConfirm')}</button></div>
+              <small>{t('admin.relationship.confirmHelp')}</small>
+              <div><button type="button" onClick={cancelRelationshipMode}>{t('admin.relationship.cancel')}</button><button type="button" className="confirm" disabled={busy} onClick={confirmRelationship}>{busy ? t('admin.relationship.saving') : t('admin.relationship.confirm')}</button></div>
+            </div>}
+            {!editingDetails && unlinkConfirmation && <div className="admin-link-confirm danger" role="alert">
+              <span>{t('admin.relationship.unlinkConfirmTitle')}</span>
+              <strong>{activeSelection.customer_name}</strong>
+              <small>{t(relationshipGroupCount > 2 ? 'admin.relationship.unlinkConfirmMany' : 'admin.relationship.unlinkConfirmTwo')}</small>
+              <div><button type="button" onClick={() => setUnlinkConfirmation(false)}>{t('admin.relationship.cancel')}</button><button type="button" className="confirm danger" disabled={busy} onClick={unlinkActiveRelationship}>{busy ? t('admin.relationship.saving') : t('admin.relationship.confirmDisconnect')}</button></div>
             </div>}
             {editingDetails ? (
               <form className="admin-inspector-form" onSubmit={async (event) => {
@@ -809,35 +928,33 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               </form>
             ) : (
               <dl>
-                {activeGroup.length > 1 && <div className={`admin-move-scope ${moveTogether ? 'group' : 'single'}`}>
+                {activeGroup.length > 1 && <div className={`admin-move-scope-note ${multiCourtMoveTogether ? 'group' : 'single'}`}>
                   <dt>{t('admin.schedule.moveScope')}</dt>
                   <dd>
-                    <button
-                      type="button"
-                      className="admin-move-scope-toggle"
-                      role="switch"
-                      aria-checked={moveTogether}
-                      aria-label={t('admin.schedule.moveTogether')}
-                      title={t(moveTogether ? 'admin.schedule.moveTogetherOnHelp' : 'admin.schedule.moveTogetherOffHelp', { count: activeGroup.length })}
-                      disabled={busy}
-                      onClick={() => setMoveTogether((current) => !current)}
-                    >
-                      {moveTogether ? <LockKeyhole size={15} /> : <UnlockKeyhole size={15} />}
-                      <span className="admin-move-scope-copy">
-                        <strong>{t(moveTogether ? 'admin.schedule.moveTogetherOn' : 'admin.schedule.moveTogetherOff')}</strong>
-                        <small>{t(moveTogether ? 'admin.schedule.moveTogetherOnShort' : 'admin.schedule.moveTogetherOffShort', { count: activeGroup.length })}</small>
-                      </span>
-                      <span className="admin-move-scope-track" aria-hidden="true"><span /></span>
-                    </button>
+                    {multiCourtMoveTogether ? <LockKeyhole size={14} /> : <UnlockKeyhole size={14} />}
+                    <span><strong>{t(multiCourtMoveTogether ? 'admin.schedule.moveTogetherOn' : 'admin.schedule.moveTogetherOff')}</strong><small>{t('admin.schedule.moveScopeVenueSetting')}</small></span>
                   </dd>
                 </div>}
                 <div><dt>{t('admin.schedule.courtTime')}</dt><dd>{(activeGroupSharesSchedule ? activeGroup : [activeSelection]).map((booking) => courtTitle(COURTS.find((court) => court.id === booking.court_id) || COURTS[0])).join(' + ')} · {activeSelection.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(activeSelection.start_at)}–{endTimeFromDateTime(activeSelection.start_at, activeSelection.end_at)}</dd></div>
                 {!activeGroupSharesSchedule && <div className="admin-group-schedule"><dt>{t('admin.schedule.groupSchedule')}</dt><dd>{activeGroup.map((booking) => <span key={booking.id}>{courtTitle(COURTS.find((court) => court.id === booking.court_id) || COURTS[0])} · {booking.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(booking.start_at)}–{endTimeFromDateTime(booking.start_at, booking.end_at)}</span>)}</dd></div>}
                 <div><dt>{t('admin.schedule.bookedAt')}</dt><dd>{activeSelection.created_at ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activeSelection.created_at)) : t('admin.schedule.notRecorded')}</dd></div>
                 <div><dt>{t('admin.schedule.contact')}</dt><dd>{activeSelection.customer_email || t('admin.schedule.notProvided')} · {activeSelection.customer_phone || t('admin.schedule.notProvided')}</dd></div>
-                <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd className="admin-booking-meta">{t('admin.people', { count: activeSelection.party_size })} · <label className={`admin-quick-payment ${activeSelection.payment_status === 'paid' ? 'paid' : 'unpaid'}`} title={t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paidEditHint' : 'admin.schedule.quickMarkPaid')}><input type="checkbox" checked={activeSelection.payment_status === 'paid'} disabled={busy || activeSelection.payment_status === 'paid'} onChange={markSelectionPaid} /><span>{t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.quickMarkPaid')}</span></label> · {t(`payment.${activeSelection.payment_status}`)} · {formatMoney(groupPrice, locale, currency)}</dd></div>
+                <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd className="admin-booking-meta">
+                  <span>{t('admin.people', { count: activeSelection.party_size })}</span>
+                  <label className={`admin-quick-payment ${activeSelection.payment_status === 'paid' ? 'paid' : 'unpaid'}`} title={t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paidEditHint' : 'admin.schedule.quickMarkPaid')}>
+                    <input type="checkbox" checked={activeSelection.payment_status === 'paid'} disabled={busy || activeSelection.payment_status === 'paid'} onChange={markSelectionPaid} />
+                    <span>{t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.quickMarkPaid')}</span>
+                  </label>
+                  {hasRelationship && <button type="button" className={`admin-related-payment ${relationshipAllPaid ? 'paid' : ''}`} disabled={busy || relationshipAllPaid} onClick={markRelationshipPaid}><Check size={12} /> {t(relationshipAllPaid ? 'admin.relationship.allPaidTogether' : 'admin.relationship.payAllTogether')}</button>}
+                </dd></div>
+                <div className="admin-price-summary">
+                  <dt>{t('admin.relationship.bookingSubtotal')}</dt>
+                  <dd>
+                    <span><small>{t('admin.relationship.currentBookingPrice')}</small><strong>{formatMoney(groupPrice, locale, currency, true)}</strong></span>
+                    {hasRelationship && <span><small>{t('admin.relationship.allLinkedPrice')}</small><strong>{formatMoney(relationship.linked_total, locale, relationship.currency || currency, true)}</strong></span>}
+                  </dd>
+                </div>
                 {activeSelection.recurrence_series_id && <div><dt>{t('admin.schedule.recurrence')}</dt><dd>{t('admin.schedule.recurrenceWeek', { count: activeSelection.recurrence_week })}</dd></div>}
-                {activeLinkedGroups > 1 && <div><dt>{t('admin.schedule.linkedBookings')}</dt><dd>{t('admin.schedule.businessLinked', { count: activeLinkedGroups })}</dd></div>}
                 <div className="notes"><dt>{t('admin.schedule.customerNotes')}</dt><dd>{activeSelection.customer_notes || t('admin.schedule.noNotes')}</dd></div>
               </dl>
             )}
@@ -846,7 +963,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
           <div className="admin-inspector-empty"><strong>{t('admin.schedule.noSelectionTitle')}</strong><span>{t('admin.schedule.noSelectionText')}</span></div>
         )}
       </section>
-      <div className={`admin-schedule-context ${draggedBooking && dragPreview ? `dragging ${dragPreview.invalid ? 'invalid' : ''}` : linkDrag ? 'linking' : focusTime ? 'phone-focus' : ''}`}>
+      {showScheduleContext && <div className={`admin-schedule-context ${draggedBooking && dragPreview ? `dragging ${dragPreview.invalid ? 'invalid' : ''}` : linkDrag ? 'linking' : focusTime ? 'phone-focus' : ''}`}>
         {linkDrag ? (
           <div className="admin-link-readout" role="status" aria-live="polite"><Link2 size={15} /><span>{t('admin.schedule.linkDragHint')}</span><strong>{linkDrag.booking.customer_name}{linkDropId ? ` → ${bookings.find((booking) => booking.id === linkDropId)?.customer_name || ''}` : ''}</strong></div>
         ) : rangeDisplay ? (
@@ -874,25 +991,8 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
             <span>{t('admin.schedule.phoneFocusText', { date: dateKey.replaceAll('-', '.'), time: focusTime })}</span>
             <button onClick={onClearFocus}><X size={13} /> {t('admin.schedule.clearPhoneFocus')}</button>
           </div>
-        ) : (
-          <div className="admin-schedule-hint">
-            <span className="admin-schedule-hint-copy"><GripVertical size={14} /> {t('admin.schedule.hint')}</span>
-            <div className="admin-drag-lock-control" role="radiogroup" aria-label={t('admin.schedule.dragLock')}>
-              <small>{t('admin.schedule.dragLock')}</small>
-              {[
-                { id: DRAG_LOCK_FREE, icon: Move, label: 'admin.schedule.dragLockFree' },
-                { id: DRAG_LOCK_COURT_ONLY, icon: MoveHorizontal, label: 'admin.schedule.dragLockCourt' },
-                { id: DRAG_LOCK_TIME_ONLY, icon: MoveVertical, label: 'admin.schedule.dragLockTime' },
-              ].map((item) => {
-                const Icon = item.icon
-                const selected = dragLockMode === item.id
-                return <button type="button" role="radio" aria-checked={selected} className={selected ? 'active' : ''} title={t(`${item.label}Help`)} onClick={() => setDragLockMode(item.id)} key={item.id}><Icon size={12} /><span>{t(item.label)}</span></button>
-              })}
-            </div>
-            <span className="admin-schedule-add-hint"><CalendarPlus size={14} /> {t('admin.schedule.addHint')}</span>
-          </div>
-        )}
-      </div>
+        ) : null}
+      </div>}
       <div className="admin-schedule-workbench">
         <aside className="admin-schedule-side admin-schedule-side-left">
           <div className="admin-schedule-day-strip" aria-label={t('admin.schedule.quickDays')}>
@@ -1036,13 +1136,19 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                 const minimumResizeDuration = bookingPhase === 'in-progress' && !historicalEditable ? Math.max(minimumBookingDuration, minimumEndMinutes - startMinutes) : minimumBookingDuration
                 const maximumResizeDuration = Math.min(managerMaxMinutes, closeMinutes - startMinutes)
                 const canResize = (bookingPhase !== 'ended' || historicalEditable) && minimumResizeDuration <= maximumResizeDuration
-                const linkedGroupCount = booking.booking_link_id ? new Set(dayBookings.filter((item) => item.booking_link_id === booking.booking_link_id).map((item) => item.booking_group_id || item.id)).size : 0
-                const hasLinkedRelationship = groupSize > 1 || linkedGroupCount > 1
-                const indicatorCount = Number(hasLinkedRelationship) + Number(Boolean(booking.recurrence_series_id))
+                const hasBusinessLink = Boolean(booking.booking_link_id)
+                const linkedGroupCount = relationship?.booking_link_id === booking.booking_link_id
+                  ? Number(relationship.group_count || 0)
+                  : hasBusinessLink ? new Set(dayBookings.filter((item) => item.booking_link_id === booking.booking_link_id).map((item) => item.booking_group_id || item.id)).size : 0
+                const hasMultiCourtGroup = groupSize > 1
+                const indicatorCount = Number(hasBusinessLink || hasMultiCourtGroup) + Number(Boolean(booking.recurrence_series_id))
+                const isRelationshipSource = linkMode?.id === booking.id || linkDrag?.booking.id === booking.id
+                const isRelationshipTarget = Boolean((linkMode && canLinkBookings(linkMode, booking)) || linkDropId === booking.id)
+                const isLinkedContext = Boolean(activeSelection?.booking_link_id && activeSelection.booking_link_id === booking.booking_link_id && activeSelection.id !== booking.id)
                 const customerColor = customerColorForBooking(booking, customerColorMap, bookingColorScheme)
                 return (
                   <article
-                    className={`admin-schedule-booking ${bookingPhase} ${minutes <= 60 ? 'short' : ''} ${minutes === 30 ? 'half-hour' : ''} ${indicatorCount ? 'has-indicators' : ''} ${indicatorCount > 1 ? 'has-two-indicators' : ''} ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${linkDropId === booking.id ? 'link-drop-target' : ''} ${linkDrag?.booking.id === booking.id ? 'link-source' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
+                    className={`admin-schedule-booking ${bookingPhase} ${minutes <= 60 ? 'short' : ''} ${minutes === 30 ? 'half-hour' : ''} ${indicatorCount ? 'has-indicators' : ''} ${indicatorCount > 1 ? 'has-two-indicators' : ''} ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${isRelationshipSource ? 'relationship-source' : ''} ${isRelationshipTarget ? 'relationship-target' : ''} ${isLinkedContext ? 'linked-context' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
                     draggable={false}
                     onDragStart={(event) => event.preventDefault()}
                     role="button"
@@ -1052,11 +1158,18 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                       event.stopPropagation()
                       if (pointerMoved.current) { pointerMoved.current = false; return }
                       event.currentTarget.blur()
+                      if (linkMode) {
+                        if (canLinkBookings(linkMode, booking)) {
+                          setLinkConfirmation({ source: linkMode, target: booking })
+                          setLinkMode(null)
+                        }
+                        return
+                      }
                       setSelectedBooking((current) => current?.id === booking.id ? null : booking)
                     }}
-                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedBooking((current) => current?.id === booking.id ? null : booking) } }}
+                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (linkMode) { if (canLinkBookings(linkMode, booking)) { setLinkConfirmation({ source: linkMode, target: booking }); setLinkMode(null) } } else setSelectedBooking((current) => current?.id === booking.id ? null : booking) } }}
                     onPointerDown={(event) => {
-                      if (event.button !== 0 || busy || !canMove) return
+                      if (event.button !== 0 || busy || !canMove || linkMode) return
                       event.preventDefault()
                       window.getSelection()?.removeAllRanges()
                       event.currentTarget.setPointerCapture?.(event.pointerId)
@@ -1065,7 +1178,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                         booking,
                         groupSize,
                         selectedBookingId: activeSelection?.id,
-                        moveTogether,
+                        moveTogether: multiCourtMoveTogether,
                       })
                       pointerMoved.current = false
                       pointerTarget.current = null
@@ -1077,8 +1190,9 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                     data-booking-id={booking.id}
                     data-origin-label={draggedId === booking.id ? `${t('admin.schedule.originPosition')} · ${timeFromDateTime(booking.start_at)}–${endTimeFromDateTime(booking.start_at, booking.end_at)}` : undefined}
                     key={booking.id}
-                    title={t(canMove ? 'admin.schedule.dragTitle' : bookingPhase === 'in-progress' ? 'admin.schedule.inProgressResizeTitle' : 'admin.schedule.endedReadOnly', { name: booking.customer_name })}
+                    title={linkMode ? t(isRelationshipTarget ? 'admin.relationship.chooseThisTarget' : 'admin.relationship.invalidTarget') : t(canMove ? 'admin.schedule.dragTitle' : bookingPhase === 'in-progress' ? 'admin.schedule.inProgressResizeTitle' : 'admin.schedule.endedReadOnly', { name: booking.customer_name })}
                   >
+                    {linkMode && isRelationshipTarget && <span className="admin-relationship-target-action"><Plus size={11} /> {t('admin.relationship.choose')}</span>}
                     {canMove ? <GripVertical size={14} /> : <Clock3 className="admin-booking-state-icon" size={14} />}
                     <div>
                       <strong>{booking.customer_name}</strong>
@@ -1089,7 +1203,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                       </span>
                     </div>
                     {indicatorCount > 0 && <span className="admin-booking-indicators">
-                      {hasLinkedRelationship && <span className="admin-booking-indicator" title={t(linkedGroupCount > 1 ? 'admin.schedule.businessLinked' : 'admin.schedule.multiCourtLinked', { count: linkedGroupCount > 1 ? linkedGroupCount : groupSize })}><Link2 size={12} /></span>}
+                      {hasBusinessLink ? <span className="admin-booking-indicator is-link" title={t('admin.schedule.businessLinked', { count: linkedGroupCount })}><Link2 size={11} /><small>{linkedGroupCount || '·'}</small></span> : hasMultiCourtGroup && <span className="admin-booking-indicator is-group" title={t('admin.schedule.multiCourtLinked', { count: groupSize })}><Layers3 size={11} /></span>}
                       {booking.recurrence_series_id && <span className="admin-booking-indicator" title={t('admin.schedule.recurrenceCard', { count: booking.recurrence_week })}><Repeat2 size={12} /></span>}
                     </span>}
                     {canResize && <button className="admin-resize-handle" aria-label={t('admin.schedule.resize')} title={t('admin.schedule.resize')} onPointerDown={(event) => {
@@ -1106,7 +1220,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                           booking,
                           groupSize,
                           selectedBookingId: activeSelection?.id,
-                          moveTogether,
+                          moveTogether: multiCourtMoveTogether,
                         }),
                       })
                     }} />}
