@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, Clock3, GripVertical, Layers3, Link2, MessageSquareText, Pencil, PhoneCall, Plus, Repeat2, RotateCcw, Save, Trash2, Unlink, X } from 'lucide-react'
+import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, Clock3, GripVertical, Layers3, Link2, MessageSquareText, Pencil, PhoneCall, Plus, Repeat2, RotateCcw, Save, Trash2, Unlink, UsersRound, X } from 'lucide-react'
 import { addDays, bookingDurations, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { createCustomerColorMap, customerColorForBooking } from '../lib/bookingColors'
 import { activeBookingGroup, activeBookingGroupSize, BOOKING_MOVE_SCOPE_GROUP, bookingMoveScope, resizeAppliesToBooking } from '../lib/bookingMoveScope'
@@ -932,13 +932,15 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                 {!activeGroupSharesSchedule && <div className="admin-group-schedule"><dt>{t('admin.schedule.groupSchedule')}</dt><dd>{activeGroup.map((booking) => <span key={booking.id}>{courtTitle(COURTS.find((court) => court.id === booking.court_id) || COURTS[0])} · {booking.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(booking.start_at)}–{endTimeFromDateTime(booking.start_at, booking.end_at)}</span>)}</dd></div>}
                 <div><dt>{t('admin.schedule.bookedAt')}</dt><dd>{activeSelection.created_at ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activeSelection.created_at)) : t('admin.schedule.notRecorded')}</dd></div>
                 <div><dt>{t('admin.schedule.contact')}</dt><dd>{activeSelection.customer_email || t('admin.schedule.notProvided')} · {activeSelection.customer_phone || t('admin.schedule.notProvided')}</dd></div>
-                <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd className="admin-booking-meta">
-                  <span>{t('admin.people', { count: activeSelection.party_size })}</span>
-                  <label className={`admin-quick-payment ${activeSelection.payment_status === 'paid' ? 'paid' : 'unpaid'}`} title={t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paidEditHint' : 'admin.schedule.quickMarkPaid')}>
-                    <input type="checkbox" checked={activeSelection.payment_status === 'paid'} disabled={busy || activeSelection.payment_status === 'paid'} onChange={markSelectionPaid} />
-                    <span>{t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.quickMarkPaid')}</span>
-                  </label>
-                  {hasRelationship && <button type="button" className={`admin-related-payment ${relationshipAllPaid ? 'paid' : ''}`} disabled={busy || relationshipAllPaid} onClick={markRelationshipPaid}><Check size={12} /> {t(relationshipAllPaid ? 'admin.relationship.allPaidTogether' : 'admin.relationship.payAllTogether')}</button>}
+                <div className="admin-booking-status"><dt>{t('admin.schedule.bookingMeta')}</dt><dd className="admin-booking-meta">
+                  <span className="admin-party-count"><UsersRound aria-hidden="true" /> {t('admin.people', { count: activeSelection.party_size })}</span>
+                  <span className="admin-payment-actions">
+                    <label className={`admin-quick-payment ${activeSelection.payment_status === 'paid' ? 'paid' : 'unpaid'}`} title={t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paidEditHint' : 'admin.schedule.quickMarkPaid')}>
+                      <input type="checkbox" checked={activeSelection.payment_status === 'paid'} disabled={busy || activeSelection.payment_status === 'paid'} onChange={markSelectionPaid} />
+                      <span>{t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.quickMarkPaid')}</span>
+                    </label>
+                    {hasRelationship && <button type="button" className={`admin-related-payment ${relationshipAllPaid ? 'paid' : ''}`} disabled={busy || relationshipAllPaid} onClick={markRelationshipPaid}><Check aria-hidden="true" /> <span>{t(relationshipAllPaid ? 'admin.relationship.allPaidTogether' : 'admin.relationship.payAllTogether')}</span></button>}
+                  </span>
                 </dd></div>
                 <div className="admin-price-summary">
                   <dt>{t('admin.relationship.bookingSubtotal')}</dt>
