@@ -131,3 +131,13 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - 发现 26 个历史 paid Court rows 中只有 5 个有专门付款审计；后续必须使用明确的 legacy reconciliation 记录，不能虚构付款人、provider 或批次。
 
 阶段结果：Reservation 迁移从概念讨论变成有生产基线、账务限制和安全门禁的 Phase 0 方案；Phase 1 只能只加不删，并继续等待独立评审与授权。
+
+## 14. 2026-08-23：Reservation Phase 1 建立 additive schema
+
+- 用户 review Phase 0 / PR #120 后明确授权 Issue #121 开始 Phase 1。
+- 使用 Supabase CLI 创建第 38 个本地 migration，新增 Reservation、Session、Party roles、payment intent、真实 Payments、append-only allocation ledger、recurrence series 与 legacy source mapping。
+- 现有 `bookings` 只增加 nullable `reservation_id` / `session_id`，继续承担 Court allocation、GiST overlap 和 Realtime slot 投影；没有 backfill 或切换读写。
+- 9 张新 public 表全部显式 RLS/FORCE RLS 和最小 grants，没有增加 public mutation RPC。
+- Migration 在隔离 PostgreSQL 环境实际应用；验证发现并补齐两个 FK index，随后 schema、权限、legacy compatibility 与负向 financial invariants 全部通过。
+
+阶段结果：新模型已有可评审、未部署的物理基础，同时生产继续完整运行 legacy 模型。Phase 2 backfill、历史付款 reconciliation、Toronto DST 转换和生产 deployment 仍需分别授权。
