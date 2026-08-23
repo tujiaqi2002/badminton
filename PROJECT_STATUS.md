@@ -42,6 +42,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 - 分支：`codex/issue-116-drag-feedback`。
 - Issue：`https://github.com/tujiaqi2002/badminton/issues/116`。
+- PR：`https://github.com/tujiaqi2002/badminton/pull/117`，等待评审；未合并、未部署。
 - 内容：移除拖拽期间横跨排期顶部的临时提示条；左侧 Detail 实时显示圈选新增、移动/置换/取消/跨日、调整时长和关联拖拽的原位置、目标位置、作用范围与状态；桌面左右侧栏与中央网格等高。
 - Supabase：不需要 schema、migration、RLS 或 RPC 变更。
 - 已验证：22 个单元测试、lint、build、桌面 1440px 与手机 390px 浏览器检查；圈选、移动、调整时长、关联拖拽均确认左侧反馈，顶部拖拽提示条为 0。
