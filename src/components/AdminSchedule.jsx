@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, Clock3, GripVertical, Layers3, Link2, LockKeyhole, MessageSquareText, Pencil, PhoneCall, Plus, Repeat2, RotateCcw, Save, Trash2, Unlink, UnlockKeyhole, X } from 'lucide-react'
+import { AlertTriangle, BadgeDollarSign, CalendarClock, CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, Clock3, GripVertical, Layers3, Link2, MessageSquareText, Pencil, PhoneCall, Plus, Repeat2, RotateCcw, Save, Trash2, Unlink, UsersRound, X } from 'lucide-react'
 import { addDays, bookingDurations, COURTS, endTimeFromDateTime, formatMoney, isPastSlot, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { createCustomerColorMap, customerColorForBooking } from '../lib/bookingColors'
 import { activeBookingGroup, activeBookingGroupSize, BOOKING_MOVE_SCOPE_GROUP, bookingMoveScope, resizeAppliesToBooking } from '../lib/bookingMoveScope'
@@ -307,6 +307,8 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const suppressSlotClick = useRef(false)
   const rangeFeedbackTimer = useRef(null)
   const editorRef = useRef(null)
+  const linkMenuTriggerRef = useRef(null)
+  const linkMenuRef = useRef(null)
   const slotMinutes = Number(configuration?.settings?.slot_minutes || 30)
   const managerMaxMinutes = Number(configuration?.settings?.manager_max_minutes || 240)
   const openMinutes = Number(configuration?.opening_hours?.open_minute || 600)
@@ -511,6 +513,16 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
     document.addEventListener('keydown', cancelRelationshipMode)
     return () => document.removeEventListener('keydown', cancelRelationshipMode)
   }, [linkConfirmation, linkMenuOpen, linkMode, unlinkConfirmation])
+
+  useEffect(() => {
+    if (!linkMenuOpen) return undefined
+    const closeLinkMenuOutside = (event) => {
+      if (linkMenuTriggerRef.current?.contains(event.target) || linkMenuRef.current?.contains(event.target)) return
+      setLinkMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', closeLinkMenuOutside, true)
+    return () => document.removeEventListener('pointerdown', closeLinkMenuOutside, true)
+  }, [linkMenuOpen])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000)
@@ -943,6 +955,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               <span className={`status-pill ${activeSelection.status}`}>{t(`status.${activeSelection.status}`)}</span>
               {!editingDetails && <button className="admin-inspector-edit" onClick={() => setEditingDetails(true)}><Pencil size={12} /> {t('admin.schedule.editDetails')}</button>}
               {!editingDetails && <button
+                ref={linkMenuTriggerRef}
                 type="button"
                 className={`admin-link-handle ${hasRelationship ? 'linked' : ''} ${linkDrag ? 'dragging' : ''}`}
                 aria-label={t('admin.schedule.linkHandle')}
@@ -959,7 +972,6 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                   linkPointerStart.current = { booking: activeSelection, startX: event.clientX, startY: event.clientY }
                   suppressLinkClick.current = false
                   linkTarget.current = null
-                  setLinkMenuOpen(false)
                   setUnlinkConfirmation(false)
                   setLinkConfirmation(null)
                   setLinkDropId(null)
@@ -970,6 +982,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                   if (!linkPointerMoved.current && Math.hypot(event.clientX - start.startX, event.clientY - start.startY) < 5) return
                   if (!linkPointerMoved.current) {
                     linkPointerMoved.current = true
+                    setLinkMenuOpen(false)
                     setLinkDrag(start)
                   }
                   const targetId = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-booking-id]')?.dataset.bookingId
@@ -1019,7 +1032,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                   setUnlinkConfirmation(false)
                 }}
               ><Link2 size={15} /><small>{hasRelationship ? relationshipGroupCount : ''}</small></button>}
-              {linkMenuOpen && !editingDetails && <div className="admin-link-menu" role="menu">
+              {linkMenuOpen && !editingDetails && <div ref={linkMenuRef} className="admin-link-menu" role="menu">
                 <header><strong>{t('admin.relationship.menuTitle')}</strong><small>{t('admin.relationship.dragToConnect')}</small></header>
                 <button type="button" role="menuitem" onClick={() => { setLinkMenuOpen(false); setLinkMode(activeSelection) }}><Link2 size={13} /><span>{t('admin.relationship.chooseBooking')}</span></button>
                 {hasRelationship && <button type="button" role="menuitem" className="danger" onClick={() => { setLinkMenuOpen(false); setUnlinkConfirmation(true) }}><Unlink size={13} /><span>{t('admin.relationship.disconnectCurrent')}</span></button>}
@@ -1053,24 +1066,19 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               </form>
             ) : (
               <dl>
-                {activeGroup.length > 1 && <div className={`admin-move-scope-note ${multiCourtMoveTogether ? 'group' : 'single'}`}>
-                  <dt>{t('admin.schedule.moveScope')}</dt>
-                  <dd>
-                    {multiCourtMoveTogether ? <LockKeyhole size={14} /> : <UnlockKeyhole size={14} />}
-                    <span><strong>{t(multiCourtMoveTogether ? 'admin.schedule.moveTogetherOn' : 'admin.schedule.moveTogetherOff')}</strong><small>{t('admin.schedule.moveScopeVenueSetting')}</small></span>
-                  </dd>
-                </div>}
                 <div><dt>{t('admin.schedule.courtTime')}</dt><dd>{(activeGroupSharesSchedule ? activeGroup : [activeSelection]).map((booking) => courtTitle(COURTS.find((court) => court.id === booking.court_id) || COURTS[0])).join(' + ')} · {activeSelection.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(activeSelection.start_at)}–{endTimeFromDateTime(activeSelection.start_at, activeSelection.end_at)}</dd></div>
                 {!activeGroupSharesSchedule && <div className="admin-group-schedule"><dt>{t('admin.schedule.groupSchedule')}</dt><dd>{activeGroup.map((booking) => <span key={booking.id}>{courtTitle(COURTS.find((court) => court.id === booking.court_id) || COURTS[0])} · {booking.start_at.slice(0, 10).replaceAll('-', '.')} · {timeFromDateTime(booking.start_at)}–{endTimeFromDateTime(booking.start_at, booking.end_at)}</span>)}</dd></div>}
                 <div><dt>{t('admin.schedule.bookedAt')}</dt><dd>{activeSelection.created_at ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activeSelection.created_at)) : t('admin.schedule.notRecorded')}</dd></div>
                 <div><dt>{t('admin.schedule.contact')}</dt><dd>{activeSelection.customer_email || t('admin.schedule.notProvided')} · {activeSelection.customer_phone || t('admin.schedule.notProvided')}</dd></div>
-                <div><dt>{t('admin.schedule.bookingMeta')}</dt><dd className="admin-booking-meta">
-                  <span>{t('admin.people', { count: activeSelection.party_size })}</span>
-                  <label className={`admin-quick-payment ${activeSelection.payment_status === 'paid' ? 'paid' : 'unpaid'}`} title={t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paidEditHint' : 'admin.schedule.quickMarkPaid')}>
-                    <input type="checkbox" checked={activeSelection.payment_status === 'paid'} disabled={busy || activeSelection.payment_status === 'paid'} onChange={markSelectionPaid} />
-                    <span>{t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.quickMarkPaid')}</span>
-                  </label>
-                  {hasRelationship && <button type="button" className={`admin-related-payment ${relationshipAllPaid ? 'paid' : ''}`} disabled={busy || relationshipAllPaid} onClick={markRelationshipPaid}><Check size={12} /> {t(relationshipAllPaid ? 'admin.relationship.allPaidTogether' : 'admin.relationship.payAllTogether')}</button>}
+                <div className="admin-booking-status"><dt>{t('admin.schedule.bookingMeta')}</dt><dd className="admin-booking-meta">
+                  <span className="admin-party-count"><UsersRound aria-hidden="true" /> {t('admin.people', { count: activeSelection.party_size })}</span>
+                  <span className="admin-payment-actions">
+                    <label className={`admin-quick-payment ${activeSelection.payment_status === 'paid' ? 'paid' : 'unpaid'}`} title={t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paidEditHint' : 'admin.schedule.quickMarkPaid')}>
+                      <input type="checkbox" checked={activeSelection.payment_status === 'paid'} disabled={busy || activeSelection.payment_status === 'paid'} onChange={markSelectionPaid} />
+                      <span>{t(activeSelection.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.quickMarkPaid')}</span>
+                    </label>
+                    {hasRelationship && <button type="button" className={`admin-related-payment ${relationshipAllPaid ? 'paid' : ''}`} disabled={busy || relationshipAllPaid} onClick={markRelationshipPaid}><Check aria-hidden="true" /> <span>{t(relationshipAllPaid ? 'admin.relationship.allPaidTogether' : 'admin.relationship.payAllTogether')}</span></button>}
+                  </span>
                 </dd></div>
                 <div className="admin-price-summary">
                   <dt>{t('admin.relationship.bookingSubtotal')}</dt>

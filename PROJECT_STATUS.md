@@ -49,6 +49,9 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ### 最近合并
 
+- PR #111 / Issue #110：Remove redundant move scope note，已合并/关闭。
+- PR #114 / Issue #113：Booking relationship popover outside-click dismissal，已合并/关闭。
+- PR #115 / Issue #112：Booking detail payment controls polish，已合并/关闭。
 - PR #90 / Issue #88：Drag Lock，已于 2026-08-20 合并/关闭。
 - PR #93 / Issue #92：Multi-court Individual Move，已于 2026-08-20 合并/关闭。
 - Issue #87：My Booking section redesign，已于 2026-08-21 关闭。
