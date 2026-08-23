@@ -1,6 +1,6 @@
 # Tiger Product Context
 
-> Tiger 羽球馆的长期产品上下文。最后核对：2026-08-19。
+> Tiger 羽球馆的长期产品上下文。最后核对：2026-08-23。
 
 本文档是未来 Codex 任务和开发协作的产品事实来源。开始修改功能前先读本文；涉及数据库、安全、部署或权限时，同时阅读 [`TECHNICAL_CONTEXT.md`](./TECHNICAL_CONTEXT.md)。若旧聊天、截图或旧文档与本文冲突，以当前代码、数据库迁移和本文的最新决定为准。
 
@@ -122,6 +122,23 @@ Tiger 是为一家拥有五片场地的羽毛球馆打造的中英双语预约 P
 列表应优先帮助客户快速识别自己的场次：日期和时段作为第一扫描目标，场地、状态、支付、金额和下单时间以稳定的信息块展示；已取消、过期或未到场订单保持可读但视觉上弱于有效订单。不能为了视觉效果隐藏既有取消流程或订单信息。
 
 同一次创建、同一时间段的多场地订单在“我的预订”中应作为一张多场地卡片展示，聚合显示场地数量、场地标识和总金额；在没有整组取消后端能力前，取消操作继续逐片场地展示并调用既有单条 booking 取消流程。
+
+### 已确认的目标预约语义（尚未上线）
+
+Issue #118 已确认未来把现有 `booking_group_id` / `booking_link_id` 统一迁移到一个业务模型：**Reservation → Sessions → Court allocations**。这是目标行为，不是当前生产事实；在 Phase 3/4 切换前，现有 group/link UI 和 RPC 继续生效。
+
+- Reservation 表示一笔商业预约，可以包含多个日期、时间、时长不同的 Session；一个 Session 表示一次实际到场，并包含一个或多个 Court allocation。
+- 馆长可以显式强制合并不同客户的 Reservation，例如夫妻分别来电后一次结算；系统必须二次确认并选择主要联系人，保留双方资料和原始来源，禁止按姓名、电话或邮箱自动合并身份。
+- 联系人、参与者、原始预订人和付款人是可重叠但不同的 party roles；每笔 Reservation 最多一个主要联系人。
+- 价格归属于 Court allocation。Reservation 总价由有效 allocation 金额推导；merge/split 不自动重算历史系统价或 manager override。
+- 付款意向支持单人支付与 split；split 支持 equal/custom。意向不等于到账事实，实际 unpaid/partial/paid/refunded 状态由不可丢失的 payment ledger 推导。
+- 移动默认作用于 Session；同一 Session 的多个场地一起移动。只移动一个 allocation 时，在同一 Reservation 内先拆成新 Session。
+- 取消 RPC 必须显式收到 allocation/session/reservation scope；付款默认属于整笔 Reservation，但支持多人、多次、部分付款和精确分配。
+- 周期预订是一组由 recurrence series 连接的独立 Reservations，不是一笔无限跨周 Reservation。
+- 拆分时保留原 allocation ID、价格、创建时间和审计来源；付款使用追加冲销/重分配，不能复制、覆盖或删除历史账本。
+- 不同 currency、不同 venue，或处于争议/退款处理中等不可安全迁移的账务状态时，普通合并必须拒绝。
+
+分阶段设计、迁移门禁和完整验收标准以 [Issue #118](https://github.com/tujiaqi2002/badminton/issues/118) 为准；Phase 0 生产基线见 [`docs/reservation-migration/phase-0-baseline.md`](./docs/reservation-migration/phase-0-baseline.md)。
 
 ## 6. 馆长预订管理
 
