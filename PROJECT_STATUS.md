@@ -47,6 +47,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 范围：只加不删地建立 Reservation/Session/Party/Payment/recurrence 父实体与 ledger；现有 `bookings` 只新增 nullable ownership FKs。
 - 本地 migration：38；生产仍为 37。新版本 `20260823072016_reservation_aggregate_schema` 未应用、未部署。
 - 权限：9 张新 public 表均 RLS + FORCE RLS；authenticated 只有 manager-only SELECT，anon/service_role 无 direct grants，没有新 public RPC。
+- 账务真实性：正常 Payment 必须有真实 `occurred_at`；仅 `legacy_reconciliation` 可为 null，避免为缺少付款审计的历史 paid rows 虚构时间。
 - 兼容：legacy group/link/recurrence/payment、现有 RPC、GiST overlap、`court_slots`、Realtime 和前端均未改变。
 - 验证：migration 在隔离 PostgreSQL 中实际应用，schema assertions 与负向约束测试通过；Codex 内置 Node.js v24.19.0 / pnpm 11.19.0 下 22/22 tests、lint、build 通过（CI 仍使用 Node 22 / pnpm 11.16.0）；报告见 [`docs/reservation-migration/phase-1-schema.md`](./docs/reservation-migration/phase-1-schema.md)。
 - Phase 2 仍被门禁：缺少付款审计的 paid rows 必须使用明确的 reconciliation 语义，且需先做 Toronto DST 转换专项验证。

@@ -46,6 +46,18 @@ begin
   end if;
 
   select count(*) into v_count
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'payments'
+    and column_name = 'occurred_at'
+    and data_type = 'timestamp with time zone'
+    and is_nullable = 'YES'
+    and column_default is null;
+  if v_count <> 1 then
+    raise exception 'payments.occurred_at must be nullable/default-free for truthful legacy reconciliation';
+  end if;
+
+  select count(*) into v_count
   from public.bookings
   where reservation_id is not null or session_id is not null;
   if v_count <> 0 then
@@ -72,17 +84,18 @@ begin
   join pg_class as relation on relation.oid = constraint_row.conrelid
   join pg_namespace as namespace on namespace.oid = relation.relnamespace
   where namespace.nspname = 'public'
-    and relation.relname in ('bookings', 'reservations', 'reservation_sessions')
+    and relation.relname in ('bookings', 'payments', 'reservations', 'reservation_sessions')
     and constraint_row.conname in (
       'bookings_reservation_ownership_shape_check',
       'bookings_reservation_currency_fkey',
       'bookings_session_reservation_fkey',
       'bookings_no_time_overlap',
+      'payments_occurred_at_shape_check',
       'reservations_id_currency_key',
       'reservation_sessions_id_reservation_key'
     )
     and constraint_row.convalidated;
-  if v_count <> 6 then
+  if v_count <> 7 then
     raise exception 'One or more ownership/overlap constraints are missing or unvalidated';
   end if;
 

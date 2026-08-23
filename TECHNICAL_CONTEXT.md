@@ -170,6 +170,7 @@ Issue #121 / migration `20260823072016_reservation_aggregate_schema` 新增 9 �
 - 接入新模型的 booking 由 private security-invoker trigger 按 venue timezone 校验 Session `timestamptz` 与 legacy local `timestamp` 投影；
 - Party roles/payment shares 不能引用另一笔 Reservation 的 Party，每笔 Reservation 最多一个 primary contact；
 - Payment payer/refund 与 allocation ledger 使用 composite FK 保证同一 Reservation；provider/idempotency 唯一；ledger 为 signed append-only；
+- 正常 Payment 的 `occurred_at` 必填；仅 `legacy_reconciliation` 可为 null，禁止为无法还原付款时间的旧 paid rows 使用 migration time 或 booking time 冒充；
 - 9 张 public 表均 RLS + FORCE RLS，authenticated 只有 manager-only SELECT，anon/service_role 无 direct grants；没有新增 public RPC/view/Realtime publication；
 - 全部 FK 有 leading-column index，不分区，不移动 `btree_gist`，不削弱 `bookings_no_time_overlap`。
 

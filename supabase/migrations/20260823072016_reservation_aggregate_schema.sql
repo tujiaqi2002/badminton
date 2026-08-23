@@ -315,7 +315,7 @@ create table public.payments (
   reverses_payment_id uuid,
   source text not null default 'manager',
   notes text,
-  occurred_at timestamptz not null default statement_timestamp(),
+  occurred_at timestamptz,
   recorded_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default statement_timestamp(),
   updated_at timestamptz not null default statement_timestamp(),
@@ -359,6 +359,8 @@ create table public.payments (
     ),
   constraint payments_source_check
     check (source in ('manager', 'stripe', 'legacy_reconciliation', 'system')),
+  constraint payments_occurred_at_shape_check
+    check (occurred_at is not null or source = 'legacy_reconciliation'),
   constraint payments_notes_length_check
     check (notes is null or length(notes) <= 2000),
   constraint payments_idempotency_key_key unique (idempotency_key)
@@ -366,6 +368,8 @@ create table public.payments (
 
 comment on table public.payments is
   'One real receipt or refund fact. Successful rows are not overwritten by later receipts or refunds.';
+comment on column public.payments.occurred_at is
+  'Actual payment time when known. Only legacy reconciliation rows may leave it null rather than inventing a historical timestamp.';
 
 create unique index payments_provider_reference_idx
   on public.payments (provider, provider_reference)

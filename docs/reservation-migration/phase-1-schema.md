@@ -55,6 +55,7 @@ Phase 1 没有创建第二张 Court allocation 表。现有 `bookings` 只增加
 - Payment 的 payer 和被退款 Payment 必须属于同一 Reservation。
 - provider reference 和 payment/allocation idempotency keys 唯一。
 - Payment 创建后，金额、currency、payer、method、provider、source、发生时间等事实不可更改；只允许 `pending → succeeded/failed/voided`。
+- 正常付款必须提供真实 `occurred_at`；只有 `legacy_reconciliation` 可以保留为 null，避免为缺少审计的历史 paid rows 虚构付款时间。
 - Refund 是引用原 Payment 的新 row，不覆盖原收款。
 - Payment allocation entry 金额非零：allocation 为正，reversal/refund 为负并引用同一 Reservation、同一 booking 的原 entry。
 - Allocation ledger 不允许 update/delete；legacy source 不允许 delete；Payment 不允许 delete。
@@ -103,6 +104,7 @@ Phase 1 没有创建第二张 Court allocation 表。现有 `bookings` 只增加
 | Mismatched Session/allocation time | rejected |
 | Cross-Reservation payment allocation | rejected |
 | Payment fact rewrite / terminal status rewrite | rejected |
+| Missing `occurred_at` on normal payment | rejected；legacy reconciliation accepted |
 | Ledger update/delete / legacy-source delete | rejected |
 | Valid payment transition and signed reversal entry | accepted |
 | Repository tests | 22/22 passed |
@@ -130,6 +132,6 @@ Phase 1 完成后仍需停止，Phase 2 必须另行确认：
 
 Phase 1 adds an empty, additive Reservation aggregate and payment-ledger schema without changing production behavior. Nine RLS-protected parent/ledger tables are introduced, while the existing `bookings` table remains the physical Court-allocation and overlap projection. Its new `reservation_id` and `session_id` columns are nullable, default-free, and unpopulated until the separately authorized backfill phase.
 
-Composite foreign keys enforce Reservation ownership across Sessions, Parties, Payments, and Court allocations. New Session times use `timestamptz`; the legacy booking time projection is checked in the configured venue timezone when ownership is populated. Payment facts and signed allocation entries are loss-preserving: provider/idempotency identifiers are unique, refunds and reversals append rows, and financial history cannot be physically deleted or rewritten.
+Composite foreign keys enforce Reservation ownership across Sessions, Parties, Payments, and Court allocations. New Session times use `timestamptz`; the legacy booking time projection is checked in the configured venue timezone when ownership is populated. Payment facts and signed allocation entries are loss-preserving: provider/idempotency identifiers are unique, refunds and reversals append rows, and financial history cannot be physically deleted or rewritten. Normal payments require a real occurrence timestamp; only legacy reconciliation may keep it null instead of fabricating historical time.
 
 All nine public tables have RLS and FORCE RLS. `authenticated` receives manager-only SELECT and no generic DML; `anon` and `service_role` receive no direct grants. No public RPC, view, Realtime publication, backfill, dual-write path, frontend behavior, or production database was changed. The migration and negative invariants passed an isolated PostgreSQL execution. Production deployment and Phase 2 remain separately gated.
