@@ -1,6 +1,6 @@
 # Tiger Technical Context
 
-> Tiger 的长期工程、Supabase、安全和部署上下文。最后核对：2026-08-19。
+> Tiger 的长期工程、Supabase、安全和部署上下文。最后核对：2026-08-23。
 
 先阅读 [`PRODUCT_CONTEXT.md`](./PRODUCT_CONTEXT.md) 理解产品行为。本文用于在聊天 compact、任务交接或长期维护后快速恢复技术上下文。
 
@@ -23,7 +23,7 @@
 - 生产前端：`https://tujiaqi2002.github.io/badminton/`。
 - Supabase project ref：`ldbtrouofmqmnkyxiewk`。
 - Supabase URL：`https://ldbtrouofmqmnkyxiewk.supabase.co`。
-- 数据库：PostgreSQL 17，项目状态在 2026-08-19 为 `ACTIVE_HEALTHY`。
+- 数据库：PostgreSQL 17.6（平台 build `17.6.1.155`），项目状态在 2026-08-23 为 `ACTIVE_HEALTHY`。
 - 自定义域名 `tiger.io` 尚未配置；用户拥有并完成 DNS 前不能添加 `CNAME`。
 
 禁止提交数据库密码、access token、service-role、Stripe secret、Webhook secret、真实馆长邮箱和客户数据。
@@ -96,7 +96,7 @@ Magic Link 与 Google OAuth 都回到当前站点的 `origin + pathname`，不�
 3. Hook 在 `private.manager_accounts` 检查 invited/active 邮箱。
 4. 新用户创建后，`private.activate_invited_manager` 关联 Auth user，并写入 `public.staff_members(role='admin')`。
 5. 客户端只能读取自己的 `staff_members` 角色。
-6. 所有馆长 RPC 内部再调用 `private.require_manager()`。
+6. 馆长 RPC 必须在数据库端校验权限。较新的入口统一调用 `private.require_manager()`；部分 legacy RPC 使用等价的 `auth.uid()` + `staff_members` 内联校验，`admin_create_booking` 则包装安全的 multi-booking RPC。不能假设所有现有入口都直接调用同一个 helper。
 
 因此篡改 localStorage、JWT 以外的 UI state 或前端 `isAdmin` 都不能获得数据库管理权限。
 
@@ -112,7 +112,7 @@ Magic Link 与 Google OAuth 都回到当前站点的 `origin + pathname`，不�
 
 ## 7. 线上数据模型
 
-2026-08-19 已通过 Supabase 只读连接确认下列表存在且 RLS 已开启。
+2026-08-23 已通过 Supabase 只读连接确认下列表存在且 RLS 已开启。
 
 ### Public schema
 
@@ -150,12 +150,22 @@ Magic Link 与 Google OAuth 都回到当前站点的 `origin + pathname`，不�
 
 修改表前必须阅读完整迁移链确认基础字段、enum 和约束。
 
+### Reservation 目标模型（已确认，尚未上线）
+
+Issue #118 已确认目标 ownership model 为 `Reservation → Sessions → Court allocations`，并拆分 party roles、payment intent、真实 payment ledger、payment allocations 与 recurrence series。当前生产仍以 `bookings` row-per-court 加 `booking_group_id` / `booking_link_id` 运作，两种模型不能混写为当前事实。
+
+第一轮物理迁移保持 additive：新增 `reservations`、`reservation_sessions`、party/payment/recurrence 父实体，并给现有 `bookings` 增加 nullable `reservation_id` / `session_id`。`bookings` 暂时继续作为 Court allocation 物理表和冲突时间投影，保留 `bookings_no_time_overlap`、`court_slots`、legacy 字段和旧 RPC，直到 shadow reconciliation 和生产观察完成。
+
+新时间字段使用 `timestamptz`；legacy `timestamp` 必须在 backfill 时按 `venue_settings.timezone`（当前 `America/Toronto`）解释并单独验证 DST。金额继续使用 `numeric`。所有关系使用 FK/关系表，所有 FK 与 RLS 查询列建立匹配索引，不用 JSON/数组代替核心关系，也不在当前规模提前分区。
+
+Phase 0 报告位于 [`docs/reservation-migration/phase-0-baseline.md`](./docs/reservation-migration/phase-0-baseline.md)，可复跑只读 SQL 位于 [`supabase/diagnostics/phase_0_reservation_baseline.sql`](./supabase/diagnostics/phase_0_reservation_baseline.sql)。报告只给 Phase 1 additive schema 有条件通过，不授权 migration 或生产写入。
+
 ## 8. 线上迁移状态
 
-2026-08-19 线上与本地均核对到 36 个版本，范围：
+2026-08-23 线上与本地均核对到 37 个版本，范围：
 
 - 首个：`20260812161833_private_manager_schedule`
-- 最新：`20260817231907_index_manager_audit_relations`
+- 最新：`20260821003535_booking_relationship_management`
 
 本次未发现之前的 “Remote migration versions not found in local migrations directory” 漂移。
 
@@ -235,19 +245,20 @@ Magic Link 与 Google OAuth 都回到当前站点的 `origin + pathname`，不�
 
 Supabase 新项目正在趋向默认不把新表暴露到 Data API；migration 仍必须明确决定 RLS 和 grants，不能依赖 Dashboard 默认值。
 
-### 线上安全顾问现状（2026-08-19）
+### 线上安全顾问现状（2026-08-23）
 
-- `private.manager_accounts` 和 `venue_member_tiers` 报告 “RLS enabled, no policy”。前者是有意的 deny-by-default private table；后者通过 manager RPC 使用，但未来 migration 应增加显式 deny policy 以让意图更清楚。
-- `btree_gist` 位于 `public` schema，顾问建议迁移到独立 extension schema；改动前必须评估 exclusion constraint 依赖。
-- 多个 `SECURITY DEFINER` RPC 被 `authenticated` 调用，顾问会统一警告。这里是设计所需，但每个函数必须保留 `private.require_manager()` 或严格 owner/customer 校验，不能把“有内部校验”当成永久假设。
-- Leaked password protection 未启用。当前主要是 Google/OTP，但如开放密码登录应启用。
+- 47 条 security findings：2 INFO、45 WARN。
+- `private.manager_accounts` 和 `venue_member_tiers` 报告 “RLS enabled, no policy”。当前 direct grants/schema access 已关闭，实际 deny-by-default；新表仍要显式表达 policy 与 grants。
+- `btree_gist` 位于 `public` schema。现有 GiST exclusion constraint 依赖它，Reservation 第一轮迁移不移动 extension。
+- 43 个 public `SECURITY DEFINER` routines 可由 `authenticated` execute，顾问会统一警告。只读审计确认所有 definer 都有明确 `search_path`，入口使用统一 helper、等价内联 staff check 或安全 wrapper；新增入口必须先 revoke default execute、再最小 grant，并持续逐函数审计。
+- Leaked password protection 未启用。当前主要是 Google/OTP manager-only，不阻塞 additive schema；开放密码/客户 Auth 前必须启用。
 
 参考 Supabase remediation：
 
 - [Database linter](https://supabase.com/docs/guides/database/database-linter)
 - [Password security](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
 
-Performance advisor 当前主要报告尚未使用的索引。项目数据量较小，不能只因 `unused_index` 就删除；需结合生产查询计划和增长后数据再决定。
+Performance advisor 当前为 19 条 INFO 级尚未使用索引，没有更高等级 finding。项目数据量较小，不能只因 `unused_index` 就删除；需结合生产查询计划和增长后数据再决定。
 
 ## 12. 馆务中心 RPC
 
@@ -295,7 +306,7 @@ Performance advisor 当前主要报告尚未使用的索引。项目数据量较
 
 ## 14. Realtime
 
-Realtime 监听不含客户身份的排期投影。它是同步便利通道，不是事务结果；mutation 完成后仍要刷新权威数据，并能容忍漏发和重复事件。
+Realtime 监听不含客户身份的排期投影。2026-08-23 publication 核对显示 public/private 业务表中只有 `public.court_slots` 位于 `supabase_realtime`。它是同步便利通道，不是事务结果；mutation 完成后仍要刷新权威数据，并能容忍漏发和重复事件。
 
 扩展 subscription 或 schema 前需重新核对最新 Supabase Realtime publication 和 schema 支持。
 
@@ -306,7 +317,7 @@ Realtime 监听不含客户身份的排期投影。它是同步便利通道，�
 - `supabase/functions/create-checkout/index.ts`
 - `supabase/functions/stripe-webhook/index.ts`
 
-但 2026-08-19 线上 Supabase 返回 **0 个已部署 Edge Functions**。因此当前只能把 Stripe 视为代码骨架，`VITE_STRIPE_ENABLED` 应保持关闭，安全默认是到店支付。
+但 2026-08-23 线上 Supabase 返回 **0 个已部署 Edge Functions**。因此当前只能把 Stripe 视为代码骨架，`VITE_STRIPE_ENABLED` 应保持关闭，安全默认是到店支付。
 
 上线 Stripe 前必须：部署 functions、配置 server-only secrets、验证签名、保证 webhook 幂等、从数据库计算金额而非信任前端、测试成功/失败/过期/重复回调。
 

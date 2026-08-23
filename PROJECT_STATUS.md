@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-22。当前工作分支：`codex/issue-116-drag-feedback`。
+> 项目：`project-001-badminton`。核对日期：2026-08-23。当前工作分支：`codex/issue-119-reservation-baseline`。
 
 ## 1. 一句话结论
 
@@ -13,8 +13,8 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 仓库：`tujiaqi2002/badminton`，默认分支 `main`。
 - 生产前端：`https://tujiaqi2002.github.io/badminton/`，由 GitHub Actions 从 `main` 发布。
 - 后端：Supabase project `ldbtrouofmqmnkyxiewk`，PostgreSQL + Auth + Realtime + RPC/RLS。
-- `main` 当前包含截至 2026-08-19 的产品/技术上下文；#88 分支加上新提交后全历史共 99 个提交。
-- 数据库目录包含 36 个有序 migration。
+- `main` 当前已包含 PR #117；对应 GitHub Pages workflow 已成功发布。
+- 数据库目录和远端 migration history 均为 37 个版本，已在 Issue #119 Phase 0 只读核对一致。
 - 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；#93 增加了首组 6 个纯逻辑单元测试，但仍没有集成或 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
 - `App.jsx`、`AdminSchedule.jsx`、`i18n.js` 和 `styles.css` 已成为大型集中模块，后续改动的回归面较大。
@@ -38,17 +38,19 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #116：Drag Feedback / Schedule Side Panels
+### Issue #119：Reservation migration Phase 0 baseline
 
-- 分支：`codex/issue-116-drag-feedback`。
-- Issue：`https://github.com/tujiaqi2002/badminton/issues/116`。
-- PR：`https://github.com/tujiaqi2002/badminton/pull/117`，等待评审；未合并、未部署。
-- 内容：移除拖拽期间横跨排期顶部的临时提示条；左侧 Detail 实时显示圈选新增、移动/置换/取消/跨日、调整时长和关联拖拽的原位置、目标位置、作用范围与状态；桌面左右侧栏与中央网格等高。
-- Supabase：不需要 schema、migration、RLS 或 RPC 变更。
-- 已验证：22 个单元测试、lint、build、桌面 1440px 与手机 390px 浏览器检查；圈选、移动、调整时长、关联拖拽均确认左侧反馈，顶部拖拽提示条为 0。
+- 分支：`codex/issue-119-reservation-baseline`。
+- Parent design：`https://github.com/tujiaqi2002/badminton/issues/118`，已于 2026-08-23 获得产品确认。
+- Phase Issue：`https://github.com/tujiaqi2002/badminton/issues/119`。
+- 范围：只读核对 migration、schema/RLS/grants/RPC、booking/group/link/recurrence、slot、价格、付款、审计和 advisors；不执行生产写入或 schema 变更。
+- 结论：Phase 1 为 Conditional GO。当前 131 个 legacy groups 可确定性映射为 123 Reservations、135 Sessions 和 192 Court allocations；139 个有效 slot 没有缺失、残留、投影不一致或重叠。
+- 主要门禁：26 条 paid Court rows 中只有 5 条有专门付款更新审计；Phase 2 必须使用明确标记的 reconciliation payment，不能虚构付款人、provider 或批次。
+- 报告：[`docs/reservation-migration/phase-0-baseline.md`](./docs/reservation-migration/phase-0-baseline.md)。Phase 0 完成后停在 Phase 1 之前等待评审。
 
 ### 最近合并
 
+- PR #117 / Issue #116：Drag Feedback / Schedule Side Panels，已于 2026-08-23 合并并成功发布。
 - PR #111 / Issue #110：Remove redundant move scope note，已合并/关闭。
 - PR #114 / Issue #113：Booking relationship popover outside-click dismissal，已合并/关闭。
 - PR #115 / Issue #112：Booking detail payment controls polish，已合并/关闭。
@@ -90,8 +92,9 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 ### P0：发布与数据安全
 
 - 尚未建立可靠的 PR Preview/staging，reviewer 很难在合并前直接体验。
-- Supabase migration history 曾两次出现远端/本地不一致，后续必须先对齐再推送。
+- Supabase migration history 曾两次出现远端/本地不一致；2026-08-23 Phase 0 已对齐到 37/37，后续每个数据库阶段仍必须先对齐再推送。
 - 支付代码存在但未形成可证明的生产闭环，不能对客户宣称在线支付可用。
+- Reservation 迁移会跨 schema、权限、计价、付款和审计；必须按 #118 的 Phase 0–5 逐步交付，禁止一次性替换 legacy 模型。
 
 ### P1：回归风险
 

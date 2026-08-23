@@ -1,6 +1,6 @@
 # Tiger Project History
 
-> 从项目起点到 2026-08-21 的阶段性开发历史。本文解释“如何走到现在”，当前状态以 [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) 为准。
+> 从项目起点到 2026-08-23 的阶段性开发历史。本文解释“如何走到现在”，当前状态以 [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) 为准。
 
 ## 0. 起点：从通用预约系统蓝图收敛到真实球馆
 
@@ -121,3 +121,13 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - 桌面与手机布局存在差异时分别保留截图，让 reviewer 能直接判断视觉层级、对齐和响应式结果。
 
 阶段结果：浏览器验收从口头结论升级为可在 Issue / PR 中长期追溯的视觉证据。
+
+## 13. 2026-08-23：统一 Reservation 模型进入分阶段迁移
+
+- Issue #118 确认以 `Reservation → Sessions → Court allocations` 统一旧 `booking_group_id` 与 `booking_link_id` 的业务归属，同时拆分 party roles、付款意向和真实 payment ledger。
+- 明确允许馆长强制合并不同客户的预约，但必须选择主要联系人、保留全部来源，并禁止模糊自动合并身份。
+- Phase 0 / Issue #119 只读核对生产 migration、schema/RLS/grants/RPC、数据、金额、付款、审计和 advisors，没有执行生产写入。
+- 本地与远端 37 个 migration 完全一致；192 个 legacy Court rows 可确定性映射为 123 Reservations、135 Sessions 和 192 Court allocations，139 个有效 slot 没有投影或重叠异常。
+- 发现 26 个历史 paid Court rows 中只有 5 个有专门付款审计；后续必须使用明确的 legacy reconciliation 记录，不能虚构付款人、provider 或批次。
+
+阶段结果：Reservation 迁移从概念讨论变成有生产基线、账务限制和安全门禁的 Phase 0 方案；Phase 1 只能只加不删，并继续等待独立评审与授权。
