@@ -140,6 +140,8 @@ Issue #118 已确认未来把现有 `booking_group_id` / `booking_link_id` 统�
 
 分阶段设计、迁移门禁和完整验收标准以 [Issue #118](https://github.com/tujiaqi2002/badminton/issues/118) 为准；Phase 0 生产基线见 [`docs/reservation-migration/phase-0-baseline.md`](./docs/reservation-migration/phase-0-baseline.md)。
 
+订单较多时，“我的预订”默认展示即将开始的订单，并提供 Upcoming/Past/Cancelled tabs、日期/场地/编号等搜索、折叠式高级筛选、已应用筛选 chip 与清除入口。结果按月份分组，筛选和搜索只改变列表可见性，不隐藏单张订单卡片上的既有信息或取消动作。
+
 ## 6. 馆长预订管理
 
 预订管理是馆长最重要的工作区和默认落地页。
