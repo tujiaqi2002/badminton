@@ -38,6 +38,15 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
+### PR #114 / Issue #113：Booking relationship popover outside-click dismissal
+
+- 分支：`codex/issue-113-close-relationship-popover`。
+- PR：`https://github.com/tujiaqi2002/badminton/pull/114`，等待 `KevinLiTian` 评审。
+- 内容：馆长打开订单关系菜单后，点击触发按钮和菜单以外的任意位置即可关闭；菜单内操作、按钮切换和拖拽连接行为保持可用。
+- Supabase：不需要 schema、migration 或 RPC 变更。
+- 已记录验证：22 个单元测试、lint、build、桌面与 390×844 手机尺寸；菜单内点击、外部关闭、按钮重开/关闭，以及连接选择和断开确认入口均通过。
+- 风险：局部管理端交互调整；未改动数据库或现有连接/断开操作本身。
+
 ### PR #115 / Issue #112：Booking detail payment controls polish
 
 - 分支：`codex/112-payment-controls-polish`。
