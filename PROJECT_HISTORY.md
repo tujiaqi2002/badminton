@@ -141,3 +141,13 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - Migration 在隔离 PostgreSQL 环境实际应用；验证发现并补齐两个 FK index，随后 schema、权限、legacy compatibility 与负向 financial invariants 全部通过。
 
 阶段结果：新模型已有可评审、未部署的物理基础，同时生产继续完整运行 legacy 模型。Phase 2 backfill、历史付款 reconciliation、Toronto DST 转换和生产 deployment 仍需分别授权。
+
+## 15. 2026-08-23：Reservation Phase 1 生产物理基础上线
+
+- PR #120 与 PR #122 按顺序合并进入 `main`，本地 22/22 tests、lint、build 和两次 GitHub Pages workflow 均通过。
+- 获得明确生产授权后，最终 preflight 发现远端 migration history 已包含 `20260823072016_reservation_aggregate_schema`，因此没有重复执行会冲突的 DDL，而是直接进入上线后验证。
+- 只读生产诊断确认 9 张新表、nullable/default-free booking ownership columns、约束、触发器、RLS/FORCE RLS、最小 grants、private integrity functions 与 FK indexes 全部完整。
+- 9 张新表保持为空；192 条 legacy booking 没有任何 `reservation_id` / `session_id`，139 条有效 `court_slots` 投影保持一致；旧 RPC、GiST overlap、Realtime 和前端行为均未切换。
+- Security advisor 没有 Phase 1 新增 finding；Performance advisor 只对尚未承载数据的新索引报告预期的 `unused_index` INFO。
+
+阶段结果：Phase 1 的 additive schema 已成为生产事实，但业务仍完整运行 legacy 模型。下一阶段是 Issue #123 的 deterministic backfill；在独立 migration、DST/付款 reconciliation 验证和生产授权前，不得开始写入新 ownership 数据。

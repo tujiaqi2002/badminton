@@ -150,9 +150,9 @@ Magic Link 与 Google OAuth 都回到当前站点的 `origin + pathname`，不�
 
 修改表前必须阅读完整迁移链确认基础字段、enum 和约束。
 
-### Reservation 目标模型（已确认，尚未上线）
+### Reservation 目标模型（已确认；Phase 1 物理基础已上线）
 
-Issue #118 已确认目标 ownership model 为 `Reservation → Sessions → Court allocations`，并拆分 party roles、payment intent、真实 payment ledger、payment allocations 与 recurrence series。当前生产仍以 `bookings` row-per-court 加 `booking_group_id` / `booking_link_id` 运作，两种模型不能混写为当前事实。
+Issue #118 已确认目标 ownership model 为 `Reservation → Sessions → Court allocations`，并拆分 party roles、payment intent、真实 payment ledger、payment allocations 与 recurrence series。Phase 1 空表和 nullable ownership columns 已进入生产，但当前读写行为仍以 `bookings` row-per-court 加 `booking_group_id` / `booking_link_id` 运作；“schema 已存在”和“业务已切换”不能混写为同一事实。
 
 第一轮物理迁移保持 additive：新增 `reservations`、`reservation_sessions`、party/payment/recurrence 父实体，并给现有 `bookings` 增加 nullable `reservation_id` / `session_id`。`bookings` 暂时继续作为 Court allocation 物理表和冲突时间投影，保留 `bookings_no_time_overlap`、`court_slots`、legacy 字段和旧 RPC，直到 shadow reconciliation 和生产观察完成。
 
@@ -160,7 +160,7 @@ Issue #118 已确认目标 ownership model 为 `Reservation → Sessions → Cou
 
 Phase 0 报告位于 [`docs/reservation-migration/phase-0-baseline.md`](./docs/reservation-migration/phase-0-baseline.md)，可复跑只读 SQL 位于 [`supabase/diagnostics/phase_0_reservation_baseline.sql`](./supabase/diagnostics/phase_0_reservation_baseline.sql)。报告只给 Phase 1 additive schema 有条件通过，不授权 migration 或生产写入。
 
-### Phase 1 additive schema（分支已完成，生产未应用）
+### Phase 1 additive schema（生产已应用，尚未 backfill/cutover）
 
 Issue #121 / migration `20260823072016_reservation_aggregate_schema` 新增 9 张空表：`recurrence_series`、`reservations`、`reservation_legacy_sources`、`reservation_parties`、`reservation_party_roles`、`reservation_sessions`、`reservation_payment_shares`、`payments`、`payment_allocation_entries`。现有 `bookings` 只增加 nullable、无 default 的 `reservation_id` / `session_id`。
 
@@ -174,18 +174,18 @@ Issue #121 / migration `20260823072016_reservation_aggregate_schema` 新增 9 �
 - 9 张 public 表均 RLS + FORCE RLS，authenticated 只有 manager-only SELECT，anon/service_role 无 direct grants；没有新增 public RPC/view/Realtime publication；
 - 全部 FK 有 leading-column index，不分区，不移动 `btree_gist`，不削弱 `bookings_no_time_overlap`。
 
-详细设计与隔离验证证据见 [`docs/reservation-migration/phase-1-schema.md`](./docs/reservation-migration/phase-1-schema.md)。这仍是 branch/schema intent，不是线上数据库事实；生产只有合并后再获得独立部署授权才可 `db push`。
+详细设计与隔离验证证据见 [`docs/reservation-migration/phase-1-schema.md`](./docs/reservation-migration/phase-1-schema.md)。2026-08-23 生产复核确认 migration history、9 张空表、nullable/default-free ownership columns、约束、RLS/FORCE RLS、最小 grants、private integrity functions、触发器和 FK indexes 均完整；没有新增 Realtime table，也没有 backfill 任何 legacy booking。
 
 ## 8. 线上迁移状态
 
-2026-08-23 线上与本地均核对到 37 个版本，范围：
+2026-08-23 Phase 1 上线后，线上与本地均核对到 38 个版本，范围：
 
 - 首个：`20260812161833_private_manager_schedule`
-- 最新：`20260821003535_booking_relationship_management`
+- 最新：`20260823072016_reservation_aggregate_schema`
 
 本次未发现之前的 “Remote migration versions not found in local migrations directory” 漂移。
 
-Phase 1 分支比生产多一个未应用版本：`20260823072016_reservation_aggregate_schema`。它不得被写成“线上已有”，也不得在没有明确部署授权时应用。
+Phase 1 生产验证结果为 `phase_1_reservation_schema_verified`：192 条 legacy booking 未写 ownership columns，9 张新表总行数为 0，139 条有效 `court_slots` 与 booking 投影一致。Phase 2 之前不得把空 schema 描述成已经迁移业务数据。
 
 ### 迁移规则
 
@@ -276,7 +276,7 @@ Supabase 新项目正在趋向默认不把新表暴露到 Data API；migration �
 - [Database linter](https://supabase.com/docs/guides/database/database-linter)
 - [Password security](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
 
-Performance advisor 当前为 19 条 INFO 级尚未使用索引，没有更高等级 finding。项目数据量较小，不能只因 `unused_index` 就删除；需结合生产查询计划和增长后数据再决定。
+Performance advisor 在 Phase 1 上线后为 44 条 INFO 级尚未使用索引，没有更高等级 finding；其中 Phase 1 新索引因新表为空而尚未使用是预期状态。项目数据量较小，不能只因 `unused_index` 就删除；需结合生产查询计划和增长后数据再决定。
 
 ## 12. 馆务中心 RPC
 
