@@ -47,10 +47,19 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 已记录验证：22 个单元测试、lint、build、桌面与 390×844 手机尺寸；菜单内点击、外部关闭、按钮重开/关闭，以及连接选择和断开确认入口均通过。
 - 风险：局部管理端交互调整；未改动数据库或现有连接/断开操作本身。
 
-### PR #111 / Issue #110：Remove redundant move scope note
+### PR #115 / Issue #112：Booking detail payment controls polish
+
+- 分支：`codex/112-payment-controls-polish`。
+- PR：`https://github.com/tujiaqi2002/badminton/pull/115`，Ready for review，已请求 `KevinLiTian` 评审。
+- 内容：统一馆长选中详情中人数与单笔/关联支付快捷操作的字体、尺寸、边框、图标、状态色和响应式布局；支付逻辑保持不变。
+- Supabase：不需要 schema、migration、RLS 或 RPC 变更。
+- 已记录验证：lint、build、22 个单元测试、桌面 1440×900、390×844 手机、中英文与 140% 字号；Issue 和 PR 均已附 Before/After 截图。
+- 风险：局部 `AdminSchedule.jsx` / 共享 CSS UI 变更；已同步最新 `main`，并保留 #111 对冗余移动范围说明的移除。
+
+### 已完成：PR #111 / Issue #110：Remove redundant move scope note
 
 - 分支：`codex/issue-110-remove-move-scope-note`。
-- PR：`https://github.com/tujiaqi2002/badminton/pull/111`，Draft，等待检查与评审。
+- PR：`https://github.com/tujiaqi2002/badminton/pull/111`，已合并到 `main`；#115 已同步该改动。
 - 内容：从馆长选中预订详情中移除重复的“移动范围 / Linked move”说明；馆务中心里的多场订单拖拽设置、拖动预览和整组/单场移动逻辑保持不变。
 - Supabase：不需要 schema、migration、RLS 或 RPC 变更。
 - 已记录验证：lint、build、22 个单元测试、桌面与 390px 手机浏览器检查，以及中英文详情和馆务设置保留检查。
