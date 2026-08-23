@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-23。当前工作分支：`codex/issue-119-reservation-baseline`。
+> 项目：`project-001-badminton`。核对日期：2026-08-23。当前工作分支：`codex/issue-121-reservation-schema`。
 
 ## 1. 一句话结论
 
@@ -38,16 +38,19 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #119：Reservation migration Phase 0 baseline
+### Issue #121：Reservation migration Phase 1 additive schema
 
-- 分支：`codex/issue-119-reservation-baseline`。
+- 分支：`codex/issue-121-reservation-schema`，stacked on Phase 0 / PR #120。
 - Parent design：`https://github.com/tujiaqi2002/badminton/issues/118`，已于 2026-08-23 获得产品确认。
-- Phase Issue：`https://github.com/tujiaqi2002/badminton/issues/119`。
-- PR：`https://github.com/tujiaqi2002/badminton/pull/120`，等待评审；未合并、未部署。
-- 范围：只读核对 migration、schema/RLS/grants/RPC、booking/group/link/recurrence、slot、价格、付款、审计和 advisors；不执行生产写入或 schema 变更。
-- 结论：Phase 1 为 Conditional GO。当前 131 个 legacy groups 可确定性映射为 123 Reservations、135 Sessions 和 192 Court allocations；139 个有效 slot 没有缺失、残留、投影不一致或重叠。
-- 主要门禁：26 条 paid Court rows 中只有 5 条有专门付款更新审计；Phase 2 必须使用明确标记的 reconciliation payment，不能虚构付款人、provider 或批次。
-- 报告：[`docs/reservation-migration/phase-0-baseline.md`](./docs/reservation-migration/phase-0-baseline.md)。Phase 0 完成后停在 Phase 1 之前等待评审。
+- Phase Issue：`https://github.com/tujiaqi2002/badminton/issues/121`，用户已在 review #120 后明确授权开始。
+- PR：`https://github.com/tujiaqi2002/badminton/pull/122`，base 为 Phase 0 分支；等待评审，未合并、未部署，Supabase Preview integration 当前为 skipped。
+- 范围：只加不删地建立 Reservation/Session/Party/Payment/recurrence 父实体与 ledger；现有 `bookings` 只新增 nullable ownership FKs。
+- 本地 migration：38；生产仍为 37。新版本 `20260823072016_reservation_aggregate_schema` 未应用、未部署。
+- 权限：9 张新 public 表均 RLS + FORCE RLS；authenticated 只有 manager-only SELECT，anon/service_role 无 direct grants，没有新 public RPC。
+- 账务真实性：正常 Payment 必须有真实 `occurred_at`；仅 `legacy_reconciliation` 可为 null，避免为缺少付款审计的历史 paid rows 虚构时间。
+- 兼容：legacy group/link/recurrence/payment、现有 RPC、GiST overlap、`court_slots`、Realtime 和前端均未改变。
+- 验证：migration 在隔离 PostgreSQL 中实际应用，schema assertions 与负向约束测试通过；Codex 内置 Node.js v24.19.0 / pnpm 11.19.0 下 22/22 tests、lint、build 通过（CI 仍使用 Node 22 / pnpm 11.16.0）；报告见 [`docs/reservation-migration/phase-1-schema.md`](./docs/reservation-migration/phase-1-schema.md)。
+- Phase 2 仍被门禁：缺少付款审计的 paid rows 必须使用明确的 reconciliation 语义，且需先做 Toronto DST 转换专项验证。
 
 ### 最近合并
 

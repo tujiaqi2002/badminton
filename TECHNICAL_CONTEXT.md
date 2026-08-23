@@ -160,6 +160,22 @@ Issue #118 已确认目标 ownership model 为 `Reservation → Sessions → Cou
 
 Phase 0 报告位于 [`docs/reservation-migration/phase-0-baseline.md`](./docs/reservation-migration/phase-0-baseline.md)，可复跑只读 SQL 位于 [`supabase/diagnostics/phase_0_reservation_baseline.sql`](./supabase/diagnostics/phase_0_reservation_baseline.sql)。报告只给 Phase 1 additive schema 有条件通过，不授权 migration 或生产写入。
 
+### Phase 1 additive schema（分支已完成，生产未应用）
+
+Issue #121 / migration `20260823072016_reservation_aggregate_schema` 新增 9 张空表：`recurrence_series`、`reservations`、`reservation_legacy_sources`、`reservation_parties`、`reservation_party_roles`、`reservation_sessions`、`reservation_payment_shares`、`payments`、`payment_allocation_entries`。现有 `bookings` 只增加 nullable、无 default 的 `reservation_id` / `session_id`。
+
+关键物理约束：
+
+- booking ownership 两列同时为空或同时存在；Session/Reservation 使用 composite FK，currency 也与 Reservation 对齐；
+- 接入新模型的 booking 由 private security-invoker trigger 按 venue timezone 校验 Session `timestamptz` 与 legacy local `timestamp` 投影；
+- Party roles/payment shares 不能引用另一笔 Reservation 的 Party，每笔 Reservation 最多一个 primary contact；
+- Payment payer/refund 与 allocation ledger 使用 composite FK 保证同一 Reservation；provider/idempotency 唯一；ledger 为 signed append-only；
+- 正常 Payment 的 `occurred_at` 必填；仅 `legacy_reconciliation` 可为 null，禁止为无法还原付款时间的旧 paid rows 使用 migration time 或 booking time 冒充；
+- 9 张 public 表均 RLS + FORCE RLS，authenticated 只有 manager-only SELECT，anon/service_role 无 direct grants；没有新增 public RPC/view/Realtime publication；
+- 全部 FK 有 leading-column index，不分区，不移动 `btree_gist`，不削弱 `bookings_no_time_overlap`。
+
+详细设计与隔离验证证据见 [`docs/reservation-migration/phase-1-schema.md`](./docs/reservation-migration/phase-1-schema.md)。这仍是 branch/schema intent，不是线上数据库事实；生产只有合并后再获得独立部署授权才可 `db push`。
+
 ## 8. 线上迁移状态
 
 2026-08-23 线上与本地均核对到 37 个版本，范围：
@@ -168,6 +184,8 @@ Phase 0 报告位于 [`docs/reservation-migration/phase-0-baseline.md`](./docs/r
 - 最新：`20260821003535_booking_relationship_management`
 
 本次未发现之前的 “Remote migration versions not found in local migrations directory” 漂移。
+
+Phase 1 分支比生产多一个未应用版本：`20260823072016_reservation_aggregate_schema`。它不得被写成“线上已有”，也不得在没有明确部署授权时应用。
 
 ### 迁移规则
 
