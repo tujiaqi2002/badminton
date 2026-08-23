@@ -43,6 +43,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 分支：`codex/issue-119-reservation-baseline`。
 - Parent design：`https://github.com/tujiaqi2002/badminton/issues/118`，已于 2026-08-23 获得产品确认。
 - Phase Issue：`https://github.com/tujiaqi2002/badminton/issues/119`。
+- PR：`https://github.com/tujiaqi2002/badminton/pull/120`，等待评审；未合并、未部署。
 - 范围：只读核对 migration、schema/RLS/grants/RPC、booking/group/link/recurrence、slot、价格、付款、审计和 advisors；不执行生产写入或 schema 变更。
 - 结论：Phase 1 为 Conditional GO。当前 131 个 legacy groups 可确定性映射为 123 Reservations、135 Sessions 和 192 Court allocations；139 个有效 slot 没有缺失、残留、投影不一致或重叠。
 - 主要门禁：26 条 paid Court rows 中只有 5 条有专门付款更新审计；Phase 2 必须使用明确标记的 reconciliation payment，不能虚构付款人、provider 或批次。
