@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-21。Canonical worktree 分支：`codex/project-context-system`。
+> 项目：`project-001-badminton`。核对日期：2026-08-22。当前工作分支：`codex/issue-116-drag-feedback`。
 
 ## 1. 一句话结论
 
@@ -38,50 +38,23 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### PR #114 / Issue #113：Booking relationship popover outside-click dismissal
+### Issue #116：Drag Feedback / Schedule Side Panels
 
-- 分支：`codex/issue-113-close-relationship-popover`。
-- PR：`https://github.com/tujiaqi2002/badminton/pull/114`，等待 `KevinLiTian` 评审。
-- 内容：馆长打开订单关系菜单后，点击触发按钮和菜单以外的任意位置即可关闭；菜单内操作、按钮切换和拖拽连接行为保持可用。
-- Supabase：不需要 schema、migration 或 RPC 变更。
-- 已记录验证：22 个单元测试、lint、build、桌面与 390×844 手机尺寸；菜单内点击、外部关闭、按钮重开/关闭，以及连接选择和断开确认入口均通过。
-- 风险：局部管理端交互调整；未改动数据库或现有连接/断开操作本身。
-
-### PR #115 / Issue #112：Booking detail payment controls polish
-
-- 分支：`codex/112-payment-controls-polish`。
-- PR：`https://github.com/tujiaqi2002/badminton/pull/115`，Ready for review，已请求 `KevinLiTian` 评审。
-- 内容：统一馆长选中详情中人数与单笔/关联支付快捷操作的字体、尺寸、边框、图标、状态色和响应式布局；支付逻辑保持不变。
+- 分支：`codex/issue-116-drag-feedback`。
+- Issue：`https://github.com/tujiaqi2002/badminton/issues/116`。
+- PR：`https://github.com/tujiaqi2002/badminton/pull/117`，等待评审；未合并、未部署。
+- 内容：移除拖拽期间横跨排期顶部的临时提示条；左侧 Detail 实时显示圈选新增、移动/置换/取消/跨日、调整时长和关联拖拽的原位置、目标位置、作用范围与状态；桌面左右侧栏与中央网格等高。
 - Supabase：不需要 schema、migration、RLS 或 RPC 变更。
-- 已记录验证：lint、build、22 个单元测试、桌面 1440×900、390×844 手机、中英文与 140% 字号；Issue 和 PR 均已附 Before/After 截图。
-- 风险：局部 `AdminSchedule.jsx` / 共享 CSS UI 变更；已同步最新 `main`，并保留 #111 对冗余移动范围说明的移除。
+- 已验证：22 个单元测试、lint、build、桌面 1440px 与手机 390px 浏览器检查；圈选、移动、调整时长、关联拖拽均确认左侧反馈，顶部拖拽提示条为 0。
 
-### 已完成：PR #111 / Issue #110：Remove redundant move scope note
+### 最近合并
 
-- 分支：`codex/issue-110-remove-move-scope-note`。
-- PR：`https://github.com/tujiaqi2002/badminton/pull/111`，已合并到 `main`；#115 已同步该改动。
-- 内容：从馆长选中预订详情中移除重复的“移动范围 / Linked move”说明；馆务中心里的多场订单拖拽设置、拖动预览和整组/单场移动逻辑保持不变。
-- Supabase：不需要 schema、migration、RLS 或 RPC 变更。
-- 已记录验证：lint、build、22 个单元测试、桌面与 390px 手机浏览器检查，以及中英文详情和馆务设置保留检查。
-
-### PR #93 / Issue #92：Multi-court Individual Move
-
-- 分支：`codex/issue-92-individual-booking-move`。
-- PR：`https://github.com/tujiaqi2002/badminton/pull/93`，等待评审。
-- 内容：多场地订单默认保持连锁移动；馆长可在选中详情中临时切换到“单独移动”，让下一次拖动到空位或缩放只修改当前 booking，操作后自动恢复连锁模式。
-- 同组 booking 分开后，详情按每条记录的真实场地和时间展示；`booking_group_id` 与 `booking_link_id` 保持不变。
-- Supabase：不需要 schema、migration 或新 RPC；复用现有单条和整组 reschedule/move RPC。
-- 已记录验证：6 个单元测试、lint、build、桌面与 390px 响应式浏览器检查，以及连锁/单条拖动与缩放演示验证。
-
-### PR #90 / Issue #88：Drag Lock
-
-- 分支：`codex/88-drag-lock`。
-- 工作树：`tmp/badminton-deploy`（旧路径，暂时保留）。
-- PR：`https://github.com/tujiaqi2002/badminton/pull/90`，等待 `KevinLiTian` 评审。
-- 内容：馆长可选择 Free、Court only、Time only 拖拽模式，设备本地持久化。
-- 已记录验证：lint、build、浏览器水平/垂直锁定、中英标签、响应式与刷新持久化。
-- Supabase Preview check 为 skipped；该功能不需要 migration。
-- 本文档分支不能向 #90 夹带修改；#90 是否合并由用户和 reviewer 决定。
+- PR #111 / Issue #110：Remove redundant move scope note，已合并/关闭。
+- PR #114 / Issue #113：Booking relationship popover outside-click dismissal，已合并/关闭。
+- PR #115 / Issue #112：Booking detail payment controls polish，已合并/关闭。
+- PR #90 / Issue #88：Drag Lock，已于 2026-08-20 合并/关闭。
+- PR #93 / Issue #92：Multi-court Individual Move，已于 2026-08-20 合并/关闭。
+- Issue #87：My Booking section redesign，已于 2026-08-21 关闭。
 
 ### 其他开放 Issue
 
@@ -90,15 +63,8 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 | #84 | Activity log section refine | Tusu + Kevin |
 | #85 | Remove Customer Booking Selection and Redesign Booking UI | Tusu + Kevin |
 | #86 | Manager Booking page color design | Kevin |
-| #87 | My Booking section redesign | Kevin |
 
 这些 issue 有明显 UI 重叠，合并前需要指定每个 issue 的页面边界，避免同时修改 `styles.css`、`App.jsx` 或同一组件造成冲突。
-
-### 本地进行中：Issue #87 My Booking section redesign
-
-- 分支：`codex-87-my-bookings-redesign`。
-- 内容：客户“我的预订”列表改为扫描优先的订单卡片，突出日期、时段、场地、订单状态、支付状态、金额和下单时间；同时间多场地订单合并为一张可识别的多场地卡片，但取消入口仍按单条 booking 沿用原有条件与回调。
-- Supabase：不需要 schema、migration 或 RPC 变更。
 
 ## 5. 早期蓝图完成度
 
@@ -143,14 +109,13 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ### Milestone A：团队开发基线（现在）
 
-1. 合并或关闭 #90 前先完成 reviewer 行为验收。
-2. 建 PR Preview 或固定 staging URL，PR 附验收路径、截图/录屏。
-3. 增加最小自动测试：时间区间、计价匹配、swap/overlap、颜色稳定哈希。
-4. 将 `AdminSchedule`、`App` 的纯逻辑逐步抽出，避免大爆炸式重构。
+1. 建 PR Preview 或固定 staging URL，PR 附验收路径、截图/录屏。
+2. 增加最小自动测试：时间区间、计价匹配、swap/overlap、颜色稳定哈希。
+3. 将 `AdminSchedule`、`App` 的纯逻辑逐步抽出，避免大爆炸式重构。
 
 ### Milestone B：运营 Beta 稳定
 
-1. 按清晰边界完成 #84–#87。
+1. 按清晰边界完成 #84–#86。
 2. 建立关键回归清单：新增、移动、缩放、置换、关联、循环、取消、支付标记、历史锁定。
 3. 对营业时间、活动、定价和开放窗口做跨页面 + 数据库回归。
 4. 用真实馆长试用数据判断哪些高级操作应保留、隐藏或简化。
@@ -164,4 +129,4 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 不为了“看起来像平台”提前做多租户或微服务拆分。
 - 不在没有第二家真实客户前抽象 marketplace。
 - 不把 AI 功能置于排期正确性、预览环境和测试之前。
-- 不移动或删除 `tmp/badminton-deploy`，直到 PR #90 处理完且确认无未提交工作。
+- 不在没有明确授权和未提交工作核对前清理旧 worktree；PR #90 已合并不等于自动授权清理。

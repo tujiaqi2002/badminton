@@ -15,6 +15,22 @@ const durationMinutes = (booking) => Math.round(
 
 const timeFromMinutes = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
 
+function DragOperationPanel({ details }) {
+  return (
+    <div className={`admin-drag-inspector ${details.tone || ''}`} role="status" aria-live="polite">
+      <header>
+        <span className="admin-drag-inspector-icon">{details.icon}</span>
+        <div><small>{details.eyebrow}</small><strong>{details.title}</strong></div>
+      </header>
+      {details.subject && <b className="admin-drag-inspector-subject">{details.subject}</b>}
+      <dl className="admin-drag-inspector-details">
+        {details.rows.map((row) => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}
+      </dl>
+      <p>{details.status}</p>
+    </div>
+  )
+}
+
 const bookingPhaseAtVenue = (booking, nowAtVenue) => {
   if (booking.end_at <= nowAtVenue.dateTime) return 'ended'
   if (booking.start_at <= nowAtVenue.dateTime) return 'in-progress'
@@ -804,7 +820,114 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
     if (saved) cancelRelationshipMode()
   }
 
-  const showScheduleContext = Boolean(linkDrag || rangeDisplay || (draggedBooking && dragPreview) || focusTime)
+  const formatDuration = (minutes) => minutes < 60
+    ? t('duration.minutes', { minutes })
+    : minutes % 60 === 0
+      ? t('duration.hours', { hours: minutes / 60 })
+      : t('duration.hoursMinutes', { hours: Math.floor(minutes / 60), minutes: minutes % 60 })
+  const bookingSlotLabel = (booking) => {
+    const court = COURTS.find((item) => item.id === booking.court_id) || COURTS[0]
+    return `${courtTitle(court)} · ${booking.start_at.slice(0, 10).replaceAll('-', '.')} · ${timeFromDateTime(booking.start_at)}–${endTimeFromDateTime(booking.start_at, booking.end_at)}`
+  }
+  const linkTargetBooking = linkDropId ? bookings.find((booking) => booking.id === linkDropId) : null
+  const dragOperationDetails = (() => {
+    if (linkDrag) {
+      return {
+        tone: linkTargetBooking ? 'valid link' : 'link',
+        icon: <Link2 size={16} />,
+        eyebrow: t('admin.schedule.dragOperation'),
+        title: t('admin.schedule.dragLink'),
+        subject: linkDrag.booking.customer_name,
+        rows: [
+          { label: t('admin.schedule.dragSource'), value: bookingSlotLabel(linkDrag.booking) },
+          { label: t('admin.schedule.dragDestination'), value: linkTargetBooking ? `${linkTargetBooking.customer_name} · ${bookingSlotLabel(linkTargetBooking)}` : t('admin.schedule.dragLinkTargetPending') },
+        ],
+        status: t(linkTargetBooking ? 'admin.schedule.dragLinkRelease' : 'admin.schedule.linkDragHint'),
+      }
+    }
+    if (rangeDisplay) {
+      const courtSummary = t(rangeDisplay.courts.length > 1 ? 'admin.schedule.rangeCourtSummary' : 'admin.schedule.rangeSingleCourt', {
+        from: courtTitle(rangeDisplay.courts[0]),
+        to: courtTitle(rangeDisplay.courts.at(-1)),
+        count: rangeDisplay.courts.length,
+      })
+      return {
+        tone: rangeDisplay.invalid ? 'invalid' : 'valid',
+        icon: <CalendarPlus size={16} />,
+        eyebrow: t('admin.schedule.dragOperation'),
+        title: t('admin.schedule.dragCreate'),
+        rows: [
+          { label: t('admin.schedule.dragCourts'), value: courtSummary },
+          { label: t('admin.schedule.dragDestination'), value: `${dateKey.replaceAll('-', '.')} · ${rangeDisplay.startTime}–${rangeDisplay.endTime}` },
+          { label: t('admin.schedule.duration'), value: formatDuration(rangeDisplay.duration) },
+        ],
+        status: t(rangeDisplay.invalid ? 'admin.schedule.rangeBlocked' : 'admin.schedule.rangeRelease'),
+      }
+    }
+    if (resizeDrag) {
+      const booking = resizeDrag.booking
+      const startTime = timeFromDateTime(booking.start_at)
+      const startMinutes = Number(startTime.slice(0, 2)) * 60 + Number(startTime.slice(3))
+      const changed = resizeDrag.duration !== resizeDrag.initialDuration
+      return {
+        tone: changed ? 'valid' : '',
+        icon: <Clock3 size={16} />,
+        eyebrow: t('admin.schedule.dragOperation'),
+        title: t('admin.schedule.dragResize'),
+        subject: booking.customer_name,
+        rows: [
+          { label: t('admin.schedule.dragSource'), value: bookingSlotLabel(booking) },
+          { label: t('admin.schedule.dragDestination'), value: `${courtTitle(COURTS.find((item) => item.id === booking.court_id) || COURTS[0])} · ${booking.start_at.slice(0, 10).replaceAll('-', '.')} · ${startTime}–${timeFromMinutes(startMinutes + resizeDrag.duration)}` },
+          { label: t('admin.schedule.dragScope'), value: t(resizeDrag.moveScope === BOOKING_MOVE_SCOPE_GROUP ? 'admin.schedule.moveScopeActiveGroup' : 'admin.schedule.moveScopeActiveSingle') },
+          { label: t('admin.schedule.dragDurationChange'), value: `${formatDuration(resizeDrag.initialDuration)} → ${formatDuration(resizeDrag.duration)}` },
+        ],
+        status: t(changed ? 'admin.schedule.dragResizeRelease' : 'admin.schedule.dragResizeUnchanged'),
+      }
+    }
+    if (draggedBooking) {
+      const swapping = dragPreview?.swap?.mode === 'swap'
+      const invalid = Boolean(dragPreview?.invalid)
+      const actionKey = cancelArmed
+        ? 'admin.schedule.dragCancel'
+        : dragDay
+          ? 'admin.schedule.dragTransfer'
+          : swapping
+            ? 'admin.schedule.dragSwap'
+            : 'admin.schedule.dragMove'
+      const target = cancelArmed
+        ? t('admin.schedule.dragCancelTarget')
+        : dragDay
+          ? t('admin.schedule.dragDatePending', { date: dragDay.replaceAll('-', '.') })
+          : dragPreview
+            ? `${courtTitle(dragPreview.court)} · ${dateKey.replaceAll('-', '.')} · ${dragPreview.time}–${dragPreview.endTime}`
+            : t('admin.schedule.dragNoTarget')
+      const statusKey = cancelArmed
+        ? 'admin.schedule.cancelRelease'
+        : dragDay
+          ? 'admin.schedule.dragDateRelease'
+          : invalid
+            ? (dragPreview.invalidReason === 'past' ? 'admin.schedule.pastDropBlocked' : 'admin.schedule.swapBlocked')
+            : swapping
+              ? 'admin.schedule.releaseToSwap'
+              : dragPreview
+                ? 'admin.schedule.releaseToMove'
+                : 'admin.schedule.dragChooseTarget'
+      return {
+        tone: cancelArmed ? 'danger' : invalid ? 'invalid' : swapping ? 'swap' : dragPreview || dragDay ? 'valid' : '',
+        icon: cancelArmed ? <Trash2 size={16} /> : swapping ? <RotateCcw size={16} /> : <GripVertical size={16} />,
+        eyebrow: t('admin.schedule.dragOperation'),
+        title: t(actionKey),
+        subject: draggedBooking.customer_name,
+        rows: [
+          { label: t('admin.schedule.dragSource'), value: bookingSlotLabel(draggedBooking) },
+          { label: t('admin.schedule.dragDestination'), value: target },
+          { label: t('admin.schedule.dragScope'), value: `${t(pointerDrag?.moveScope === BOOKING_MOVE_SCOPE_GROUP ? 'admin.schedule.moveScopeActiveGroup' : 'admin.schedule.moveScopeActiveSingle')} · ${t(dragLockLabelKey)}` },
+        ],
+        status: t(statusKey, { count: dragPreview?.swap?.bookings?.length || 0 }),
+      }
+    }
+    return null
+  })()
 
   return (
     <section
@@ -821,8 +944,10 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
         cancelRelationshipMode()
       }}
     >
-      <section className={`admin-schedule-inspector ${activeSelection ? 'has-booking' : ''}`} aria-live="polite">
-        {activeSelection ? (
+      <section className={`admin-schedule-inspector ${activeSelection ? 'has-booking' : ''} ${dragOperationDetails ? 'has-drag-operation' : ''}`} aria-live="polite">
+        {dragOperationDetails ? (
+          <DragOperationPanel details={dragOperationDetails} />
+        ) : activeSelection ? (
           <>
             <div className="admin-inspector-title">
               <span>{t('admin.schedule.bookingDetails')}</span>
@@ -971,35 +1096,13 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
           <div className="admin-inspector-empty"><strong>{t('admin.schedule.noSelectionTitle')}</strong><span>{t('admin.schedule.noSelectionText')}</span></div>
         )}
       </section>
-      {showScheduleContext && <div className={`admin-schedule-context ${draggedBooking && dragPreview ? `dragging ${dragPreview.invalid ? 'invalid' : ''}` : linkDrag ? 'linking' : focusTime ? 'phone-focus' : ''}`}>
-        {linkDrag ? (
-          <div className="admin-link-readout" role="status" aria-live="polite"><Link2 size={15} /><span>{t('admin.schedule.linkDragHint')}</span><strong>{linkDrag.booking.customer_name}{linkDropId ? ` → ${bookings.find((booking) => booking.id === linkDropId)?.customer_name || ''}` : ''}</strong></div>
-        ) : rangeDisplay ? (
-          <div className={`admin-drag-readout range-create ${rangeDisplay.invalid ? 'invalid' : ''}`} role="status" aria-live="polite">
-            <span>{t('admin.schedule.rangeTitle')}</span>
-            <strong><Link2 size={13} /> {t(rangeDisplay.courts.length > 1 ? 'admin.schedule.rangeCourtSummary' : 'admin.schedule.rangeSingleCourt', {
-              from: courtTitle(rangeDisplay.courts[0]),
-              to: courtTitle(rangeDisplay.courts.at(-1)),
-              count: rangeDisplay.courts.length,
-            })}</strong>
-            <b>{t('admin.schedule.dragStart')} {rangeDisplay.startTime} → {t('admin.schedule.dragEnd')} {rangeDisplay.endTime}</b>
-            <small>{t(rangeDisplay.invalid ? 'admin.schedule.rangeBlocked' : 'admin.schedule.rangeRelease')}</small>
-          </div>
-        ) : draggedBooking && dragPreview ? (
-          <div className="admin-drag-readout" role="status" aria-live="polite">
-            <span>{t('admin.schedule.preview')}</span>
-            <strong>{draggedBooking.customer_name}</strong>
-            <b>{dateKey.replaceAll('-', '.')} · {courtTitle(dragPreview.court)} · {t('admin.schedule.dragStart')} {dragPreview.time} → {t('admin.schedule.dragEnd')} {dragPreview.endTime}</b>
-            <small><em>{t(pointerDrag?.moveScope === BOOKING_MOVE_SCOPE_GROUP ? 'admin.schedule.moveScopeActiveGroup' : 'admin.schedule.moveScopeActiveSingle')} · {t('admin.schedule.dragLockActive', { mode: t(dragLockLabelKey) })}</em>{t(dragPreview.invalid ? (dragPreview.invalidReason === 'past' ? 'admin.schedule.pastDropBlocked' : 'admin.schedule.swapBlocked') : dragPreview.swap?.mode === 'swap' ? 'admin.schedule.releaseToSwap' : 'admin.schedule.releaseToMove', { count: dragPreview.swap?.bookings?.length || 0 })}</small>
-          </div>
-        ) : focusTime ? (
+      {focusTime && <div className="admin-schedule-context phone-focus">
           <div className="admin-phone-focus-guide" role="status" aria-live="polite">
             <PhoneCall size={15} />
             <strong>{t('admin.schedule.phoneFocusTitle')}</strong>
             <span>{t('admin.schedule.phoneFocusText', { date: dateKey.replaceAll('-', '.'), time: focusTime })}</span>
             <button onClick={onClearFocus}><X size={13} /> {t('admin.schedule.clearPhoneFocus')}</button>
           </div>
-        ) : null}
       </div>}
       <div className="admin-schedule-workbench">
         <aside className="admin-schedule-side admin-schedule-side-left">
