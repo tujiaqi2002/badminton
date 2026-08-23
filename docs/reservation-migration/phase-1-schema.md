@@ -6,7 +6,7 @@
 >
 > Phase 0 baseline: [Issue #119](https://github.com/tujiaqi2002/badminton/issues/119) / [PR #120](https://github.com/tujiaqi2002/badminton/pull/120)
 >
-> Phase 1 implementation: [Issue #121](https://github.com/tujiaqi2002/badminton/issues/121)
+> Phase 1 implementation: [Issue #121](https://github.com/tujiaqi2002/badminton/issues/121) / [PR #122](https://github.com/tujiaqi2002/badminton/pull/122)
 
 ## 状态
 
@@ -112,6 +112,8 @@ Phase 1 没有创建第二张 Court allocation 表。现有 `bookings` 只增加
 仓库门禁使用 Codex Desktop 内置 Node.js `v24.19.0` 与 pnpm `11.19.0`。部署 workflow 固定 Node.js 22 与 pnpm 11.16.0，因此本地通过不替代 CI / Supabase Preview 的最终兼容性检查。
 
 生产 advisor 只作为未应用前 baseline：47 security findings（2 INFO、45 WARN）和 19 performance INFO，与 Phase 0 相同。它不能证明未应用 migration 的结果；最终需以 PR Supabase Preview/local full-stack advisor 为准。
+
+PR #122 的 Supabase Preview integration 当前返回 `skipped`，因此它没有提供独立 preview database 证据；本报告不会把该 check 写成通过。生产 migration 仍未应用。
 
 ## 7. Phase 2 前的门禁
 

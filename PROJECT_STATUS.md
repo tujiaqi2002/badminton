@@ -43,6 +43,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 分支：`codex/issue-121-reservation-schema`，stacked on Phase 0 / PR #120。
 - Parent design：`https://github.com/tujiaqi2002/badminton/issues/118`，已于 2026-08-23 获得产品确认。
 - Phase Issue：`https://github.com/tujiaqi2002/badminton/issues/121`，用户已在 review #120 后明确授权开始。
+- PR：`https://github.com/tujiaqi2002/badminton/pull/122`，base 为 Phase 0 分支；等待评审，未合并、未部署，Supabase Preview integration 当前为 skipped。
 - 范围：只加不删地建立 Reservation/Session/Party/Payment/recurrence 父实体与 ledger；现有 `bookings` 只新增 nullable ownership FKs。
 - 本地 migration：38；生产仍为 37。新版本 `20260823072016_reservation_aggregate_schema` 未应用、未部署。
 - 权限：9 张新 public 表均 RLS + FORCE RLS；authenticated 只有 manager-only SELECT，anon/service_role 无 direct grants，没有新 public RPC。
