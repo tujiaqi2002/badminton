@@ -53,6 +53,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 上线后 security advisor 仍为既有 47 条；performance advisor 从 40 INFO 变成 40 INFO + 1 WARN。新增 `multiple_permissive_policies` 精确来自既有 `venue_settings_rpc_only FOR ALL false` 与 manager SELECT policy 的重叠，功能仍安全，但不接受为新基线。
 - Issue #131 已获用户确认起草第 42 个最小 migration：在 fail-closed 验证 RLS/FORCE RLS、单列 grant、无 authenticated table/DML grants 和两条既有 policy 后，只删除冗余 `venue_settings_rpc_only`。无适用 DML policy 时 RLS 默认拒绝，且 client 仍无 DML grants；其他配置字段和 writes 继续 RPC-only。
 - 14 项 Phase 2/3A 隔离集成测试已通过，包括 policy consolidation、authenticated DML grant drift 在 drop 前失败并回滚、timezone column-only grant、真实 manager/non-manager 权限路径、幂等 catch-up、客户身份冲突、unsafe link 与付款漂移。
+- PR #132 已创建为 Draft，只供 migration/test/documentation review；不得 merge，因为合并会自动部署第 42 个 migration。
 - 第 42 个 migration 只获 authoring/review 授权，没有 merge 或生产部署授权；Phase 3B 仍未开始。
 
 ### 已完成生产基线：Issue #123 Phase 2 deterministic backfill
