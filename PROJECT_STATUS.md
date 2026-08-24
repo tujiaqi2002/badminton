@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-24。当前工作分支：`codex/phase-2-production-verification`。
+> 项目：`project-001-badminton`。核对日期：2026-08-24。当前工作分支：`codex/phase-3a-reservation-compatibility`。
 
 ## 1. 一句话结论
 
@@ -13,9 +13,9 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 仓库：`tujiaqi2002/badminton`，默认分支 `main`。
 - 生产前端：`https://tujiaqi2002.github.io/badminton/`，由 GitHub Actions 从 `main` 发布。
 - 后端：Supabase project `ldbtrouofmqmnkyxiewk`，PostgreSQL + Auth + Realtime + RPC/RLS。
-- `main` 当前已包含 PR #126（Phase 2 deterministic backfill）以及此前的 Phase 0/1 与产品 PR。
-- 生产 migration history 与 `main` 均为 39 个版本；最新为 `20260824015013_reservation_deterministic_backfill`。
-- 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；Phase 2 已增加实际应用 migration 的 PGlite 集成测试，但仍没有浏览器 E2E test script。
+- `main` 当前已包含 PR #127（Phase 2 production verification）以及此前的 Phase 0/1/2 与产品 PR。
+- 生产 migration history 与 `main` 均为 39 个版本，最新为 `20260824015013_reservation_deterministic_backfill`；当前 Phase 3A 分支本地新增第 40 个 migration，尚未合并或部署。
+- 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；Reservation Phase 2/3A 已有实际应用 migration 的 PGlite 集成测试，但仍没有浏览器 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
 - `App.jsx`、`AdminSchedule.jsx`、`i18n.js` 和 `styles.css` 已成为大型集中模块，后续改动的回归面较大。
 
@@ -38,7 +38,19 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #123：Reservation migration Phase 2 deterministic backfill
+### Issue #128：Reservation migration Phase 3A compatibility foundation
+
+- Parent design：`https://github.com/tujiaqi2002/badminton/issues/118`；Phase 3 Issue：`https://github.com/tujiaqi2002/badminton/issues/128`，已获得用户确认开始实现。
+- 当前分支只起草第 40 个 additive migration、零 PII shadow diagnostics 与完整双语设计文档；没有替换现有 writer、执行 catch-up、启用 dual-write、切换读取或修改前端。
+- 生产 routine catalog 交叉核对到 17 个直接写 `public.bookings` 的函数，另有 3 个 wrapper 与 2 个未部署 Stripe Edge write path。Phase 3B 必须逐条纳入 writer coverage，不能依赖前端补偿。
+- Phase 1 的 Session 时间投影 trigger 会立即拒绝 owned booking 的 legacy-only 排期修改。Phase 3A 不削弱此约束；排期 writer 必须在 Phase 3B 用同一事务、固定锁顺序同步 Session 与 allocation。
+- private catch-up 只处理安全、可确定的 legacy group；已拥有不同 Reservation 后再 link/unlink、结构性 merge/split 或账务漂移一律 fail-closed 并进入 mismatch diagnostics，不猜测关系或付款历史。
+- manager-only shadow view/RPC 明确使用 security-invoker 与最小 grants；private helper 不向 client roles 开放。ownership-only 更新保持 legacy `updated_at` 和 `court_slots` Realtime projection 不变。
+- 2026-08-24 提交前 fresh read-only preflight 再次确认生产只有 39 个 migrations，192/192 bookings owned，123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00，ownership/session/payment drift 均为 0，direct writer inventory 仍精确为 17；advisors 仍是既有 security 47（2 INFO / 45 WARN）与 performance 40 INFO。
+- 13 项 Phase 2/3A 隔离集成测试已通过，包括 authenticated 馆长/非馆长的真实 view/RPC 权限路径、全量幂等 catch-up、新增 legacy group、客户身份冲突、unsafe link 与付款漂移。
+- 当前 Supabase GitHub integration 会在 migration PR 合并到 `main` 后自动部署；本分支可以开发、push 和评审，但没有 merge 或生产部署授权。
+
+### 已完成生产基线：Issue #123 Phase 2 deterministic backfill
 
 - Parent design：`https://github.com/tujiaqi2002/badminton/issues/118`；Phase 2 Issue：`https://github.com/tujiaqi2002/badminton/issues/123`。
 - Phase 0 / PR #120、Phase 1 / PR #122 和 Phase 2 / PR #126 均已合并；第 39 个 migration 已进入生产 history。
@@ -53,6 +65,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ### 最近合并
 
+- PR #127 / Issue #123：Phase 2 production verification 文档与证据，已于 2026-08-24 合并。
 - PR #126 / Issue #123：Reservation Phase 2 deterministic backfill，已于 2026-08-24 合并并由 Supabase GitHub integration 自动应用生产；只读诊断和 GitHub Pages deployment 均通过。
 - PR #124：Phase 1 production verification，已于 2026-08-23 合并。
 - PR #125：My Bookings search/filter，已于 2026-08-23 合并。

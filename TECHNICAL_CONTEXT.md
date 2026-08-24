@@ -186,12 +186,25 @@ Issue #123 / migration `20260824015013_reservation_deterministic_backfill` 将�
 
 隔离环境实际应用 Phase 1 + Phase 2 migration 及完整诊断；两个独立数据库的 aggregate/role/ledger/ownership mapping fingerprint 一致，8 个 happy/negative/rollback tests 通过。PR #126 合并后，Supabase GitHub integration 于 2026-08-24 04:46:10 UTC 自动应用第 39 个 migration；上线后只读诊断完整通过。详细证据见 [`docs/reservation-migration/phase-2-backfill.md`](./docs/reservation-migration/phase-2-backfill.md)。
 
+### Phase 3A compatibility foundation（本地已起草，未合并、未部署、未激活）
+
+Issue #128 / migration `20260824052629_reservation_phase_3a_compatibility_foundation` 只为后续 dual-write 建立未激活基础：复用 Phase 2 的 deterministic UUIDv5 与严格 Toronto DST 规则，提供 private、cursor-bounded、advisory-lock + stable row-lock 的 group/recurrence catch-up，以及 manager-only、zero-PII 的 security-invoker shadow mismatch view/RPC。migration 本身不调用 catch-up，不包装或替换旧 writer，不切换 read path，也不新增 client DML 或 Realtime publication。
+
+生产 catalog 当前有 17 个直接写 `public.bookings` 的 routine、3 个间接 wrapper，以及 2 个尚未部署的 Stripe Edge write path。Phase 3A 对 unsafe relationship/financial transition 采取 fail-closed：不同 Reservation 的 group 之后被 link/unlink、一个 Reservation 的 legacy scope 被拆散、paid flag 与 ledger 不一致等情况只报告 mismatch，不伪造 merge/split、Payment、refund 或 allocation history。
+
+Phase 1 的 `bookings_enforce_session_projection` 会立即校验 owned booking 的 legacy local schedule 与 Session `timestamptz`。因此现有只更新 `bookings` 的 move/reschedule/swap/undo RPC 在 owned rows 上不能作为 Phase 3 写入路径；Phase 3B 必须在同一事务中按固定锁顺序同步 Session 与 Court allocation，不能删除或放宽该约束。ownership-only catch-up trigger 只保留旧 `updated_at`；`sync_public_court_slot` 对非排期字段变化提前返回，避免污染 slot/Realtime 证据。
+
+Phase 2/3A 共 13 项 PGlite integration tests 已通过：完整 Phase 2 映射、authenticated 馆长/非馆长的实际 view/RPC 权限路径、空 drift、分批幂等 catch-up、新 legacy group、客户身份冲突、unsafe link 与付款 drift 均有覆盖。设计与发布门禁见 [`docs/reservation-migration/phase-3a-compatibility-foundation.md`](./docs/reservation-migration/phase-3a-compatibility-foundation.md)，部署后只读验证脚本为 [`supabase/diagnostics/phase_3a_reservation_compatibility.sql`](./supabase/diagnostics/phase_3a_reservation_compatibility.sql)。
+
+提交前 fresh production read-only preflight 仍为 39 migrations、192/192 owned bookings、123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocation entries/CAD 1,642.00；partial ownership、Session projection、booking/payment balance mismatch 均为 0，17 个 direct writer 名单无漂移。远端尚未包含任何 Phase 3A 对象；advisor 基线仍为 security 47（2 INFO / 45 WARN）和 performance 40 INFO。
+
 ## 8. 线上迁移状态
 
-2026-08-24 Phase 2 上线后，线上与本地均核对到 39 个版本，范围：
+2026-08-24 Phase 2 上线后，生产与 `main` 均核对到 39 个版本；当前 Phase 3A 工作分支本地有第 40 个 pending migration，尚未合并或部署：
 
 - 首个：`20260812161833_private_manager_schedule`
-- 最新：`20260824015013_reservation_deterministic_backfill`
+- 生产/`main` 最新：`20260824015013_reservation_deterministic_backfill`
+- 本地 pending：`20260824052629_reservation_phase_3a_compatibility_foundation`
 
 本次未发现之前的 “Remote migration versions not found in local migrations directory” 漂移。
 
