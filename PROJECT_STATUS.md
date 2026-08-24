@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-24。当前工作分支：`codex/phase-3a-policy-production-verification`。
+> 项目：`project-001-badminton`。核对日期：2026-08-24。当前工作分支：`codex/phase-3b-inactive-transaction-kernel`。
 
 ## 1. 一句话结论
 
@@ -13,7 +13,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 仓库：`tujiaqi2002/badminton`，默认分支 `main`。
 - 生产前端：`https://tujiaqi2002.github.io/badminton/`，由 GitHub Actions 从 `main` 发布。
 - 后端：Supabase project `ldbtrouofmqmnkyxiewk`，PostgreSQL + Auth + Realtime + RPC/RLS。
-- `main` 当前已包含 PR #129（Phase 3A compatibility foundation）、PR #130（shadow timezone access）和 PR #132（RLS policy consolidation），以及此前的 Phase 0/1/2 与产品 PR。
+- `main` 当前已包含 PR #129（Phase 3A compatibility foundation）、PR #130（shadow timezone access）、PR #132（RLS policy consolidation）和 PR #133（Phase 3A production verification），以及此前的 Phase 0/1/2 与产品 PR。
 - 生产 migration history 与 `main` 均为 42 个版本，最新为 `20260824132704_phase_3a_venue_settings_policy_consolidation`；当前没有 pending production migration。
 - 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；Reservation Phase 2/3A 已有实际应用 migration 的 PGlite 集成测试，但仍没有浏览器 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
@@ -38,6 +38,19 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
+### Issue #134：Reservation Phase 3B.1 inactive transaction kernel
+
+- 用户已确认只开始 Phase 3B.1 authoring；当前分支可以起草 append-only migration、隔离验证和 review PR，但不授权 PR merge、生产自动部署/catch-up、Phase 3B.2 writer activation、read/UI cutover、Stripe 部署或 legacy decommission。
+- 本地第 43 个 migration 草案新增 append-only merge/split/reverse lineage、当前 effective allocation membership、private idempotency journal、Payment/refund 与 schedule/details/cancel primitives，以及 17 direct writers + 3 wrappers + 2 undeployed Stripe paths 的 fail-closed inventory。
+- merge/split 保留 `bookings.reservation_id` 作为不可变物理 Reservation 来源；`booking.session_id` 继续承担该 origin 内的 legacy 排期投影，当前商业归属由 versioned membership 解析。Party lineage 支持 one-to-many 和 many-to-one，reverse 追加新 transition、不删除历史，并把后续 Session 修改带回 restored scope。
+- 为支持不同 origin 合并后的一人付清，payment allocation 的 booking FK 草案改为单列 `booking_id`；private payment primitive 仍验证 effective Reservation、currency、payer、余额和完整 scope。一次付清、AA 与退款共用 append-only Payment/allocation ledger。
+- migration 安装时不执行 catch-up、不产生 transition/membership/operation rows，不新增 public mutation、booking dual-write trigger、client DML 或 Realtime publication；现有 public function fingerprint 保持不变。
+- 2026-08-24 fresh production canonical baseline：17 direct writers fingerprint `ac236997585da13cc6cc0439b8eafcf0`、3 wrappers fingerprint `d1eb5d63d36f01f1caad2e4e9e516dbf`、all public functions fingerprint `a0ec014bfec41a70762ce5c95122e774`；merge 前必须重新计算。
+- 当前新增的 Phase 3B.1 isolated tests 已覆盖 inactive install、幂等接入、schedule/details/cancel 与 rollback、不同客户 merge + 显式 primary、Party lineage、一人/AA/退款、已付款 split、merge/split reverse、permission denial、writer drift fail-closed 和 read-only diagnostic。
+- 最终 bundled Node `v24.19.0` / pnpm `11.19.0` 验证为 21 个 PGlite tests、lint、build 通过；1 个 real-PostgreSQL concurrency test 因本机无服务明确 skip，必须由 PR CI 执行。build 只有既有 >500 kB chunk warning。CI 固定 Node 22 / pnpm 11.16.0，仍以 CI 为兼容性门禁。
+- 新增 PR-only `reservation-db-tests` workflow：PostgreSQL 16 service + 三个真实连接并发验证相同 idempotency Payment、两笔重叠 AA 和全额 refund race；Node 22 / pnpm 11.16.0 下该 CI 必须通过。production-like Supabase branch apply、fresh production preflight 与 advisors 仍是 merge/activation 门禁。当前没有向生产 push migration。
+- 详细中英文设计见 [`docs/reservation-migration/phase-3b-inactive-transaction-kernel.md`](./docs/reservation-migration/phase-3b-inactive-transaction-kernel.md)，只读验证脚本为 [`supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql`](./supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql)。
+
 ### Issue #128：Reservation migration Phase 3A compatibility foundation
 
 - Parent design：`https://github.com/tujiaqi2002/badminton/issues/118`；Phase 3 Issue：`https://github.com/tujiaqi2002/badminton/issues/128`，已获得用户确认开始实现。
@@ -56,7 +69,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 用户在 fresh production preflight 后明确授权 merge/生产部署；PR #132 于 2026-08-24 13:47:59 UTC 合并，Supabase integration 于 13:48:37 UTC 应用第 42 个 migration，GitHub Pages build/deploy 于 13:48:36 UTC 成功完成。
 - 上线后 Phase 2 与 Phase 3A diagnostics 均通过；真实 authenticated 馆长可读 `America/Toronto` 与 clean shadow status，非馆长看到 0 rows 且 summary RPC 返回 `Manager access required`。`venue_settings_rpc_only` 已不存在，manager SELECT 是唯一 policy；authenticated 仍只有 `timezone` 单列 SELECT、无 table/DML grant 或 DML policy。
 - 数据与权限边界无漂移：192/192 bookings owned、123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00，shadow mismatch/catch-up events 为 0，审计总数 1,739、17 个 legacy public writers、仅 `court_slots` Realtime 和四个冻结指纹全部不变。
-- Security advisor 保持既有 47 条；performance advisor 已从 40 INFO + 1 WARN 恢复为 40 INFO，`multiple_permissive_policies` regression 消失。Phase 3B 仍未开始，也没有执行 catch-up、dual-write 或 read cutover；legacy RPC/字段退役仍属于 Phase 5，需 Phase 4 cutover、生产观察和 rollback window 结束后另开高风险 Issue。
+- Security advisor 保持既有 47 条；performance advisor 已从 40 INFO + 1 WARN 恢复为 40 INFO，`multiple_permissive_policies` regression 消失。Phase 3B.1 已在独立分支开始未激活内核 authoring，但生产仍没有执行 catch-up、dual-write 或 read cutover；legacy RPC/字段退役仍属于 Phase 5，需 Phase 4 cutover、生产观察和 rollback window 结束后另开高风险 Issue。
 
 ### 已完成生产基线：Issue #123 Phase 2 deterministic backfill
 
@@ -73,6 +86,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ### 最近合并
 
+- PR #133 / Issue #128：Phase 3A production verification 文档与证据，已于 2026-08-24 合并；没有新增 migration 或改变生产行为。
 - PR #132 / Issue #131：Phase 3A venue settings RLS policy consolidation，已于 2026-08-24 合并并由 Supabase integration 自动应用生产；advisor regression 已清除，权限与数据指纹无漂移。
 - PR #130 / Issue #128：Phase 3A shadow timezone least-privilege access，已于 2026-08-24 合并并由 Supabase integration 自动应用生产；随后由 PR #132 完成独立门禁的 advisor policy consolidation。
 - PR #129 / Issue #128：Reservation Phase 3A inactive compatibility foundation，已于 2026-08-24 合并并由 Supabase integration 自动应用生产。

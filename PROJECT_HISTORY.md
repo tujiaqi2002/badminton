@@ -213,3 +213,17 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - Security advisor 保持既有 47 条；performance advisor 从 40 INFO + 1 个目标 WARN 恢复为 40 INFO。没有执行 catch-up、启用 dual-write、切换读取、修改前端或开始 Phase 3B。
 
 阶段结果：Phase 3A 的 foundation、最小 timezone access 与 policy consolidation 均已成为生产事实，shadow 验证链路 clean，advisor regression 已关闭。旧 booking writers、group/link 语义和前端仍在运行；Phase 3B activation 继续需要独立 Issue、migration/PR、完整 writer coverage 与明确生产授权。
+
+## 22. 2026-08-24：Reservation Phase 3B.1 inactive transaction kernel 起草
+
+- 用户 review Issue #134 后明确确认只开始 Phase 3B.1 authoring；不授权 3B.2 activation、migration PR merge、生产自动部署/catch-up、read/UI cutover、Stripe 部署或 legacy decommission。
+- 从最新 `origin/main` 建立 `codex/phase-3b-inactive-transaction-kernel`，用 Supabase CLI 2.115.0 追加本地第 43 个 migration 草案；生产与 `main` 仍为 42 个 migration，没有执行 `db push`。
+- 新 schema 用 immutable transition/source/target/allocation/Party lineage 表记录 merge、split 与 reverse，并以 versioned membership 解析 current effective Reservation/Session；physical booking ownership 外键保持历史 origin，不因关系变化改写。
+- 隔离 reverse-split 测试发现 Party lineage 必须支持多个 split Party 汇回同一 original Party；将 lineage identity 修正为 transition + source Party + target Party，正式表达 one-to-many 与 many-to-one，而不是丢弃重复关系。
+- 付款 primitive 证明一人付清与 AA 可共用同一 append-only Payment/allocation ledger；跨 origin 合并使用 effective Reservation 作为收款 scope，refund 追加负数 entries。原 booking 价格、Payment、allocation 与 origin 均保持不变。
+- private primitives 覆盖 attach、reschedule、cancel/restore、details + explicit Party lineage、payment/refund、merge/split/reverse；reverse 从当前 effective Session 生成新的 restored/projection Session，使合并后的排期或资料修改不会被旧值覆盖，分化 Session 也不会被错误合并。stable operation key、request fingerprint、固定锁顺序与事务超时保证重试和失败整体回滚。
+- writer inventory 使用 schema-qualified canonical signatures 固定 17 direct writers、3 wrappers 与 2 undeployed Stripe paths；真实 `search_path` 差异不再造成误判，新增 rogue writer、client direct execute 或权限漂移均 fail closed。
+- 新 read-only diagnostic 验证 inactive zero-row 状态、RLS/FORCE RLS、最小 grants、private function security、writer inventory、payment FK、无 public mutation/dual-write trigger/Realtime publication。PGlite 隔离测试覆盖 merge/split、付款、回滚、权限与诊断；真实 session contention 由下一条独立 CI 补充。
+- 为把并发从静态设计变成可重复证据，新增 PR-only PostgreSQL 16 CI：完整应用 Phase 1/2/3A/3B.1 migration chain，以三个真实连接并发执行 same-key Payment retry、两笔 overlapping AA 与 competing full refund；本机无 Docker/Postgres 时用环境变量明确 skip，PR CI 不允许 skip。
+
+阶段结果：Phase 3B.1 已形成未激活、可评审的本地事务内核与中英文契约，尚未合并或部署。现有 public writer/read/UI 与生产数据完全未切换；下一步是完成全量验证和 review PR，之后必须在独立授权下才可 merge/自动部署，再另行确认 Phase 3B.2 activation。

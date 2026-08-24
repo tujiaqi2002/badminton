@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "node --test",
-    "test:phase2": "node --test supabase/tests/phase_2_backfill.test.mjs"
+    "test:phase2": "node --test supabase/tests/phase_2_backfill.test.mjs",
+    "test:reservation": "node --test supabase/tests/phase_2_backfill.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -25,6 +26,7 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.16",
     "globals": "^15.14.0",
+    "pg": "8.23.0",
     "vite": "^6.0.5"
   }
 }

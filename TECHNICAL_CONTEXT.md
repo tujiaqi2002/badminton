@@ -204,6 +204,24 @@ PR #129 合并后，Supabase integration 于 2026-08-24 12:59:44 UTC 成功应�
 
 用户在 fresh production preflight 后明确授权 PR #132 merge/生产部署。PR 于 2026-08-24 13:47:59 UTC 合并，Supabase integration 于 13:48:37 UTC 应用第 42 个 migration。上线后 Phase 2/3A diagnostics、真实 manager/non-manager authenticated 路径、RLS/grants metadata、数据总量与四个冻结指纹全部通过；审计总数仍为 1,739，catch-up events 为 0，17 个 public booking writers、private helper grants 和仅 `court_slots` 的 Realtime boundary 均未改变。Security advisor 保持 47 条，performance advisor 恢复为 40 个 `unused_index` INFO，目标 WARN 消失。
 
+### Phase 3B.1 inactive transaction kernel（本地待评审；未生产、未激活）
+
+Issue #134 已获得仅限 3B.1 authoring 的明确确认。本地 migration `20260824143442_reservation_phase_3b_inactive_transaction_kernel` 为未来原子 writer activation 增加私有事务 primitive，但不替换任何 public routine、不调用 catch-up、不切 read path、不新增 client DML 或 Realtime publication。合并 migration PR 会触发生产自动部署，因此 merge/生产必须重新取得明确授权。
+
+关系变化采用 append-only 表达：`reservation_transitions`、source/target/allocation/Party lineage 表保存 merge、split 和 reverse；`reservation_allocation_memberships` 是唯一可变、可重建的 current-effective projection。`bookings.reservation_id` 继续是不可变 physical Reservation origin；`booking.session_id` 是该 origin 内的 legacy schedule projection，可在 reschedule/reverse 时原子指向新的 projection Session。membership 只允许由新 transition 单版本推进，transition history 拒绝 UPDATE/DELETE。Party lineage 主键允许 one-to-many 与 many-to-one，覆盖 split 后 reverse 汇回同一 Party 的合法场景。reverse 根据当前 effective Session 重建 restored Session，因此后续 schedule/details 不会被 transition 创建时的旧 Session facts 覆盖；分化后的 Session 保持分开。
+
+付款语义把 `payment_allocation_entries.reservation_id` 定义为收款时的 commercial/effective Reservation，而 `booking.reservation_id` 继续保留 physical origin。为允许一笔 Payment 跨多个 origin 的 Court，草案把 allocation booking FK 从 composite `(booking_id, reservation_id)` 调整为 `booking_id -> bookings.id`；业务归属由 private payment primitive 在锁内验证 effective membership、currency、payer Party、剩余金额与完整 scope。Payment/refund/allocation 继续 append-only；refund 使用新的负数 entries，legacy payment status 在同一事务从 ledger balance 投影。
+
+所有 private mutation 使用 stable `operation_id` + request fingerprint，设置 transaction-local 5 秒 lock timeout / 30 秒 statement timeout，并使用 operation advisory lock、按 UUID 排序的 booking advisory locks，再按 Reservation → Session → booking → membership/Party/Payment 顺序取得 row locks。相同请求重试返回原结果；key 被不同请求复用、已提交未完成 operation 或不完整 merge/split scope均 fail closed。任何 constraint 失败会回滚 journal、新 aggregate、legacy projection 和 audit。
+
+`private.reservation_phase3b_writer_inventory` 固定 17 个 schema-qualified direct writer signatures、3 个 wrappers 与 2 个 undeployed Stripe paths；assertion 根据 catalog/body/grants/security config 精确对账并输出 fingerprint，新增 rogue writer 时 fail closed。六张 public transition/membership 表均 RLS + FORCE RLS，authenticated 只有 manager-only SELECT，所有 client role 无 DML；全部 private helpers 为 security-invoker、空 `search_path` 且无 client EXECUTE。
+
+2026-08-24 的 fresh production canonical fingerprints 为 direct writers `ac236997585da13cc6cc0439b8eafcf0`、wrappers `d1eb5d63d36f01f1caad2e4e9e516dbf`、all public functions `a0ec014bfec41a70762ce5c95122e774`。它们是 merge 前对照证据，不是硬编码永久值；任何后续 production 变更都要求 fresh inventory/fingerprint/preflight。
+
+隔离测试使用真实 Phase 1/2/3A migration 链，覆盖 inactive apply、幂等、schedule/details/cancel 与 full rollback、不同客户显式-primary merge、Party lineage、一人/AA/退款、跨-origin Payment、已付款 split、merge/split reverse、permission denial、writer drift 和 read-only diagnostic。PR-only `reservation-db-tests` workflow 再于 PostgreSQL 16 上使用三个真实连接覆盖 same-key Payment retry、重叠 AA 与 competing refund，证明 advisory/row lock 顺序、幂等和失败回滚在真实 session 下成立。production-like Supabase apply 仍是 activation/merge 前硬门禁。设计见 [`docs/reservation-migration/phase-3b-inactive-transaction-kernel.md`](./docs/reservation-migration/phase-3b-inactive-transaction-kernel.md)，诊断见 [`supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql`](./supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql)。
+
+最终本地使用 bundled Node `v24.19.0` / pnpm `11.19.0` 跑通 21 个 PGlite migration-chain tests、lint 与 build；1 个 real-PostgreSQL concurrency test 因本机无服务明确 skip并交给 PR CI。CI 固定 Node 22 / pnpm 11.16.0。production 仍为 42 migrations 与未应用 3B.1 的 advisor 47 security（2 INFO / 45 WARN）/ 40 performance INFO 基线；没有执行 local `db push`。
+
 ## 8. 线上迁移状态
 
 2026-08-24 PR #132 上线后，生产与 `main` 均核对到 42 个版本；当前没有 pending production migration：
