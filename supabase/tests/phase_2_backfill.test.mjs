@@ -31,6 +31,10 @@ const phase3bInactiveKernelPath = new URL(
   '../migrations/20260824143442_reservation_phase_3b_inactive_transaction_kernel.sql',
   import.meta.url,
 )
+const phase3bWriterInventoryCollationPath = new URL(
+  '../migrations/20260824164530_phase_3b_writer_inventory_c_collation.sql',
+  import.meta.url,
+)
 const phase3bInactiveKernelDiagnosticPath = new URL(
   '../diagnostics/phase_3b_inactive_transaction_kernel.sql',
   import.meta.url,
@@ -703,6 +707,7 @@ async function applyPhase3aPolicyConsolidation(db) {
 
 async function applyPhase3bInactiveKernel(db) {
   await db.exec(await readFile(phase3bInactiveKernelPath, 'utf8'))
+  await db.exec(await readFile(phase3bWriterInventoryCollationPath, 'utf8'))
 }
 
 function uuidArraySql(values) {

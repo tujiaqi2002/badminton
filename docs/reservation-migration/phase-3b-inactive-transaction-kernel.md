@@ -2,7 +2,7 @@
 
 > Issue：[#134](https://github.com/tujiaqi2002/badminton/issues/134)
 > 状态：Draft PR [#135](https://github.com/tujiaqi2002/badminton/pull/135) 评审中；尚未合并、尚未部署生产、尚未激活。
-> Migration：`20260824143442_reservation_phase_3b_inactive_transaction_kernel`（分支待评审）
+> Migrations：`20260824143442_reservation_phase_3b_inactive_transaction_kernel` + `20260824164530_phase_3b_writer_inventory_c_collation`（分支待评审）
 
 ## 中文
 
@@ -121,7 +121,9 @@ helper 设置 transaction-local `lock_timeout = 5s`、`statement_timeout = 30s`�
 
 任何漏列或新增 writer 都会让 activation preflight fail closed，不能带旁路进入 3B.2。
 
-2026-08-24 merge-preflight 使用本 migration 的空 `search_path`、signature-order canonical 算法 fresh 重算：17 direct writers / `a28b88496f1ed14e5cceed2a6cbc9b99`，3 wrappers / `d1eb5d63d36f01f1caad2e4e9e516dbf`，236 个 public functions / `a0ec014bfec41a70762ce5c95122e774`。direct/wrapper 集合完全匹配且 missing-or-unsafe 为 0。早期记录的 direct 子集值 `ac236997585da13cc6cc0439b8eafcf0` 无法由已提交的 canonical 算法复现，已废止；all-public 总指纹不变证明这不是生产函数漂移。所有值仍只证明该时点的函数定义，merge 前必须 fresh 重算。
+Hosted staging 首次运行该 gate 时发现一个 portability bug：inventory table 的 text column 使用数据库 ICU/default collation，而 `pg_catalog.format` 生成的 candidate signature 使用 `C` collation；17 个成员完全相同，数组排序却不同。Append-only follow-up `20260824164530_phase_3b_writer_inventory_c_collation` 把 signature identity 和 ordering 固定为 bytewise `C`，不回改已应用的 kernel migration。
+
+这个结果也修正了旧 fingerprint 解释：`a28b...` 是 ICU/default ordering，生产当前按 `C` ordering 的 raw direct fingerprint 为 `ac236...`。Raw `pg_get_functiondef` 输出还受 LF/CRLF 与纯 SQL 格式化影响；staging 从当前 migration replay 后的 raw 值因此不同。跨环境 gate 不再把 raw fingerprint 相等当成正确性条件，而是严格比较 canonical signature 集合、definer/empty-`search_path` 配置、grants 与 wrapper indirectness；fingerprint 只作为同一数据库 fresh before/after drift 证据。
 
 ### 8. RLS、审计与诊断
 
@@ -157,13 +159,15 @@ PGlite integration tests 使用真实 Phase 1、Phase 2、Phase 3A 及 follow-up
 
 PGlite 能验证事务原子性、失败回滚、锁顺序实现和顺序重试。`.github/workflows/reservation-db-tests.yml` 另外在 PostgreSQL 16 service 上用三个真实连接应用完整 migration chain，并发验证：相同 idempotency key 只创建一笔 Payment、两笔重叠 AA 收款正确串行且不超额、两笔全额退款竞争只有一笔成功且失败方不留下 `started` journal。该 CI 是 PR 合并前硬门禁；writer activation 后仍需在 production-like Supabase branch 重跑 contention/rollback 观察。
 
-最终本地验证使用 Codex Desktop bundled Node `v24.19.0` 与 pnpm `11.19.0`：21 个 PGlite migration-chain tests 全部通过；另 1 个 real-PostgreSQL concurrency test 因本机没有 PostgreSQL 而明确 skip。`pnpm run lint` 与 `pnpm run build` 通过，build 只有既有的主 chunk >500 kB warning。
+最终本地验证使用 Codex Desktop bundled Node `v24.19.0` 与 pnpm `11.19.0`：46 tests 通过、0 fail；1 个 real-PostgreSQL concurrency test 因本机没有 PostgreSQL 而明确 skip。`pnpm run lint` 与 `pnpm run build` 通过，build 只有既有的主 chunk >500 kB warning。
 
 Draft PR #135 的首轮 [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283) 已在固定 Node 22、pnpm 11.16.0 与 PostgreSQL 16.15 上完整执行，结果为 22/22 tests、0 fail、0 skip；real-PostgreSQL concurrency、lint 与 build 全部通过。并发结果没有出现重复 Payment、AA 超额分配、双退款成功、deadlock 或失败事务遗留的 `started` operation。这个结果关闭了 PR 的真实 session CI 门禁，但不替代 production-like Supabase branch apply、fresh production preflight 或明确的 merge/生产授权。
 
 同一时点 production 只读复核仍为 42 个 migrations，最新 `20260824132704_phase_3a_venue_settings_policy_consolidation`；security advisors 47（2 INFO / 45 WARN），performance advisors 40（全部 `unused_index` INFO）。本地第 43 个 migration 没有 push，所以这些是未应用 3B.1 的生产基线，不代表 3B.1 部署后 advisor 结果。
 
-2026-08-24 15:57 UTC merge-preflight 再次实际执行 Phase 2 与 Phase 3A read-only diagnostics：192/192 bookings owned、123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00、0 shadow mismatch/catch-up、1,739 audit events，Realtime 仍只包含 `court_slots`；PR base 与 `origin/main` 一致，分支 0 behind / 2 ahead、mergeable clean。Supabase organization 为 Free plan且只有 production `main`；隔离 branch 当前报价为 USD 0.01344/小时，未取得成本确认前没有创建。因此 PostgreSQL CI 与 production read-only preflight 已完成，但 production-like Supabase branch apply 仍未完成。
+用户随后创建并授权初始化独立 `badminton_stage`（`vcoujmzsgdboidndtzzg`）。它从首个 migration 前的 Git schema 恢复基线，原样重放 migrations 1–38，用 192 条纯合成 booking 和 6 条 synthetic payment audit evidence 生成 staging Phase 2 指纹，再原样应用 Phase 3A、3B.1 和 collation follow-up；history 已精确对齐仓库 44 个 version/name。Phase 2/3A/3B diagnostics 均通过，kernel 保持 0/0/0 inactive，27 张 public 表全部 RLS、6 张 3B 表全部 FORCE RLS、client DML/private helper EXECUTE 均为 0，Realtime 仍只有 `court_slots`。
+
+Staging advisors 为 49 security（生产既有 47 加上项目自带 `public.rls_auto_enable()` 的 2 条已记录 WARN）和 74 performance INFO。4 个 composite-FK advisor 项均已有反向但完整的等值 covering index，或由唯一 `booking_id` 主键覆盖；增加同列不同顺序的重复索引没有查询价值。其余 70 个 unused-index 项来自 fresh synthetic stage 无业务流量。Hosted apply 门禁因此完成，但 merge/生产自动部署仍需明确授权，新 commit 仍必须通过 PostgreSQL CI。
 
 ### 10. 3B.2 接口契约与退役时间
 
@@ -284,7 +288,9 @@ Helpers set transaction-local `lock_timeout = 5s` and `statement_timeout = 30s`;
 
 `assert_reservation_phase3b_writer_inventory()` verifies the exact direct-writer set, definer/security settings and current grants, ensures wrappers remain indirect, and returns reviewable function fingerprints. Any missing or additional writer fails activation preflight closed.
 
-The 2026-08-24 merge preflight used this migration's empty-`search_path`, signature-ordered canonical algorithm and freshly produced: 17 direct writers / `a28b88496f1ed14e5cceed2a6cbc9b99`, 3 wrappers / `d1eb5d63d36f01f1caad2e4e9e516dbf`, and 236 public functions / `a0ec014bfec41a70762ce5c95122e774`. The direct/wrapper sets match exactly and missing-or-unsafe is zero. The earlier direct-subset value `ac236997585da13cc6cc0439b8eafcf0` cannot be reproduced by the committed canonical algorithm and is retired; the unchanged all-public fingerprint proves this is not production function drift. These values still prove only that point-in-time definition set and must be freshly recomputed before merge.
+The first hosted-staging run exposed a portability bug in this gate. The inventory table's text column used the database ICU/default collation, while candidate signatures produced by `pg_catalog.format` used `C` collation. Both arrays contained the same 17 members but sorted differently. The append-only follow-up `20260824164530_phase_3b_writer_inventory_c_collation` pins signature identity and ordering to bytewise `C` without rewriting the already-applied kernel migration.
+
+This also corrects the old fingerprint interpretation: `a28b...` came from ICU/default ordering, while the current production raw direct fingerprint under `C` ordering is `ac236...`. Raw `pg_get_functiondef` output also changes with LF/CRLF and formatting-only SQL differences; staging replayed from current migrations therefore has different raw values. Cross-environment correctness no longer assumes raw-fingerprint equality. It strictly compares the canonical signature set, definer/empty-`search_path` configuration, grants, and wrapper indirectness. A fingerprint remains useful only as a fresh before/after drift signal within the same database.
 
 ### 8. RLS, audit, and diagnostics
 
@@ -298,13 +304,15 @@ PGlite integration tests apply the real Phase 1, Phase 2, Phase 3A, and follow-u
 
 PGlite verifies transaction atomicity, rollback, implemented lock order, and sequential retries. `.github/workflows/reservation-db-tests.yml` additionally applies the complete migration chain to a PostgreSQL 16 service with three real connections and concurrently verifies: one Payment for the same idempotency key, safe serialization of two overlapping AA receipts without over-allocation, and exactly one winner for two competing full refunds with no committed `started` journal. This CI is a hard PR-merge gate; activation must still repeat contention/rollback observation on a production-like Supabase branch.
 
-Final local verification used the Codex Desktop bundled Node `v24.19.0` and pnpm `11.19.0`: all 21 PGlite migration-chain tests passed; one real-PostgreSQL concurrency test explicitly skipped because no local PostgreSQL service exists. `pnpm run lint` and `pnpm run build` passed, with only the existing >500 kB main-chunk warning.
+Final local verification used the Codex Desktop bundled Node `v24.19.0` and pnpm `11.19.0`: 46 tests passed with zero failures; one real-PostgreSQL concurrency test explicitly skipped because no local PostgreSQL service exists. `pnpm run lint` and `pnpm run build` passed, with only the existing >500 kB main-chunk warning.
 
 Draft PR #135's first [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283) completed on pinned Node 22, pnpm 11.16.0, and PostgreSQL 16.15 with 22/22 tests, zero failures, and zero skips; the real-PostgreSQL concurrency test, lint, and build all passed. The concurrent cases produced no duplicate Payment, AA over-allocation, double-refund winner, deadlock, or committed stale `started` operation. This closes the PR's real-session CI gate, but does not replace a production-like Supabase branch apply, fresh production preflight, or explicit merge/production authorization.
 
 The same point-in-time production read-only check still showed 42 migrations, latest `20260824132704_phase_3a_venue_settings_policy_consolidation`; 47 security advisories (2 INFO / 45 WARN); and 40 performance advisories (all `unused_index` INFO). The local 43rd migration was not pushed, so those values are the pre-3B.1 baseline, not post-deployment advisor results.
 
-At 15:57 UTC on 2026-08-24, the merge preflight reran the Phase 2 and Phase 3A read-only diagnostics: 192/192 bookings owned, 123 Reservations, 135 Sessions, 131 Parties, 23 Payments, 26 allocations/CAD 1,642.00, zero shadow mismatch/catch-up, 1,739 audit events, and only `court_slots` in Realtime. The PR base equals `origin/main`; the branch is zero behind/two ahead and mergeable clean. The Supabase organization is on the Free plan with production `main` only. An isolated branch is currently quoted at USD 0.01344/hour and was not created without cost confirmation. PostgreSQL CI and production read-only preflight are complete, but a production-like Supabase branch apply is not.
+The user then created and authorized initialization of the independent `badminton_stage` project (`vcoujmzsgdboidndtzzg`). It restored the Git base schema immediately before the first migration, replayed migrations 1–38 unchanged, used 192 wholly synthetic bookings plus six synthetic payment-audit evidence rows to produce staging Phase 2 fingerprints, and then applied Phase 3A, Phase 3B.1, and the collation follow-up unchanged. Its migration history exactly matches the repository's 44 versions/names. Phase 2, Phase 3A, and Phase 3B diagnostics all pass; the kernel remains 0/0/0 inactive; all 27 public tables use RLS; all six Phase 3B tables use FORCE RLS; client DML/private-helper EXECUTE counts are zero; and Realtime still contains only `court_slots`.
+
+Staging has 49 security advisories: the existing production 47 plus two recorded warnings for the project-provided `public.rls_auto_enable()`. All 74 performance findings are INFO. Four composite-FK findings already have either complete reversed-order equality indexes or the unique `booking_id` primary key, so duplicate indexes were not added; the other 70 unused-index findings are expected on a fresh synthetic database with no workload. The hosted-apply gate is complete, but merge/automatic production deployment still requires explicit authorization and the new commit must pass PostgreSQL CI.
 
 ### 10. Phase 3B.2 contract and decommission timing
 
