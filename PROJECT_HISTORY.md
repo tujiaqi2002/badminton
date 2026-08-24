@@ -151,3 +151,13 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - Security advisor 没有 Phase 1 新增 finding；Performance advisor 只对尚未承载数据的新索引报告预期的 `unused_index` INFO。
 
 阶段结果：Phase 1 的 additive schema 已成为生产事实，但业务仍完整运行 legacy 模型。下一阶段是 Issue #123 的 deterministic backfill；在独立 migration、DST/付款 reconciliation 验证和生产授权前，不得开始写入新 ownership 数据。
+
+## 16. 2026-08-23：Reservation Phase 2 deterministic backfill 起草
+
+- 用户 review Phase 1 production verification 后明确授权按 Issue #123 开始 Phase 2，但没有授权生产 `db push` 或 Phase 3。
+- 重新执行零 PII 生产基线并冻结 192 bookings、131 groups、123 目标 Reservations、135 Sessions、26 paid rows/CAD 1,642.00 及 booking/slot/payment-audit 指纹。
+- 第 39 个 migration 使用 UUIDv5/stable source keys 确定性建立 Reservation、Session、Party/roles、recurrence 与真实 payment/allocation ledger，并只回填 booking ownership columns。
+- 旧数据没有 single/split payer intent，因此使用内部 `legacy_unspecified`；5 条有审计 paid rows 重建为 2 笔 audit-backed Payments，21 条无审计 rows 各自独立 reconciliation，不虚构 payer/provider/time/refund。
+- 使用实际 Phase 1/2 SQL 在隔离 PostgreSQL-compatible 环境应用，完整诊断通过；两个独立数据库的映射指纹一致，customer/DST/payment evidence/UUID/over-allocation/late rollback 等 8 项测试全部通过。
+
+阶段结果：Phase 2 已成为可评审、未应用的 migration。生产仍运行 38 个 migration 和完整 legacy 行为；必须 fresh baseline、dry-run、单独授权后才可 `db push`，通过生产诊断后也要停在 Phase 3 前。

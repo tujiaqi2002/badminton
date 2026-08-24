@@ -176,6 +176,16 @@ Issue #121 / migration `20260823072016_reservation_aggregate_schema` 新增 9 �
 
 详细设计与隔离验证证据见 [`docs/reservation-migration/phase-1-schema.md`](./docs/reservation-migration/phase-1-schema.md)。2026-08-23 生产复核确认 migration history、9 张空表、nullable/default-free ownership columns、约束、RLS/FORCE RLS、最小 grants、private integrity functions、触发器和 FK indexes 均完整；没有新增 Realtime table，也没有 backfill 任何 legacy booking。
 
+### Phase 2 deterministic backfill（已起草并隔离验证，尚未应用生产）
+
+Issue #123 / migration `20260824015013_reservation_deterministic_backfill` 将冻结的 192 条 legacy bookings 映射为 123 Reservations、135 Sessions、131 Parties、2 个 recurrence series、23 Payments 和 26 allocations。`bookings` 只补 ownership columns，旧 group/link/recurrence、价格、状态、时间和 slot 投影保持不变；没有 dual-write、read cutover、public RPC、Realtime 或 client DML grant。
+
+所有目标 UUID 使用分实体 UUIDv5 namespace 和稳定 source key；reference/source/allocation identity 与 idempotency keys 使用固定排序。主要联系人按冻结时刻的 active group、最早创建时间、group UUID 选择，避免执行时间导致结果漂移。Toronto 本地时间必须是唯一、可 round-trip 的 `America/Toronto` 值，nonexistent 和 ambiguous DST 都 fail-closed。
+
+历史 payer intent 不可证明，因此 payment plan 增加内部 `legacy_unspecified`，不创建 payment shares。5 条有付款审计的 paid bookings 按最后有效 paid transition 重建为 2 笔 audit-backed Payments；21 条无审计 paid bookings 各自创建 1:1 reconciliation Payment/allocation。总 Payment 和 allocation 均为 CAD 1,642.00，未知 payer/provider/time 保持 null，`pay_at_venue` 不转为 succeeded，cancelled + paid 不推断 refund。
+
+隔离环境实际应用 Phase 1 + Phase 2 migration 及完整诊断；两个独立数据库的 aggregate/role/ledger/ownership mapping fingerprint 一致，8 个 happy/negative/rollback tests 通过。详细证据见 [`docs/reservation-migration/phase-2-backfill.md`](./docs/reservation-migration/phase-2-backfill.md)。生产仍只有 38 个 migration；第 39 个 migration 必须在 fresh baseline、`db push --dry-run` 和单独生产授权后才可执行。
+
 ## 8. 线上迁移状态
 
 2026-08-23 Phase 1 上线后，线上与本地均核对到 38 个版本，范围：
