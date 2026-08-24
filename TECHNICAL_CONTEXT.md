@@ -249,6 +249,12 @@ Hosted staging 现已精确对齐 46 个 repo version/name，诊断返回 `phase
 
 Draft PR #137 实现提交的 [Actions run 32761921315](https://github.com/tujiaqi2002/badminton/actions/runs/32761921315) 已在 Node 22 / pnpm 11.16.0 / PostgreSQL 16-alpine 下完整通过：26/26 tests、0 fail、0 skip，真实 Payment/AA/refund concurrency、lint 和 build 都是 green。Supabase Preview 仍因 Free plan 未配置 preview branch 而预期 skip；它不替代也不否定已完成的独立 `badminton_stage` hosted apply/matrix/rollback 证据。
 
+2026-08-24 18:26 UTC 对生产只执行 read-only preflight。Supabase project 为 `ACTIVE_HEALTHY` / PostgreSQL 17.6，migration history 仍精确 42 个版本并停在 Phase 3A。未修改的 Phase 2 与向前兼容 Phase 3A diagnostics 分别返回 `phase_2_reservation_backfill_verified` 与 `phase_3a_reservation_compatibility_verified`：123 Reservations、135 Sessions、192/192 owned allocations、131 Parties、23 Payments、26 entries / CAD 1,642.00，shadow mismatch 为 0。
+
+Production catalog 仍是 17 direct booking writers、3 个存在且安全的 indirect wrappers、236 public functions、1,739 audit events；Phase 3B kernel、activation state 和 Session assignment table 都不存在。`payment_allocation_entries` 仍使用 `(booking_id, reservation_id)` composite booking FK baseline，Realtime 仅 `public.court_slots`，已部署 Edge Functions 为 0。Advisors 精确保持 47 security（2 INFO / 45 WARN：2 `rls_enabled_no_policy`、1 `extension_in_public`、43 intentional authenticated definer entry warnings、1 leaked-password warning）与 40 `unused_index` INFO，没有新 finding。
+
+Git preflight 显示 `main` / #135 / #137 各有 42 / 44 / 46 migrations；#135 相对 main 0 behind / 5 ahead，#137 相对 #135 0 behind / 3 ahead，两者均 Draft + `MERGEABLE` + PostgreSQL CI green。因为 #137 activation migration 明确以 44-version inactive baseline 为前置，生产发布必须按两道授权执行：先单独合并 #135 并验证 migrations 43–44 的 inactive zero-row/security baseline，然后才可另行考虑 #137。不可将两个 Draft PR 同时视为已授权部署。
+
 [`supabase/rollback/phase_3b_atomic_writer_activation_rollback.sql`](./supabase/rollback/phase_3b_atomic_writer_activation_rollback.sql) 位于 migration path 之外，只用于手工 emergency rollback。它恢复冻结的 17 个 public legacy definition、撤销 explicit-primary RPC 对 client 的入口，并保留全部 transition、membership、Payment 和 audit history。该脚本已在 activated stage 内以外层 transaction 执行完整演练，内部诊断确认 legacy mode，外层 rollback 后 stage 恢复 activated 且无数据/历史污染。
 
 ## 8. 线上迁移状态
@@ -493,4 +499,6 @@ The activation adds append-only Session assignment history and a deferred projec
 
 `20260824181500_phase_3b_activation_fk_indexes` adds eight ordered composite-FK indexes. The stage database is aligned to 46 repository versions, all Phase 2/3A/3B diagnostics are clean, the full synthetic writer matrix and hosted contention checks pass, and the advisor reports zero unindexed foreign keys. A rollback artifact outside the migration path restores the frozen legacy public writers without deleting append-only history and has been rehearsed inside an outer transaction on the activated stage. Bundled Node `v24.19.0` / pnpm `11.19.0` produced 25 passes, zero failures, and one explicit no-local-PostgreSQL skip across 26 tests; lint and build passed. [Actions run 32761921315](https://github.com/tujiaqi2002/badminton/actions/runs/32761921315) then passed 26/26 tests with zero skips plus lint/build under pinned Node 22 / pnpm 11.16.0 / PostgreSQL 16.
 
-Production remains at 42 migrations. Before any merge, a fresh read-only production preflight and separate explicit merge/production-activation authorization are mandatory.
+A fresh read-only production preflight at 2026-08-24 18:26 UTC passed. Production is healthy at 42 Phase 3A migrations; Phase 2/3A diagnostics, 192/192 ownership, zero shadow drift, the 17-direct/3-safe-wrapper catalog, 1,739 audit events, composite payment-booking FK, `court_slots`-only Realtime boundary, zero deployed Edge Functions, and the 47-security/40-performance advisor baseline are unchanged. Git has 42/44/46 migrations on `main`/#135/#137, and both stacked Draft PRs are mergeable with green PostgreSQL CI.
+
+No merge is authorized. Production rollout must use two separate gates: first authorize only #135 and verify the inactive migrations 43–44 in production; only after a clean diagnostic result may #137 activation be considered under a second explicit authorization.
