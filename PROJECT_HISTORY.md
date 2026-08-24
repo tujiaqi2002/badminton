@@ -243,6 +243,6 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - staging migration history 已移除一次性 bootstrap marker，并精确对齐仓库 44 个 version/name。27 张 public 表全部 RLS，6 张 3B 表全部 FORCE RLS；Phase 3B client DML 和 private helper client EXECUTE 均为 0，Realtime 仍只有 `court_slots`。
 - Advisors 为 49 security（生产既有 47 + staging 项目自带 `public.rls_auto_enable()` 的 2 条已记录 WARN）和 74 performance INFO。4 个 composite-FK 提示逐项确认已有完整反向等值索引或唯一 `booking_id` 主键覆盖，不新增重复索引；其余 70 个 unused-index 提示来自 fresh synthetic 数据库无业务流量。
 - 回滚型 payment probe 得到相同确定性 Payment ID 且未留下 Payment/operation；但连接器串行化请求，因此不把它算作并发锁证据。真实并发继续由 PostgreSQL CI 的 same-key、AA 与 refund race 用例负责。
-- 最终 bundled Node `v24.19.0` / pnpm `11.19.0` 本地结果为 46 pass、0 fail、1 个无本地 PostgreSQL 时的明确 skip；lint/build 通过。合并、生产自动部署、Phase 3B.2 activation、read/UI cutover、Stripe 与 legacy decommission 仍未授权。
+- 最终 bundled Node `v24.19.0` / pnpm `11.19.0` 本地结果为 46 pass、0 fail、1 个无本地 PostgreSQL 时的明确 skip；lint/build 通过。推送 commit `699d11d` 后，[Actions run 32753722730](https://github.com/tujiaqi2002/badminton/actions/runs/32753722730) 在 PostgreSQL 16.15 上重新得到 22/22、0 fail、0 skip，真实 same-key Payment、AA 与 refund race 均通过。合并、生产自动部署、Phase 3B.2 activation、read/UI cutover、Stripe 与 legacy decommission 仍未授权。
 
-阶段结果：production-like hosted Supabase apply 门禁已完成，且在真正 merge 前发现并修复了一个 collation portability bug。生产仍是 42 migrations 和 legacy write/read path；下一步必须推送追加 migration/证据并等待 PostgreSQL CI，再由用户单独确认是否 merge/自动部署。
+阶段结果：production-like hosted Supabase apply 与 follow-up PostgreSQL CI 门禁均已完成，且在真正 merge 前发现并修复了一个 collation portability bug。生产仍是 42 migrations 和 legacy write/read path；下一步只能在 fresh production preflight 后由用户单独确认是否 merge/自动部署。
