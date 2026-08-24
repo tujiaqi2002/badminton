@@ -204,7 +204,7 @@ PR #129 合并后，Supabase integration 于 2026-08-24 12:59:44 UTC 成功应�
 
 用户在 fresh production preflight 后明确授权 PR #132 merge/生产部署。PR 于 2026-08-24 13:47:59 UTC 合并，Supabase integration 于 13:48:37 UTC 应用第 42 个 migration。上线后 Phase 2/3A diagnostics、真实 manager/non-manager authenticated 路径、RLS/grants metadata、数据总量与四个冻结指纹全部通过；审计总数仍为 1,739，catch-up events 为 0，17 个 public booking writers、private helper grants 和仅 `court_slots` 的 Realtime boundary 均未改变。Security advisor 保持 47 条，performance advisor 恢复为 40 个 `unused_index` INFO，目标 WARN 消失。
 
-### Phase 3B.1 inactive transaction kernel（本地待评审；未生产、未激活）
+### Phase 3B.1 inactive transaction kernel（Draft PR #135；未生产、未激活）
 
 Issue #134 已获得仅限 3B.1 authoring 的明确确认。本地 migration `20260824143442_reservation_phase_3b_inactive_transaction_kernel` 为未来原子 writer activation 增加私有事务 primitive，但不替换任何 public routine、不调用 catch-up、不切 read path、不新增 client DML 或 Realtime publication。合并 migration PR 会触发生产自动部署，因此 merge/生产必须重新取得明确授权。
 
@@ -218,9 +218,9 @@ Issue #134 已获得仅限 3B.1 authoring 的明确确认。本地 migration `20
 
 2026-08-24 的 fresh production canonical fingerprints 为 direct writers `ac236997585da13cc6cc0439b8eafcf0`、wrappers `d1eb5d63d36f01f1caad2e4e9e516dbf`、all public functions `a0ec014bfec41a70762ce5c95122e774`。它们是 merge 前对照证据，不是硬编码永久值；任何后续 production 变更都要求 fresh inventory/fingerprint/preflight。
 
-隔离测试使用真实 Phase 1/2/3A migration 链，覆盖 inactive apply、幂等、schedule/details/cancel 与 full rollback、不同客户显式-primary merge、Party lineage、一人/AA/退款、跨-origin Payment、已付款 split、merge/split reverse、permission denial、writer drift 和 read-only diagnostic。PR-only `reservation-db-tests` workflow 再于 PostgreSQL 16 上使用三个真实连接覆盖 same-key Payment retry、重叠 AA 与 competing refund，证明 advisory/row lock 顺序、幂等和失败回滚在真实 session 下成立。production-like Supabase apply 仍是 activation/merge 前硬门禁。设计见 [`docs/reservation-migration/phase-3b-inactive-transaction-kernel.md`](./docs/reservation-migration/phase-3b-inactive-transaction-kernel.md)，诊断见 [`supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql`](./supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql)。
+隔离测试使用真实 Phase 1/2/3A migration 链，覆盖 inactive apply、幂等、schedule/details/cancel 与 full rollback、不同客户显式-primary merge、Party lineage、一人/AA/退款、跨-origin Payment、已付款 split、merge/split reverse、permission denial、writer drift 和 read-only diagnostic。Draft PR #135 的首轮 `reservation-db-tests` 已在 PostgreSQL 16.15、Node 22、pnpm 11.16.0 上使用三个真实连接通过：22/22 tests、0 fail、0 skip，same-key Payment retry、重叠 AA 与 competing refund 均证明 advisory/row lock 顺序、幂等和失败回滚在真实 session 下成立；lint 与 build 同时通过。证据为 [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283)。production-like Supabase apply 仍是 activation/merge 前硬门禁。设计见 [`docs/reservation-migration/phase-3b-inactive-transaction-kernel.md`](./docs/reservation-migration/phase-3b-inactive-transaction-kernel.md)，诊断见 [`supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql`](./supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql)。
 
-最终本地使用 bundled Node `v24.19.0` / pnpm `11.19.0` 跑通 21 个 PGlite migration-chain tests、lint 与 build；1 个 real-PostgreSQL concurrency test 因本机无服务明确 skip并交给 PR CI。CI 固定 Node 22 / pnpm 11.16.0。production 仍为 42 migrations 与未应用 3B.1 的 advisor 47 security（2 INFO / 45 WARN）/ 40 performance INFO 基线；没有执行 local `db push`。
+最终本地使用 bundled Node `v24.19.0` / pnpm `11.19.0` 跑通 21 个 PGlite migration-chain tests、lint 与 build；1 个 real-PostgreSQL concurrency test 因本机无服务明确 skip，并已由上述 PR CI 成功执行。production 仍为 42 migrations 与未应用 3B.1 的 advisor 47 security（2 INFO / 45 WARN）/ 40 performance INFO 基线；没有执行 local `db push`。
 
 ## 8. 线上迁移状态
 

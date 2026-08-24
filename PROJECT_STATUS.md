@@ -38,7 +38,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #134：Reservation Phase 3B.1 inactive transaction kernel
+### Issue #134 / Draft PR #135：Reservation Phase 3B.1 inactive transaction kernel
 
 - 用户已确认只开始 Phase 3B.1 authoring；当前分支可以起草 append-only migration、隔离验证和 review PR，但不授权 PR merge、生产自动部署/catch-up、Phase 3B.2 writer activation、read/UI cutover、Stripe 部署或 legacy decommission。
 - 本地第 43 个 migration 草案新增 append-only merge/split/reverse lineage、当前 effective allocation membership、private idempotency journal、Payment/refund 与 schedule/details/cancel primitives，以及 17 direct writers + 3 wrappers + 2 undeployed Stripe paths 的 fail-closed inventory。
@@ -47,8 +47,8 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - migration 安装时不执行 catch-up、不产生 transition/membership/operation rows，不新增 public mutation、booking dual-write trigger、client DML 或 Realtime publication；现有 public function fingerprint 保持不变。
 - 2026-08-24 fresh production canonical baseline：17 direct writers fingerprint `ac236997585da13cc6cc0439b8eafcf0`、3 wrappers fingerprint `d1eb5d63d36f01f1caad2e4e9e516dbf`、all public functions fingerprint `a0ec014bfec41a70762ce5c95122e774`；merge 前必须重新计算。
 - 当前新增的 Phase 3B.1 isolated tests 已覆盖 inactive install、幂等接入、schedule/details/cancel 与 rollback、不同客户 merge + 显式 primary、Party lineage、一人/AA/退款、已付款 split、merge/split reverse、permission denial、writer drift fail-closed 和 read-only diagnostic。
-- 最终 bundled Node `v24.19.0` / pnpm `11.19.0` 验证为 21 个 PGlite tests、lint、build 通过；1 个 real-PostgreSQL concurrency test 因本机无服务明确 skip，必须由 PR CI 执行。build 只有既有 >500 kB chunk warning。CI 固定 Node 22 / pnpm 11.16.0，仍以 CI 为兼容性门禁。
-- 新增 PR-only `reservation-db-tests` workflow：PostgreSQL 16 service + 三个真实连接并发验证相同 idempotency Payment、两笔重叠 AA 和全额 refund race；Node 22 / pnpm 11.16.0 下该 CI 必须通过。production-like Supabase branch apply、fresh production preflight 与 advisors 仍是 merge/activation 门禁。当前没有向生产 push migration。
+- 最终 bundled Node `v24.19.0` / pnpm `11.19.0` 本地验证为 21 个 PGlite tests、lint、build 通过；1 个 real-PostgreSQL concurrency test 因本机无服务明确 skip。build 只有既有 >500 kB chunk warning。
+- Draft PR #135 的首轮 `reservation-db-tests` 已在固定 Node 22 / pnpm 11.16.0 与 PostgreSQL 16 service 上通过：22/22 tests、0 fail、0 skip，lint 与 build 同时通过。三个真实连接证明相同 idempotency Payment 只落一笔、两笔重叠 AA 不超额、全额 refund race 只有一个 winner 且失败事务不遗留 `started` journal。证据为 [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283)。production-like Supabase branch apply、fresh production preflight 与 advisors 仍是 merge/activation 门禁；当前没有向生产 push migration。
 - 详细中英文设计见 [`docs/reservation-migration/phase-3b-inactive-transaction-kernel.md`](./docs/reservation-migration/phase-3b-inactive-transaction-kernel.md)，只读验证脚本为 [`supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql`](./supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql)。
 
 ### Issue #128：Reservation migration Phase 3A compatibility foundation

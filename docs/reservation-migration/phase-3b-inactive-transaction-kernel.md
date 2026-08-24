@@ -1,8 +1,8 @@
 # Reservation Phase 3B.1：未激活事务内核
 
 > Issue：[#134](https://github.com/tujiaqi2002/badminton/issues/134)
-> 状态：分支开发与隔离验证中；尚未合并、尚未部署生产、尚未激活。
-> Migration：`20260824143442_reservation_phase_3b_inactive_transaction_kernel`（仅本地待评审）
+> 状态：Draft PR [#135](https://github.com/tujiaqi2002/badminton/pull/135) 评审中；尚未合并、尚未部署生产、尚未激活。
+> Migration：`20260824143442_reservation_phase_3b_inactive_transaction_kernel`（分支待评审）
 
 ## 中文
 
@@ -157,7 +157,9 @@ PGlite integration tests 使用真实 Phase 1、Phase 2、Phase 3A 及 follow-up
 
 PGlite 能验证事务原子性、失败回滚、锁顺序实现和顺序重试。`.github/workflows/reservation-db-tests.yml` 另外在 PostgreSQL 16 service 上用三个真实连接应用完整 migration chain，并发验证：相同 idempotency key 只创建一笔 Payment、两笔重叠 AA 收款正确串行且不超额、两笔全额退款竞争只有一笔成功且失败方不留下 `started` journal。该 CI 是 PR 合并前硬门禁；writer activation 后仍需在 production-like Supabase branch 重跑 contention/rollback 观察。
 
-最终本地验证使用 Codex Desktop bundled Node `v24.19.0` 与 pnpm `11.19.0`：21 个 PGlite migration-chain tests 全部通过；另 1 个 real-PostgreSQL concurrency test 因本机没有 PostgreSQL 而明确 skip，必须由 PR CI 执行。`pnpm run lint` 与 `pnpm run build` 通过，build 只有既有的主 chunk >500 kB warning。CI/deploy 固定 Node 22 与 pnpm 11.16.0，因此 bundled runtime 通过不能代替 CI 兼容性结论。
+最终本地验证使用 Codex Desktop bundled Node `v24.19.0` 与 pnpm `11.19.0`：21 个 PGlite migration-chain tests 全部通过；另 1 个 real-PostgreSQL concurrency test 因本机没有 PostgreSQL 而明确 skip。`pnpm run lint` 与 `pnpm run build` 通过，build 只有既有的主 chunk >500 kB warning。
+
+Draft PR #135 的首轮 [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283) 已在固定 Node 22、pnpm 11.16.0 与 PostgreSQL 16.15 上完整执行，结果为 22/22 tests、0 fail、0 skip；real-PostgreSQL concurrency、lint 与 build 全部通过。并发结果没有出现重复 Payment、AA 超额分配、双退款成功、deadlock 或失败事务遗留的 `started` operation。这个结果关闭了 PR 的真实 session CI 门禁，但不替代 production-like Supabase branch apply、fresh production preflight 或明确的 merge/生产授权。
 
 同一时点 production 只读复核仍为 42 个 migrations，最新 `20260824132704_phase_3a_venue_settings_policy_consolidation`；security advisors 47（2 INFO / 45 WARN），performance advisors 40（全部 `unused_index` INFO）。本地第 43 个 migration 没有 push，所以这些是未应用 3B.1 的生产基线，不代表 3B.1 部署后 advisor 结果。
 
@@ -294,7 +296,9 @@ PGlite integration tests apply the real Phase 1, Phase 2, Phase 3A, and follow-u
 
 PGlite verifies transaction atomicity, rollback, implemented lock order, and sequential retries. `.github/workflows/reservation-db-tests.yml` additionally applies the complete migration chain to a PostgreSQL 16 service with three real connections and concurrently verifies: one Payment for the same idempotency key, safe serialization of two overlapping AA receipts without over-allocation, and exactly one winner for two competing full refunds with no committed `started` journal. This CI is a hard PR-merge gate; activation must still repeat contention/rollback observation on a production-like Supabase branch.
 
-Final local verification used the Codex Desktop bundled Node `v24.19.0` and pnpm `11.19.0`: all 21 PGlite migration-chain tests passed; one real-PostgreSQL concurrency test explicitly skipped because no local PostgreSQL service exists and must run in PR CI. `pnpm run lint` and `pnpm run build` passed, with only the existing >500 kB main-chunk warning. CI/deploy pins Node 22 and pnpm 11.16.0, so bundled-runtime success does not replace CI compatibility.
+Final local verification used the Codex Desktop bundled Node `v24.19.0` and pnpm `11.19.0`: all 21 PGlite migration-chain tests passed; one real-PostgreSQL concurrency test explicitly skipped because no local PostgreSQL service exists. `pnpm run lint` and `pnpm run build` passed, with only the existing >500 kB main-chunk warning.
+
+Draft PR #135's first [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283) completed on pinned Node 22, pnpm 11.16.0, and PostgreSQL 16.15 with 22/22 tests, zero failures, and zero skips; the real-PostgreSQL concurrency test, lint, and build all passed. The concurrent cases produced no duplicate Payment, AA over-allocation, double-refund winner, deadlock, or committed stale `started` operation. This closes the PR's real-session CI gate, but does not replace a production-like Supabase branch apply, fresh production preflight, or explicit merge/production authorization.
 
 The same point-in-time production read-only check still showed 42 migrations, latest `20260824132704_phase_3a_venue_settings_policy_consolidation`; 47 security advisories (2 INFO / 45 WARN); and 40 performance advisories (all `unused_index` INFO). The local 43rd migration was not pushed, so those values are the pre-3B.1 baseline, not post-deployment advisor results.
 

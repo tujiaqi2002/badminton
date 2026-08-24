@@ -225,5 +225,6 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - writer inventory 使用 schema-qualified canonical signatures 固定 17 direct writers、3 wrappers 与 2 undeployed Stripe paths；真实 `search_path` 差异不再造成误判，新增 rogue writer、client direct execute 或权限漂移均 fail closed。
 - 新 read-only diagnostic 验证 inactive zero-row 状态、RLS/FORCE RLS、最小 grants、private function security、writer inventory、payment FK、无 public mutation/dual-write trigger/Realtime publication。PGlite 隔离测试覆盖 merge/split、付款、回滚、权限与诊断；真实 session contention 由下一条独立 CI 补充。
 - 为把并发从静态设计变成可重复证据，新增 PR-only PostgreSQL 16 CI：完整应用 Phase 1/2/3A/3B.1 migration chain，以三个真实连接并发执行 same-key Payment retry、两笔 overlapping AA 与 competing full refund；本机无 Docker/Postgres 时用环境变量明确 skip，PR CI 不允许 skip。
+- commit `ddda6a1` 已推送并建立 Draft PR #135。首轮 [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283) 在 PostgreSQL 16.15、Node 22 与 pnpm 11.16.0 下得到 22/22 tests、0 fail、0 skip；真实并发、lint、build 全部通过。Supabase Preview 因未配置付费 preview branch 而按设计 skip，不代表 production-like Supabase apply 已完成。
 
-阶段结果：Phase 3B.1 已形成未激活、可评审的本地事务内核与中英文契约，尚未合并或部署。现有 public writer/read/UI 与生产数据完全未切换；下一步是完成全量验证和 review PR，之后必须在独立授权下才可 merge/自动部署，再另行确认 Phase 3B.2 activation。
+阶段结果：Phase 3B.1 已形成未激活、可评审的事务内核与中英文契约，Draft PR #135 的首轮真实 PostgreSQL CI 已通过，但尚未合并或部署。现有 public writer/read/UI 与生产数据完全未切换；下一步是 review PR 与 production-like Supabase 验证，之后必须在独立授权下才可 merge/自动部署，再另行确认 Phase 3B.2 activation。
