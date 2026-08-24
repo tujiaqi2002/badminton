@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-23。当前工作分支：`codex/phase-1-production-verification`。
+> 项目：`project-001-badminton`。核对日期：2026-08-23。当前工作分支：`codex/issue-123-reservation-backfill`。
 
 ## 1. 一句话结论
 
@@ -13,9 +13,9 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 仓库：`tujiaqi2002/badminton`，默认分支 `main`。
 - 生产前端：`https://tujiaqi2002.github.io/badminton/`，由 GitHub Actions 从 `main` 发布。
 - 后端：Supabase project `ldbtrouofmqmnkyxiewk`，PostgreSQL + Auth + Realtime + RPC/RLS。
-- `main` 当前已包含 PR #120（Phase 0）和 PR #122（Phase 1）；两次 GitHub Pages workflow 均成功。
-- 数据库目录和远端 migration history 均为 38 个版本；最新版本为 `20260823072016_reservation_aggregate_schema`。
-- 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；#93 增加了首组 6 个纯逻辑单元测试，但仍没有集成或 E2E test script。
+- `main` 当前已包含 PR #120（Phase 0）、#122（Phase 1）、#124（Phase 1 production verification）和 #125（My Bookings search/filter）。
+- 生产 migration history 与 `main` 均为 38 个版本；当前 Phase 2 分支新增第 39 个、尚未应用的 `20260824015013_reservation_deterministic_backfill`。
+- 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；当前 Phase 2 分支另有实际应用 migration 的 PGlite 集成测试，但仍没有浏览器 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
 - `App.jsx`、`AdminSchedule.jsx`、`i18n.js` 和 `styles.css` 已成为大型集中模块，后续改动的回归面较大。
 
@@ -46,10 +46,14 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 权限：9 张新 public 表均 RLS + FORCE RLS；authenticated 只有 manager-only SELECT，anon/service_role 无 direct grants，没有新 public RPC 或 Realtime publication。
 - 账务真实性：正常 Payment 必须有真实 `occurred_at`；仅 `legacy_reconciliation` 可为 null，避免为缺少付款审计的历史 paid rows 虚构时间。
 - 当前生产行为仍完整使用 legacy group/link/recurrence/payment 与旧 RPC；Phase 1 只上线物理基础，没有 backfill、dual write 或 read cutover。
-- Phase 2 已获产品确认但尚未实现；开始前仍须完成 Toronto DST 转换专项验证，并严格执行 deterministic grouping、主要联系人 fallback 和 legacy payment reconciliation 规则。
+- Phase 2 已获产品确认并完成可评审草案：冻结基线为 123 Reservations、135 Sessions、131 Parties、23 Payments 和 26 allocations；migration、诊断与 8 个隔离正/负向测试已通过。
+- Toronto nonexistent/ambiguous DST、客户冲突、付款证据矛盾、UUID collision、over-allocation 和 late rollback 均已验证 fail-closed；两个独立数据库产生相同完整 mapping fingerprint。
+- Phase 2 **尚未执行生产 `db push`**，没有 dual-write/read cutover。生产执行前必须刷新只读基线、review 任意漂移、跑 `db push --dry-run` 并取得单独明确授权。
 
 ### 最近合并
 
+- PR #124：Phase 1 production verification，已于 2026-08-23 合并。
+- PR #125：My Bookings search/filter，已于 2026-08-23 合并。
 - PR #122 / Issue #121：Reservation Phase 1 additive schema，已于 2026-08-23 合并；生产 schema 验证通过。
 - PR #120 / Issue #119：Reservation Phase 0 baseline，已于 2026-08-23 合并。
 - PR #117 / Issue #116：Drag Feedback / Schedule Side Panels，已于 2026-08-23 合并并成功发布。
@@ -100,7 +104,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 ### P0：发布与数据安全
 
 - 尚未建立可靠的 PR Preview/staging，reviewer 很难在合并前直接体验。
-- Supabase migration history 曾两次出现远端/本地不一致；2026-08-23 Phase 0 对齐到 37/37，Phase 1 上线后对齐到 38/38；后续每个数据库阶段仍必须先对齐再推送。
+- Supabase migration history 曾两次出现远端/本地不一致；2026-08-23 Phase 0 对齐到 37/37，Phase 1 上线后对齐到 38/38；Phase 2 分支的第 39 个 migration 仍未应用，必须先重新核对 38 个远端版本和 fresh baseline 才能推送。
 - 支付代码存在但未形成可证明的生产闭环，不能对客户宣称在线支付可用。
 - Reservation 迁移会跨 schema、权限、计价、付款和审计；必须按 #118 的 Phase 0–5 逐步交付，禁止一次性替换 legacy 模型。
 
