@@ -1,6 +1,6 @@
 # Reservation migration Phase 2 deterministic backfill
 
-> 状态：migration、诊断和隔离验证已起草；**尚未执行生产 `db push`，也没有开始 dual-write、read cutover 或前端切换。**
+> 状态：migration 已于 2026-08-24 由 Supabase GitHub integration 自动应用生产，完整诊断通过；**尚未开始 dual-write、read cutover 或前端切换。**
 >
 > 设计：[Issue #118](https://github.com/tujiaqi2002/badminton/issues/118)；本阶段：[Issue #123](https://github.com/tujiaqi2002/badminton/issues/123)
 
@@ -36,7 +36,7 @@ Phase 2 将现有 192 条 Court-level legacy booking 无损映射到 Phase 1 的
 - `court_slots` 指纹：`2617c5b347e5f516bae80cbb4bd92ccc`；
 - dedicated payment audit 指纹：`80cbd801fce56b51b9d0e51c68a60e2c`。
 
-这些是本次 migration 的 fail-closed 输入，不是可永久复用的生产常量。生产继续营业时任何 booking 或付款审计变化都会使 migration 在写入前失败；部署前必须重新跑 Phase 0 baseline、review 差异并更新这份尚未应用的 migration。
+这些是本次 migration authoring 时的 fail-closed 输入，不是可永久复用的生产常量。migration 上线时这些指纹仍精确匹配，因此事务才允许继续；未来迁移仍必须在部署前重新跑 baseline 并 review 差异。
 
 ## 3. 确定性映射
 
@@ -103,17 +103,20 @@ Phase 2 不增加 client DML grant、public RPC、view、Realtime publication、
 
 本阶段没有 UI 变化，因此 Before/After 浏览器截图不适用。仓库没有独立 Supabase Preview 项目，本次隔离验证不能代替正式 Supabase Preview 或生产前的 fresh baseline。
 
-## 8. 生产执行门禁
+## 8. 生产结果与修正后的门禁
 
-本 PR 只提交可评审、未应用的 migration。之后必须按顺序：
+PR #126 于 2026-08-24 04:45:32 UTC 合并。当前项目的 Supabase GitHub integration 随即自动克隆 `main`，并于 04:46:10 UTC 在 protected production branch 应用本 migration；没有执行 seed，也没有部署 Edge Functions。这个自动部署发生在预期的 manual `db push --dry-run` 之前。
 
-1. review migration、付款 reconciliation 和本文；
-2. 在计划维护窗口前重新运行只读 baseline；
-3. 如果指纹或数量变化，停止并更新 migration/报告后重新 review；
-4. 核对 local/remote migration history 并执行 `supabase db push --dry-run`；
-5. 获得单独的生产 `db push` 明确授权；
-6. 由一个操作者执行 push，立即运行 Phase 2 diagnostic 和 advisors；
-7. 生产验证通过后仍停止，Phase 3 dual-write/read comparison 需要新的 Issue 与确认。
+04:47 UTC 的只读生产诊断返回 `phase_2_reservation_backfill_verified`：
+
+- 123 Reservations、135 Sessions、192 owned Court allocations、131 Parties；
+- 23 reconciliation Payments、26 allocations、CAD 1,642.00；
+- 192 条明确的 ownership audit events；
+- booking 非 ownership payload、139 条 `court_slots`、payment audit evidence 指纹保持不变；
+- customer/session/relationship/DST/pricing/payment evidence 异常均为 0；
+- security advisor 仍为既有 47 条（2 INFO / 45 WARN），没有 Phase 2 新 finding；performance advisor 为 40 条 `unused_index` INFO，没有更高等级 finding。
+
+因此未来门禁必须修正：在当前 integration 配置下，**合并含 pending migration 的 PR 就是生产部署动作**。此类 PR 必须在 merge 前完成 fresh baseline、migration-history comparison、dry-run 和生产授权；如果团队希望把 merge 与部署分开，必须先明确关闭 Supabase 自动生产部署。Phase 3 仍需新的 Issue 与明确确认。
 
 ---
 
@@ -157,8 +160,12 @@ The migration runs in one bounded transaction with an advisory lock, explicit ta
 
 Only booking ownership columns change. Generic timestamp and slot-projection triggers are paused transactionally to preserve the legacy booking payload and `court_slots`; ownership integrity and append-only audit triggers remain active. Exactly 192 explicit ownership audit events must be produced. No client DML grant, public RPC, view, Realtime publication, Edge Function, or frontend behavior is added.
 
-### 7. Verification and deployment gate
+### 7. Verification, production result, and corrected gate
 
 The actual Phase 1 and Phase 2 SQL applied successfully in an isolated PostgreSQL-compatible environment, followed by the complete diagnostic. Independent deterministic mappings matched. Negative tests covered customer conflict, both Toronto DST failure classes, contradictory payment evidence, UUID collision, over-allocation, and a late transactional rollback. PostgreSQL parsing also passed. With the Codex Desktop bundled Node.js `v24.19.0`, pnpm `11.19.0`, and pinned PGlite `0.5.6`, `pnpm test` passed 30/30, lint passed, and the production build passed. The deployment workflow uses Node.js 22, so GitHub Actions remains the final compatibility gate.
 
-There is no UI change, so browser Before/After screenshots do not apply. No independent Supabase Preview project exists. This PR must remain unapplied until review. Production requires a fresh read-only baseline, migration-history comparison, `supabase db push --dry-run`, and separate explicit authorization for one operator to run `db push`. The diagnostic and advisors must run immediately afterward. Phase 3 dual-write/read comparison remains separately gated.
+There is no UI change, so browser Before/After screenshots do not apply. No independent Supabase Preview project exists.
+
+PR #126 merged at 04:45:32 UTC on 2026-08-24. The configured Supabase GitHub integration immediately cloned `main` and applied this migration to the protected production branch at 04:46:10 UTC; it skipped seed data and deployed no Edge Functions. The read-only production diagnostic returned `phase_2_reservation_backfill_verified`: 123 Reservations, 135 Sessions, 192 owned Court allocations, 131 Parties, 23 reconciliation Payments, 26 allocations, and CAD 1,642.00. All source-shape, DST, payment-evidence, payload, slot, permission, and provenance checks passed. Security advisors remained at the 47 existing findings with no Phase 2 addition; performance advisors reported only 40 unused-index INFO notices.
+
+This establishes an important deployment fact: with the current integration, merging a PR that contains a pending migration is itself a production deployment. Future database PRs must complete the fresh baseline, migration-history comparison, dry run, and production authorization before merge, or the automatic production deployment must first be disabled. Phase 3 dual-write/read comparison remains separately gated.
