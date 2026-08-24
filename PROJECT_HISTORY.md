@@ -1,6 +1,6 @@
 # Tiger Project History
 
-> 从项目起点到 2026-08-23 的阶段性开发历史。本文解释“如何走到现在”，当前状态以 [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) 为准。
+> 从项目起点到 2026-08-24 的阶段性开发历史。本文解释“如何走到现在”，当前状态以 [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) 为准。
 
 ## 0. 起点：从通用预约系统蓝图收敛到真实球馆
 
@@ -202,3 +202,14 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - PGlite 实际应用 Phase 1/2/3A/41/42 migrations；新增 authenticated DML grant drift 负向用例证明 migration 会在 drop 前失败并只回滚自身。当前 14 项测试全部通过，生产 diagnostic 也新增唯一 permissive SELECT policy、无 DML policy 和最小 grants 断言。
 
 阶段结果：Migration 41 已成为生产事实并修复真实 manager shadow access；migration 42 是可评审、未部署的 advisor regression 修复。它不改变业务数据、catch-up、dual-write、read path 或前端；merge/生产部署仍需独立明确授权，Phase 3B 未开始。
+
+## 21. 2026-08-24：Phase 3A RLS policy consolidation 上线
+
+- 用户在 fresh production preflight 后明确授权 PR #132 merge 与 Supabase 自动生产部署；preflight 确认远端仍为 41 个 migration、只有 migration 42 pending，Phase 2 diagnostic、RLS/grants、角色路径、四个冻结指纹、17-writer inventory 和 47/41 advisor 基线均符合预期。
+- PR #132 于 13:47:59 UTC 合并；Supabase integration 于 13:48:37 UTC 应用 `20260824132704_phase_3a_venue_settings_policy_consolidation`，GitHub Pages 于 13:48:36 UTC 完成 build/deploy。
+- migration 只删除 `venue_settings_rpc_only FOR ALL false`。上线后 manager SELECT 是 `venue_settings` 唯一 policy；authenticated 仍只有 `timezone` 单列 SELECT、没有 table/DML grant 或 DML policy，currency 不可读、timezone 不可更新。
+- Phase 2 与 Phase 3A production diagnostics 均通过；真实 authenticated 馆长读到 `America/Toronto` 和 clean shadow status，非馆长看到 0 rows，summary RPC 明确拒绝。
+- 192/192 bookings owned、123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00 保持不变；shadow mismatch/catch-up events 为 0，审计总数仍为 1,739，四个冻结指纹、17 个 public writers、private helper grants 和 Realtime boundary 均无漂移。
+- Security advisor 保持既有 47 条；performance advisor 从 40 INFO + 1 个目标 WARN 恢复为 40 INFO。没有执行 catch-up、启用 dual-write、切换读取、修改前端或开始 Phase 3B。
+
+阶段结果：Phase 3A 的 foundation、最小 timezone access 与 policy consolidation 均已成为生产事实，shadow 验证链路 clean，advisor regression 已关闭。旧 booking writers、group/link 语义和前端仍在运行；Phase 3B activation 继续需要独立 Issue、migration/PR、完整 writer coverage 与明确生产授权。

@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-24。当前工作分支：`codex/phase-3a-rls-policy-consolidation`。
+> 项目：`project-001-badminton`。核对日期：2026-08-24。当前工作分支：`codex/phase-3a-policy-production-verification`。
 
 ## 1. 一句话结论
 
@@ -13,8 +13,8 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 仓库：`tujiaqi2002/badminton`，默认分支 `main`。
 - 生产前端：`https://tujiaqi2002.github.io/badminton/`，由 GitHub Actions 从 `main` 发布。
 - 后端：Supabase project `ldbtrouofmqmnkyxiewk`，PostgreSQL + Auth + Realtime + RPC/RLS。
-- `main` 当前已包含 PR #129（Phase 3A compatibility foundation）和 PR #130（shadow timezone access），以及此前的 Phase 0/1/2 与产品 PR。
-- 生产 migration history 与 `main` 均为 41 个版本，最新为 `20260824130514_reservation_phase_3a_shadow_timezone_access`；当前 Issue #131 分支本地新增第 42 个 migration，尚未合并或部署。
+- `main` 当前已包含 PR #129（Phase 3A compatibility foundation）、PR #130（shadow timezone access）和 PR #132（RLS policy consolidation），以及此前的 Phase 0/1/2 与产品 PR。
+- 生产 migration history 与 `main` 均为 42 个版本，最新为 `20260824132704_phase_3a_venue_settings_policy_consolidation`；当前没有 pending production migration。
 - 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；Reservation Phase 2/3A 已有实际应用 migration 的 PGlite 集成测试，但仍没有浏览器 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
 - `App.jsx`、`AdminSchedule.jsx`、`i18n.js` 和 `styles.css` 已成为大型集中模块，后续改动的回归面较大。
@@ -51,10 +51,12 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 初始 diagnostic 把新的 private catch-up helper 误计入 17 个 legacy public writers；脚本已限定为 `public` writer inventory，并继续单独验证 private helper 无 client EXECUTE。
 - PR #130 于 2026-08-24 13:17:23 UTC 合并；Supabase integration 于 13:18:16 UTC 成功应用第 41 个 migration。未修改的 Phase 2/3A diagnostics、authenticated 馆长/非馆长角色测试和冻结指纹全部通过；数据仍为 192/192 owned bookings、123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00，shadow mismatch/catch-up events 均为 0。
 - 上线后 security advisor 仍为既有 47 条；performance advisor 从 40 INFO 变成 40 INFO + 1 WARN。新增 `multiple_permissive_policies` 精确来自既有 `venue_settings_rpc_only FOR ALL false` 与 manager SELECT policy 的重叠，功能仍安全，但不接受为新基线。
-- Issue #131 已获用户确认起草第 42 个最小 migration：在 fail-closed 验证 RLS/FORCE RLS、单列 grant、无 authenticated table/DML grants 和两条既有 policy 后，只删除冗余 `venue_settings_rpc_only`。无适用 DML policy 时 RLS 默认拒绝，且 client 仍无 DML grants；其他配置字段和 writes 继续 RPC-only。
+- Issue #131 的第 42 个最小 migration 在 fail-closed 验证 RLS/FORCE RLS、单列 grant、无 authenticated table/DML grants 和两条既有 policy 后，只删除冗余 `venue_settings_rpc_only`。无适用 DML policy 时 RLS 默认拒绝，且 client 仍无 DML grants；其他配置字段和 writes 继续 RPC-only。
 - 14 项 Phase 2/3A 隔离集成测试已通过，包括 policy consolidation、authenticated DML grant drift 在 drop 前失败并回滚、timezone column-only grant、真实 manager/non-manager 权限路径、幂等 catch-up、客户身份冲突、unsafe link 与付款漂移。
-- PR #132 已创建为 Draft，只供 migration/test/documentation review；不得 merge，因为合并会自动部署第 42 个 migration。
-- 第 42 个 migration 只获 authoring/review 授权，没有 merge 或生产部署授权；Phase 3B 仍未开始。
+- 用户在 fresh production preflight 后明确授权 merge/生产部署；PR #132 于 2026-08-24 13:47:59 UTC 合并，Supabase integration 于 13:48:37 UTC 应用第 42 个 migration，GitHub Pages build/deploy 于 13:48:36 UTC 成功完成。
+- 上线后 Phase 2 与 Phase 3A diagnostics 均通过；真实 authenticated 馆长可读 `America/Toronto` 与 clean shadow status，非馆长看到 0 rows 且 summary RPC 返回 `Manager access required`。`venue_settings_rpc_only` 已不存在，manager SELECT 是唯一 policy；authenticated 仍只有 `timezone` 单列 SELECT、无 table/DML grant 或 DML policy。
+- 数据与权限边界无漂移：192/192 bookings owned、123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00，shadow mismatch/catch-up events 为 0，审计总数 1,739、17 个 legacy public writers、仅 `court_slots` Realtime 和四个冻结指纹全部不变。
+- Security advisor 保持既有 47 条；performance advisor 已从 40 INFO + 1 WARN 恢复为 40 INFO，`multiple_permissive_policies` regression 消失。Phase 3B 仍未开始，也没有执行 catch-up、dual-write 或 read cutover；legacy RPC/字段退役仍属于 Phase 5，需 Phase 4 cutover、生产观察和 rollback window 结束后另开高风险 Issue。
 
 ### 已完成生产基线：Issue #123 Phase 2 deterministic backfill
 
@@ -71,7 +73,8 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ### 最近合并
 
-- PR #130 / Issue #128：Phase 3A shadow timezone least-privilege access，已于 2026-08-24 合并并由 Supabase integration 自动应用生产；advisor policy consolidation 由 Issue #131 独立门禁。
+- PR #132 / Issue #131：Phase 3A venue settings RLS policy consolidation，已于 2026-08-24 合并并由 Supabase integration 自动应用生产；advisor regression 已清除，权限与数据指纹无漂移。
+- PR #130 / Issue #128：Phase 3A shadow timezone least-privilege access，已于 2026-08-24 合并并由 Supabase integration 自动应用生产；随后由 PR #132 完成独立门禁的 advisor policy consolidation。
 - PR #129 / Issue #128：Reservation Phase 3A inactive compatibility foundation，已于 2026-08-24 合并并由 Supabase integration 自动应用生产。
 - PR #127 / Issue #123：Phase 2 production verification 文档与证据，已于 2026-08-24 合并。
 - PR #126 / Issue #123：Reservation Phase 2 deterministic backfill，已于 2026-08-24 合并并由 Supabase GitHub integration 自动应用生产；只读诊断和 GitHub Pages deployment 均通过。
