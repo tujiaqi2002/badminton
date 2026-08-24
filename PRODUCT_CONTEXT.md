@@ -1,6 +1,6 @@
 # Tiger Product Context
 
-> Tiger 羽球馆的长期产品上下文。最后核对：2026-08-23。
+> Tiger 羽球馆的长期产品上下文。最后核对：2026-08-24。
 
 本文档是未来 Codex 任务和开发协作的产品事实来源。开始修改功能前先读本文；涉及数据库、安全、部署或权限时，同时阅读 [`TECHNICAL_CONTEXT.md`](./TECHNICAL_CONTEXT.md)。若旧聊天、截图或旧文档与本文冲突，以当前代码、数据库迁移和本文的最新决定为准。
 
@@ -142,7 +142,7 @@ Issue #118 已确认未来把现有 `booking_group_id` / `booking_link_id` 统�
 
 Phase 2 的历史回填使用内部 `legacy_unspecified` 付款意向，因为旧 booking 只证明 paid/pay-at-venue 状态，不能证明客户当时选择单人支付还是 split。它不会取消未来的 single/equal/custom 选项，也不会替历史记录虚构 payer、payment shares、provider 或时间。该 snapshot 已于 2026-08-24 回填生产，但前端和 RPC 尚未 read/write cutover；Phase 3 之前新产生的 legacy booking 仍可能没有 aggregate ownership，必须由后续 catch-up + dual-write reconciliation 处理。完整规则见 [`docs/reservation-migration/phase-2-backfill.md`](./docs/reservation-migration/phase-2-backfill.md)。
 
-Phase 3A / Issue #128 的未激活兼容基础及 `venue_settings.timezone` 单列权限修复已于 2026-08-24 进入生产：安全 legacy group 可以确定性、幂等 catch-up；已经分别属于不同 Reservation 的 group 再被 link/unlink，以及无法由旧字段证明的 merge/split 或付款变化，必须停下并显示 shadow mismatch，不能自动猜测。真实 authenticated 角色验证确认馆长可读 clean shadow status，非馆长看不到 venue/shadow rows，其他配置字段和 writes 继续 RPC-only。上线后发现既有 false `FOR ALL` policy 与新 manager SELECT policy 产生一条性能 advisor WARN；Issue #131 的 pending migration 只合并这层 RLS 表达，不改变任何产品行为、数据、catch-up、dual-write 或读取路径。Phase 3B 仍未开始。完整中英文边界见 [`docs/reservation-migration/phase-3a-compatibility-foundation.md`](./docs/reservation-migration/phase-3a-compatibility-foundation.md)。
+Phase 3A / Issue #128 的未激活兼容基础、`venue_settings.timezone` 单列权限修复及 Issue #131 的 RLS policy consolidation 已于 2026-08-24 进入生产：安全 legacy group 可以确定性、幂等 catch-up；已经分别属于不同 Reservation 的 group 再被 link/unlink，以及无法由旧字段证明的 merge/split 或付款变化，必须停下并显示 shadow mismatch，不能自动猜测。真实 authenticated 角色验证确认馆长可读 clean shadow status，非馆长看不到 venue/shadow rows，其他配置字段和 writes 继续 RPC-only。第 42 个 migration 只删除冗余 false `FOR ALL` policy，performance advisor 恢复到原有 40 个 INFO，权限、数据和冻结指纹均无漂移。Phase 3B 仍未开始，也没有执行 catch-up、dual-write 或读取切换。完整中英文边界见 [`docs/reservation-migration/phase-3a-compatibility-foundation.md`](./docs/reservation-migration/phase-3a-compatibility-foundation.md)。
 
 订单较多时，“我的预订”默认展示即将开始的订单，并提供 Upcoming/Past/Cancelled tabs、日期/场地/编号等搜索、折叠式高级筛选、已应用筛选 chip 与清除入口。结果按月份分组，筛选和搜索只改变列表可见性，不隐藏单张订单卡片上的既有信息或取消动作。
 

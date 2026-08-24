@@ -1,8 +1,8 @@
 # Reservation Phase 3A：未激活兼容基础层
 
 > Issues：[#128](https://github.com/tujiaqi2002/badminton/issues/128)、[#131](https://github.com/tujiaqi2002/badminton/issues/131)
-> 状态：foundation 与 shadow timezone access 已应用生产；未执行 catch-up、未激活 dual-write；RLS policy consolidation 待评审。
-> Migrations：`20260824052629_reservation_phase_3a_compatibility_foundation`（生产）、`20260824130514_reservation_phase_3a_shadow_timezone_access`（生产）、`20260824132704_phase_3a_venue_settings_policy_consolidation`（pending）
+> 状态：foundation、shadow timezone access 与 RLS policy consolidation 均已应用生产；未执行 catch-up、未激活 dual-write 或切换读取。
+> Migrations：`20260824052629_reservation_phase_3a_compatibility_foundation`（生产）、`20260824130514_reservation_phase_3a_shadow_timezone_access`（生产）、`20260824132704_phase_3a_venue_settings_policy_consolidation`（生产）
 
 ## 中文
 
@@ -131,7 +131,11 @@ PR #129 合并后，第 40 个 migration 于 2026-08-24 12:59:44 UTC 成功进�
 
 真实 authenticated 测试发现 `security_invoker` view 无权读取 RPC-only `venue_settings.timezone`，因此返回 `42501`。PR #130 follow-up 只增加 authenticated `timezone` 单列 grant 与 manager-only SELECT policy；其他配置和 writes 继续 RPC-only。第 41 个 migration 于 2026-08-24 13:18:16 UTC 成功应用，真实 manager/non-manager 权限测试、Phase 2/3A diagnostics、数据与冻结指纹全部通过。
 
-上线后 performance advisor 新增一条 `multiple_permissive_policies` WARN：既有 `venue_settings_rpc_only FOR ALL false` 与 manager SELECT policy 在 authenticated SELECT 上重叠。Issue #131 的 pending migration 先验证 RLS/FORCE RLS、精确 policy 形状、timezone-only grant 和无 authenticated table/DML grants，再只删除冗余 false policy。RLS 对无适用 policy 的 DML 默认拒绝，client 也仍无 DML grant；不会扩大读取、写入或产品行为。
+上线后 performance advisor 新增一条 `multiple_permissive_policies` WARN：既有 `venue_settings_rpc_only FOR ALL false` 与 manager SELECT policy 在 authenticated SELECT 上重叠。Issue #131 / PR #132 的 migration 先验证 RLS/FORCE RLS、精确 policy 形状、timezone-only grant 和无 authenticated table/DML grants，再只删除冗余 false policy。RLS 对无适用 policy 的 DML 默认拒绝，client 也仍无 DML grant；不会扩大读取、写入或产品行为。
+
+用户在最终 production preflight 后明确授权 merge/生产部署。PR #132 于 2026-08-24 13:47:59 UTC 合并，Supabase integration 于 13:48:37 UTC 成功应用第 42 个 migration，GitHub Pages 于 13:48:36 UTC 完成 build/deploy。上线后 Phase 2 与 Phase 3A diagnostics 均通过；真实 authenticated 馆长读取 `America/Toronto` 与 clean shadow status，非馆长读取 venue/shadow 均为 0 rows，summary RPC 返回 `Manager access required`。
+
+`venue_settings_rpc_only` 已不存在，manager SELECT 是唯一 policy；authenticated 仍只有 `timezone` 单列 SELECT、无 table/DML grant 或 DML policy，currency 不可读、timezone 不可更新。192/192 bookings owned、123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00 保持不变；shadow/catch-up 为 0，审计总数仍为 1,739，17-writer inventory、Realtime boundary、private helper grants 与四个冻结指纹无漂移。Security advisor 保持 47 条，performance advisor 恢复为 40 个 INFO，目标 WARN 消失。
 
 PGlite 使用真实 Phase 1、Phase 2、Phase 3A 与两个 follow-up migrations，当前 14 项测试通过：
 
@@ -156,12 +160,13 @@ psql ... -f supabase/diagnostics/phase_3a_reservation_compatibility.sql
 
 ### 8. 发布门禁
 
-当前 Supabase GitHub integration 会在 migration PR 合并到 `main` 后自动应用 pending migration。因此本分支/PR：
+Phase 3A 的三个 migrations 均已应用生产并完成上线后验证。当前边界是：
 
-- 第 40 个 foundation 与第 41 个 timezone access migrations 已应用生产；
-- 第 42 个 policy consolidation 可以开发、提交、push 和评审，但不授权 merge/生产部署；
-- migration 42 merge 前必须 fresh remote/local history、生产只读 snapshot、隔离 apply、diagnostics、advisors 与明确生产授权；
-- migration 42 上线后仍不执行 catch-up、不激活 dual-write；Phase 3B 另开 activation PR。
+- 没有 pending production migration；
+- migration 42 上线没有执行 catch-up、激活 dual-write、切换读取或修改前端；
+- Phase 3B 必须另开 Issue/migration/PR，覆盖全部 17 个直接 writers、3 个 wrappers 与 2 个未部署 Stripe write paths；
+- Phase 3B merge 前重新执行 fresh remote/local history、生产只读 snapshot、isolated apply、diagnostics、真实角色测试、advisors，并取得独立生产授权；
+- legacy 字段/RPC 的 decommission 属于 Phase 5：必须在 Phase 4 product cutover 完成、生产观察期持续对账一致且 rollback window 关闭后，另开高风险 Issue；不能在 Phase 3B 顺手删除。
 
 ---
 
@@ -292,7 +297,11 @@ After PR #129 merged, the fortieth migration reached production successfully at 
 
 Real authenticated-role testing found that the `security_invoker` view could not read RPC-only `venue_settings.timezone`, producing `42501`. The PR #130 follow-up grants authenticated SELECT on the `timezone` column only and adds a manager-only SELECT policy; every other setting and all writes remain RPC-only. The forty-first migration reached production successfully at 2026-08-24 13:18:16 UTC, and the real manager/non-manager role tests, Phase 2/3A diagnostics, data totals, and frozen fingerprints all passed.
 
-The post-deployment performance advisor added one `multiple_permissive_policies` WARN because the existing `venue_settings_rpc_only FOR ALL false` policy overlaps the manager SELECT policy for authenticated SELECT. The pending Issue #131 migration first verifies RLS/FORCE RLS, the exact policy shape, the timezone-only grant, and the absence of authenticated table/DML grants, then drops only the redundant false policy. RLS default-denies DML with no applicable policy, and clients still have no DML grant, so the change widens neither reads, writes, nor product behavior.
+The post-deployment performance advisor added one `multiple_permissive_policies` WARN because the existing `venue_settings_rpc_only FOR ALL false` policy overlaps the manager SELECT policy for authenticated SELECT. The Issue #131 / PR #132 migration first verifies RLS/FORCE RLS, the exact policy shape, the timezone-only grant, and the absence of authenticated table/DML grants, then drops only the redundant false policy. RLS default-denies DML with no applicable policy, and clients still have no DML grant, so the change widens neither reads, writes, nor product behavior.
+
+After the final production preflight, the user explicitly authorized merge and production deployment. PR #132 merged at 2026-08-24 13:47:59 UTC, the Supabase integration successfully applied migration 42 at 13:48:37 UTC, and the GitHub Pages build/deploy completed at 13:48:36 UTC. Both Phase 2 and Phase 3A diagnostics passed after deployment. A real authenticated manager can read `America/Toronto` and the clean shadow status; a non-manager receives zero venue/shadow rows and the summary RPC raises `Manager access required`.
+
+`venue_settings_rpc_only` no longer exists and the manager SELECT policy is the sole policy. Authenticated still has only column-level SELECT on `timezone`, with no table/DML grant or DML policy; `currency` is unreadable and `timezone` is not updatable. All 192 bookings remain owned, with 123 Reservations, 135 Sessions, 131 Parties, 23 Payments, 26 allocations/CAD 1,642.00, zero shadow/catch-up drift, and 1,739 total audit events. The 17-writer inventory, Realtime boundary, private-helper grants, and four frozen fingerprints are unchanged. The security advisor remains at 47 notices and the performance advisor is back to 40 INFO notices, with the target WARN removed.
 
 PGlite applies the real Phase 1, Phase 2, Phase 3A, and both follow-up migrations. All 14 current tests pass:
 
@@ -317,9 +326,10 @@ The production diagnostic must return `phase_3a_reservation_compatibility_verifi
 
 ### 8. Release gate
 
-The current Supabase GitHub integration automatically applies pending migrations when a migration PR is merged into `main`. Therefore this branch/PR:
+All three Phase 3A migrations are in production and have passed post-deployment verification. The current boundary is:
 
-- the fortieth foundation and forty-first timezone-access migrations are already applied in production;
-- the forty-second policy-consolidation migration may be developed, committed, pushed, and reviewed, but is not authorized for merge or production deployment;
-- migration 42 requires fresh local/remote history, a production read-only snapshot, isolated apply, diagnostics, advisors, and explicit production authorization before merge;
-- migration 42 still does not execute catch-up or activate dual-write; Phase 3B uses a separate activation PR.
+- there is no pending production migration;
+- migration 42 did not execute catch-up, activate dual-write, switch reads, or change the frontend;
+- Phase 3B requires a separate Issue, migration, and PR covering all 17 direct writers, three wrappers, and two undeployed Stripe write paths;
+- before any Phase 3B merge, repeat fresh local/remote history, the production read-only snapshot, isolated apply, diagnostics, real-role tests, and advisors, then obtain separate production authorization;
+- legacy-field and RPC decommissioning belongs to Phase 5. It requires completed Phase 4 product cutover, a production observation period with consistently matching reconciliation, a closed rollback window, and a separate high-risk Issue; nothing may be removed opportunistically during Phase 3B.
