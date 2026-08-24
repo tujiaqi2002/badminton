@@ -23,6 +23,10 @@ const phase3aAccessFixPath = new URL(
   '../migrations/20260824130514_reservation_phase_3a_shadow_timezone_access.sql',
   import.meta.url,
 )
+const phase3aPolicyConsolidationPath = new URL(
+  '../migrations/20260824132704_phase_3a_venue_settings_policy_consolidation.sql',
+  import.meta.url,
+)
 
 const productionFingerprints = {
   booking: '20802718eff3b81bd5fe38d99808e8d8',
@@ -685,6 +689,10 @@ async function applyPhase3aAccessFix(db) {
   await db.exec(await readFile(phase3aAccessFixPath, 'utf8'))
 }
 
+async function applyPhase3aPolicyConsolidation(db) {
+  await db.exec(await readFile(phase3aPolicyConsolidationPath, 'utf8'))
+}
+
 async function shadowMismatchCodes(db) {
   const result = await db.query(`
     select mismatch_code, count(*)::integer as mismatch_count
@@ -701,6 +709,7 @@ test('Phase 3A installs an inactive, clean, idempotent compatibility foundation'
     await db.exec(migration)
     await applyPhase3a(db)
     await applyPhase3aAccessFix(db)
+    await applyPhase3aPolicyConsolidation(db)
 
     const securityBoundary = await db.query(`
       select
@@ -770,7 +779,58 @@ test('Phase 3A installs an inactive, clean, idempotent compatibility foundation'
               and privilege.table_name = 'venue_settings'
               and privilege.grantee = 'authenticated'
               and privilege.privilege_type = 'SELECT'
-          ) as timezone_grant_is_column_only
+          )
+          and (
+            select count(*) = 1
+            from information_schema.column_privileges as privilege
+            where privilege.table_schema = 'public'
+              and privilege.table_name = 'venue_settings'
+              and privilege.grantee = 'authenticated'
+          ) as timezone_grant_is_column_only,
+        not exists (
+          select 1
+          from pg_policies as policy
+          where policy.schemaname = 'public'
+            and policy.tablename = 'venue_settings'
+            and policy.policyname = 'venue_settings_rpc_only'
+        )
+          and (
+            select count(*) = 1
+            from pg_policies as policy
+            where policy.schemaname = 'public'
+              and policy.tablename = 'venue_settings'
+              and policy.permissive = 'PERMISSIVE'
+              and policy.roles @> array['authenticated']::name[]
+              and policy.cmd in ('ALL', 'SELECT')
+          )
+          and not exists (
+            select 1
+            from pg_policies as policy
+            where policy.schemaname = 'public'
+              and policy.tablename = 'venue_settings'
+              and policy.roles @> array['authenticated']::name[]
+              and policy.cmd in ('ALL', 'INSERT', 'UPDATE', 'DELETE')
+          )
+          and not has_table_privilege(
+            'authenticated',
+            'public.venue_settings',
+            'select'
+          )
+          and not has_table_privilege(
+            'authenticated',
+            'public.venue_settings',
+            'insert'
+          )
+          and not has_table_privilege(
+            'authenticated',
+            'public.venue_settings',
+            'update'
+          )
+          and not has_table_privilege(
+            'authenticated',
+            'public.venue_settings',
+            'delete'
+          ) as venue_settings_policy_is_consolidated
       from pg_class as view
       join pg_namespace as view_schema on view_schema.oid = view.relnamespace
       cross join pg_proc as diagnostic
@@ -786,6 +846,7 @@ test('Phase 3A installs an inactive, clean, idempotent compatibility foundation'
       diagnostic_grants_are_minimal: true,
       catch_up_has_no_client_execute: true,
       timezone_grant_is_column_only: true,
+      venue_settings_policy_is_consolidated: true,
     }])
 
     const managerId = uuid(6, 1)
@@ -815,6 +876,14 @@ test('Phase 3A installs an inactive, clean, idempotent compatibility foundation'
       db.query('select currency from public.venue_settings'),
       /permission denied/,
     )
+    await assert.rejects(
+      db.query(`
+        update public.venue_settings
+        set timezone = timezone
+        returning timezone
+      `),
+      /permission denied/,
+    )
     await db.exec('reset role;')
 
     const nonManagerId = uuid(9, 2)
@@ -832,6 +901,10 @@ test('Phase 3A installs an inactive, clean, idempotent compatibility foundation'
       from public.reservation_shadow_mismatches
     `)
     assert.equal(nonManagerShadow.rows[0].mismatch_count, 0)
+    const nonManagerTimezone = await db.query(`
+      select timezone from public.venue_settings
+    `)
+    assert.deepEqual(nonManagerTimezone.rows, [])
     await assert.rejects(
       db.exec('select public.admin_get_reservation_shadow_status(10);'),
       /Manager access required/,
@@ -868,6 +941,46 @@ test('Phase 3A installs an inactive, clean, idempotent compatibility foundation'
       from private.app_audit_events
     `, 'value'), auditBefore)
     assert.deepEqual(await shadowMismatchCodes(db), [])
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 3A policy consolidation fails closed on authenticated DML grant drift', async () => {
+  const { db, migration } = await buildDatabase()
+  try {
+    await db.exec(migration)
+    await applyPhase3a(db)
+    await applyPhase3aAccessFix(db)
+    await db.exec(`
+      grant update (currency)
+        on table public.venue_settings
+        to authenticated;
+    `)
+    const before = await mappingFingerprint(db)
+
+    await assert.rejects(
+      applyPhase3aPolicyConsolidation(db),
+      /authenticated venue_settings column privileges must be timezone SELECT only/,
+    )
+    await db.exec('rollback;').catch(() => {})
+
+    assert.equal(await mappingFingerprint(db), before)
+    assert.equal(await scalar(db, `
+      select count(*)::integer as value
+      from pg_policies as policy
+      where policy.schemaname = 'public'
+        and policy.tablename = 'venue_settings'
+        and policy.policyname = 'venue_settings_rpc_only'
+    `, 'value'), 1)
+    assert.equal(await scalar(db, `
+      select has_column_privilege(
+        'authenticated',
+        'public.venue_settings',
+        'currency',
+        'update'
+      ) as value
+    `, 'value'), true)
   } finally {
     await db.close()
   }

@@ -192,3 +192,13 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - 最小修复只允许 authenticated 读取 `timezone` 单列，并用额外 SELECT policy 限定馆长；不开放其他配置字段或写操作。第 41 个 migration 已在独立分支起草和隔离验证，尚未获得 merge/生产授权。
 
 阶段结果：Phase 3A 数据基础已安全上线但 manager shadow access 仍待第 41 个 migration 修复；legacy 产品行为未变，Phase 3B 继续被门禁阻止。
+
+## 20. 2026-08-24：Shadow access 上线并起草 RLS policy consolidation
+
+- 用户在 fresh production preflight 后明确授权 PR #130 merge/生产部署；PR 于 13:17:23 UTC 合并，Supabase integration 于 13:18:16 UTC 成功应用第 41 个 migration，GitHub Pages build/deploy 同时通过。
+- 未修改的 Phase 2/Phase 3A diagnostics、真实 authenticated 馆长/非馆长测试和冻结指纹全部通过：192/192 bookings owned、123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00，shadow mismatch 与 catch-up events 均为 0；authenticated 只有 `timezone` 单列 SELECT，其他配置和 writes 仍受 RLS/grants 保护。
+- 上线后 security advisor 保持既有 47 条；performance advisor 从 40 INFO 增加一条 `multiple_permissive_policies` WARN。根因是旧 `venue_settings_rpc_only FOR ALL false` 与新 manager SELECT policy 都是 permissive，并在 SELECT 上重叠，而不是权限泄漏或数据错误。
+- 按高风险门禁创建 Issue #131 并获得用户确认 authoring。第 42 个 migration 先 fail-closed 核对 RLS/FORCE RLS、精确 policies、timezone-only grant 和无 authenticated table/DML grants，再只删除冗余 false policy；DML 继续由 RLS 无适用 policy 默认拒绝和缺失 client grants 双重阻止。
+- PGlite 实际应用 Phase 1/2/3A/41/42 migrations；新增 authenticated DML grant drift 负向用例证明 migration 会在 drop 前失败并只回滚自身。当前 14 项测试全部通过，生产 diagnostic 也新增唯一 permissive SELECT policy、无 DML policy 和最小 grants 断言。
+
+阶段结果：Migration 41 已成为生产事实并修复真实 manager shadow access；migration 42 是可评审、未部署的 advisor regression 修复。它不改变业务数据、catch-up、dual-write、read path 或前端；merge/生产部署仍需独立明确授权，Phase 3B 未开始。

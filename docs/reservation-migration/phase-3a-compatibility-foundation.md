@@ -1,8 +1,8 @@
 # Reservation Phase 3A：未激活兼容基础层
 
-> Issue：[#128](https://github.com/tujiaqi2002/badminton/issues/128)
-> 状态：foundation 已应用生产；未执行 catch-up、未激活 dual-write；shadow timezone access follow-up 待评审。
-> Migrations：`20260824052629_reservation_phase_3a_compatibility_foundation`（生产）、`20260824130514_reservation_phase_3a_shadow_timezone_access`（pending）
+> Issues：[#128](https://github.com/tujiaqi2002/badminton/issues/128)、[#131](https://github.com/tujiaqi2002/badminton/issues/131)
+> 状态：foundation 与 shadow timezone access 已应用生产；未执行 catch-up、未激活 dual-write；RLS policy consolidation 待评审。
+> Migrations：`20260824052629_reservation_phase_3a_compatibility_foundation`（生产）、`20260824130514_reservation_phase_3a_shadow_timezone_access`（生产）、`20260824132704_phase_3a_venue_settings_policy_consolidation`（pending）
 
 ## 中文
 
@@ -129,9 +129,11 @@ Phase 3B activation 前必须追加并验证最小的 audited relationship/finan
 
 PR #129 合并后，第 40 个 migration 于 2026-08-24 12:59:44 UTC 成功进入生产。postgres/admin diagnostic 在把 inventory 正确限定为 17 个 `public` legacy writers 后返回 `phase_3a_reservation_compatibility_verified`；192/192 bookings owned，123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00，shadow/ownership/Session/payment drift 与 catch-up events 均为 0，冻结指纹和 advisor 47/40 基线不变。
 
-真实 authenticated 测试发现 `security_invoker` view 无权读取 RPC-only `venue_settings.timezone`，因此返回 `42501`。follow-up 只增加 authenticated `timezone` 单列 grant 与 manager-only SELECT policy；其他配置和 writes 继续 RPC-only。diagnostic 同时修正为只统计 17 个 `public` legacy writers，private reconcile helper 继续由独立 privilege check 覆盖。
+真实 authenticated 测试发现 `security_invoker` view 无权读取 RPC-only `venue_settings.timezone`，因此返回 `42501`。PR #130 follow-up 只增加 authenticated `timezone` 单列 grant 与 manager-only SELECT policy；其他配置和 writes 继续 RPC-only。第 41 个 migration 于 2026-08-24 13:18:16 UTC 成功应用，真实 manager/non-manager 权限测试、Phase 2/3A diagnostics、数据与冻结指纹全部通过。
 
-PGlite 使用真实 Phase 1、Phase 2、Phase 3A migrations，当前 13 项测试通过：
+上线后 performance advisor 新增一条 `multiple_permissive_policies` WARN：既有 `venue_settings_rpc_only FOR ALL false` 与 manager SELECT policy 在 authenticated SELECT 上重叠。Issue #131 的 pending migration 先验证 RLS/FORCE RLS、精确 policy 形状、timezone-only grant 和无 authenticated table/DML grants，再只删除冗余 false policy。RLS 对无适用 policy 的 DML 默认拒绝，client 也仍无 DML grant；不会扩大读取、写入或产品行为。
+
+PGlite 使用真实 Phase 1、Phase 2、Phase 3A 与两个 follow-up migrations，当前 14 项测试通过：
 
 - Phase 2 完整 backfill 与 7 个 negative/rollback cases；
 - authenticated 馆长可读取 clean shadow 状态，非馆长看不到 mismatch rows 且不能调用汇总 RPC；
@@ -140,7 +142,8 @@ PGlite 使用真实 Phase 1、Phase 2、Phase 3A migrations，当前 13 项测�
 - 新 unowned booking 被确定性补齐且不重复；
 - 同一 legacy group 指向不同 Auth users 时 fail closed；
 - 两个 owned Reservations 的 legacy link fail closed；
-- paid flag drift 被发现但不虚构 Payment。
+- paid flag drift 被发现但不虚构 Payment；
+- 如果 authenticated 意外获得 venue_settings DML grant，policy consolidation 会在 drop 前 fail closed，并只回滚自身；既有 aggregate、grant 与旧 policy 保持不变。
 
 可复跑验证：
 
@@ -155,10 +158,10 @@ psql ... -f supabase/diagnostics/phase_3a_reservation_compatibility.sql
 
 当前 Supabase GitHub integration 会在 migration PR 合并到 `main` 后自动应用 pending migration。因此本分支/PR：
 
-- 第 40 个 foundation migration 已应用生产；
-- 第 41 个 timezone access follow-up 可以开发、提交、push 和评审，但不授权 merge/生产部署；
-- follow-up merge 前必须 fresh remote/local history、生产只读 snapshot、隔离 apply、diagnostic、advisors 与明确生产授权；
-- follow-up 上线后仍不执行 catch-up、不激活 dual-write；Phase 3B 另开 activation PR。
+- 第 40 个 foundation 与第 41 个 timezone access migrations 已应用生产；
+- 第 42 个 policy consolidation 可以开发、提交、push 和评审，但不授权 merge/生产部署；
+- migration 42 merge 前必须 fresh remote/local history、生产只读 snapshot、隔离 apply、diagnostics、advisors 与明确生产授权；
+- migration 42 上线后仍不执行 catch-up、不激活 dual-write；Phase 3B 另开 activation PR。
 
 ---
 
@@ -287,9 +290,11 @@ Before Phase 3B activation, the smallest audited relationship/financial transiti
 
 After PR #129 merged, the fortieth migration reached production successfully at 2026-08-24 12:59:44 UTC. The postgres/admin diagnostic, with inventory correctly scoped to the 17 legacy `public` writers, returns `phase_3a_reservation_compatibility_verified`. All 192 bookings remain owned, with 123 Reservations, 135 Sessions, 131 Parties, 23 Payments, 26 allocations/CAD 1,642.00, zero shadow/ownership/Session/payment drift, zero catch-up events, unchanged frozen fingerprints, and the unchanged 47/40 advisor baseline.
 
-Real authenticated-role testing found that the `security_invoker` view cannot read RPC-only `venue_settings.timezone`, producing `42501`. The follow-up grants authenticated SELECT on the `timezone` column only and adds a manager-only SELECT policy; every other setting and all writes remain RPC-only. The diagnostic now counts only the 17 legacy `public` writers, while the private reconcile helper remains covered by a separate privilege check.
+Real authenticated-role testing found that the `security_invoker` view could not read RPC-only `venue_settings.timezone`, producing `42501`. The PR #130 follow-up grants authenticated SELECT on the `timezone` column only and adds a manager-only SELECT policy; every other setting and all writes remain RPC-only. The forty-first migration reached production successfully at 2026-08-24 13:18:16 UTC, and the real manager/non-manager role tests, Phase 2/3A diagnostics, data totals, and frozen fingerprints all passed.
 
-PGlite applies the real Phase 1, Phase 2, and Phase 3A migrations. All 13 current tests pass:
+The post-deployment performance advisor added one `multiple_permissive_policies` WARN because the existing `venue_settings_rpc_only FOR ALL false` policy overlaps the manager SELECT policy for authenticated SELECT. The pending Issue #131 migration first verifies RLS/FORCE RLS, the exact policy shape, the timezone-only grant, and the absence of authenticated table/DML grants, then drops only the redundant false policy. RLS default-denies DML with no applicable policy, and clients still have no DML grant, so the change widens neither reads, writes, nor product behavior.
+
+PGlite applies the real Phase 1, Phase 2, Phase 3A, and both follow-up migrations. All 14 current tests pass:
 
 - complete Phase 2 backfill plus seven negative/rollback cases;
 - an authenticated manager can read the clean shadow status, while a non-manager sees no mismatch rows and cannot call the summary RPC;
@@ -298,7 +303,8 @@ PGlite applies the real Phase 1, Phase 2, and Phase 3A migrations. All 13 curren
 - a new unowned booking is caught up deterministically without duplicates;
 - one legacy group pointing at different Auth users fails closed;
 - linking two owned Reservations fails closed;
-- paid-flag drift is detected without fabricating a Payment.
+- paid-flag drift is detected without fabricating a Payment;
+- if authenticated unexpectedly receives a venue-settings DML grant, policy consolidation fails closed before the drop and rolls back only itself, preserving the aggregate, grant, and old policy.
 
 Rerunnable verification:
 
@@ -313,7 +319,7 @@ The production diagnostic must return `phase_3a_reservation_compatibility_verifi
 
 The current Supabase GitHub integration automatically applies pending migrations when a migration PR is merged into `main`. Therefore this branch/PR:
 
-- the fortieth foundation migration is already applied in production;
-- the forty-first timezone access follow-up may be developed, committed, pushed, and reviewed, but is not authorized for merge or production deployment;
-- the follow-up requires fresh local/remote history, a production read-only snapshot, isolated apply, diagnostics, advisors, and explicit production authorization before merge;
-- the follow-up still does not execute catch-up or activate dual-write; Phase 3B uses a separate activation PR.
+- the fortieth foundation and forty-first timezone-access migrations are already applied in production;
+- the forty-second policy-consolidation migration may be developed, committed, pushed, and reviewed, but is not authorized for merge or production deployment;
+- migration 42 requires fresh local/remote history, a production read-only snapshot, isolated apply, diagnostics, advisors, and explicit production authorization before merge;
+- migration 42 still does not execute catch-up or activate dual-write; Phase 3B uses a separate activation PR.

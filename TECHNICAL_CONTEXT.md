@@ -186,7 +186,7 @@ Issue #123 / migration `20260824015013_reservation_deterministic_backfill` 将�
 
 隔离环境实际应用 Phase 1 + Phase 2 migration 及完整诊断；两个独立数据库的 aggregate/role/ledger/ownership mapping fingerprint 一致，8 个 happy/negative/rollback tests 通过。PR #126 合并后，Supabase GitHub integration 于 2026-08-24 04:46:10 UTC 自动应用第 39 个 migration；上线后只读诊断完整通过。详细证据见 [`docs/reservation-migration/phase-2-backfill.md`](./docs/reservation-migration/phase-2-backfill.md)。
 
-### Phase 3A compatibility foundation（生产已应用；timezone access follow-up 待评审；未激活）
+### Phase 3A compatibility foundation（41 个 migration 已生产；policy consolidation 待评审；未激活）
 
 Issue #128 / migration `20260824052629_reservation_phase_3a_compatibility_foundation` 只为后续 dual-write 建立未激活基础：复用 Phase 2 的 deterministic UUIDv5 与严格 Toronto DST 规则，提供 private、cursor-bounded、advisory-lock + stable row-lock 的 group/recurrence catch-up，以及 manager-only、zero-PII 的 security-invoker shadow mismatch view/RPC。migration 本身不调用 catch-up，不包装或替换旧 writer，不切换 read path，也不新增 client DML 或 Realtime publication。
 
@@ -194,19 +194,21 @@ Issue #128 / migration `20260824052629_reservation_phase_3a_compatibility_founda
 
 Phase 1 的 `bookings_enforce_session_projection` 会立即校验 owned booking 的 legacy local schedule 与 Session `timestamptz`。因此现有只更新 `bookings` 的 move/reschedule/swap/undo RPC 在 owned rows 上不能作为 Phase 3 写入路径；Phase 3B 必须在同一事务中按固定锁顺序同步 Session 与 Court allocation，不能删除或放宽该约束。ownership-only catch-up trigger 只保留旧 `updated_at`；`sync_public_court_slot` 对非排期字段变化提前返回，避免污染 slot/Realtime 证据。
 
-Phase 2/3A 共 13 项 PGlite integration tests 已通过：完整 Phase 2 映射、authenticated 馆长/非馆长的实际 view/RPC 权限路径、空 drift、分批幂等 catch-up、新 legacy group、客户身份冲突、unsafe link 与付款 drift 均有覆盖。设计与发布门禁见 [`docs/reservation-migration/phase-3a-compatibility-foundation.md`](./docs/reservation-migration/phase-3a-compatibility-foundation.md)，部署后只读验证脚本为 [`supabase/diagnostics/phase_3a_reservation_compatibility.sql`](./supabase/diagnostics/phase_3a_reservation_compatibility.sql)。
+Phase 2/3A 共 14 项 PGlite integration tests 已通过：完整 Phase 2 映射、authenticated 馆长/非馆长的实际 view/RPC 权限路径、policy consolidation、authenticated DML grant drift fail-closed、空 drift、分批幂等 catch-up、新 legacy group、客户身份冲突、unsafe link 与付款 drift 均有覆盖。设计与发布门禁见 [`docs/reservation-migration/phase-3a-compatibility-foundation.md`](./docs/reservation-migration/phase-3a-compatibility-foundation.md)，部署后只读验证脚本为 [`supabase/diagnostics/phase_3a_reservation_compatibility.sql`](./supabase/diagnostics/phase_3a_reservation_compatibility.sql)。
 
 PR #129 合并后，Supabase integration 于 2026-08-24 12:59:44 UTC 成功应用第 40 个 migration。上线后 postgres/admin diagnostic 在把 writer inventory 正确限定为 17 个 `public` legacy writers 后完整通过；192/192 ownership、aggregate/payment/Session 对账、Realtime boundary 与冻结 legacy/slot/payment-audit 指纹均无漂移，catch-up audit events 为 0，advisor 基线仍为 security 47（2 INFO / 45 WARN）和 performance 40 INFO。
 
-真实 `authenticated` 角色验证发现 view 对 `public.venue_settings.timezone` 的依赖被既有 `venue_settings_rpc_only` RLS 与缺失 grant 正确阻止，导致 manager/non-manager 都收到 `42501`。不能为此开放整张配置表。pending migration `20260824130514_reservation_phase_3a_shadow_timezone_access` 只授予 authenticated `timezone` 单列 SELECT，并增加 manager-only SELECT policy；其他 columns 与所有 writes 继续 RPC-only。PGlite 已按生产 RLS/grant 形状验证 manager 可读 clean status、non-manager 为 0 rows/RPC rejected，且 column grant 精确为一列。
+真实 `authenticated` 角色验证发现 view 对 `public.venue_settings.timezone` 的依赖被既有 `venue_settings_rpc_only` RLS 与缺失 grant 正确阻止，导致 manager/non-manager 都收到 `42501`。不能为此开放整张配置表。PR #130 / migration `20260824130514_reservation_phase_3a_shadow_timezone_access` 只授予 authenticated `timezone` 单列 SELECT，并增加 manager-only SELECT policy；其他 columns 与所有 writes 继续 RPC-only。该 migration 于 2026-08-24 13:18:16 UTC 由 Supabase integration 自动应用。生产角色测试确认 manager 可读 clean status、non-manager 为 0 rows/RPC rejected，且 column grant 精确为一列；Phase 2/3A diagnostics 与冻结指纹无漂移。
+
+部署后 performance advisor 新增一条 `multiple_permissive_policies` WARN：既有 `venue_settings_rpc_only FOR ALL ... false` 与 manager SELECT policy 都是 permissive，并在 authenticated SELECT 上以 OR 评估。Issue #131 / pending migration `20260824132704_phase_3a_venue_settings_policy_consolidation` 先断言 RLS + FORCE RLS、精确 policies、timezone-only column grant 和无 authenticated table/DML grants，再只删除冗余 false policy。删除后 manager SELECT 是唯一适用读取 policy；INSERT/UPDATE/DELETE 因无适用 policy 被 RLS 默认拒绝，同时仍没有 client DML grants。migration 不改变数据、RPC、view、Realtime、catch-up、dual-write 或前端。
 
 ## 8. 线上迁移状态
 
-2026-08-24 Phase 3A foundation 上线后，生产与 `main` 均核对到 40 个版本；当前修复分支本地有第 41 个 pending migration，尚未合并或部署：
+2026-08-24 PR #130 上线后，生产与 `main` 均核对到 41 个版本；当前 Issue #131 分支本地有第 42 个 pending migration，尚未合并或部署：
 
 - 首个：`20260812161833_private_manager_schedule`
-- 生产/`main` 最新：`20260824052629_reservation_phase_3a_compatibility_foundation`
-- 本地 pending：`20260824130514_reservation_phase_3a_shadow_timezone_access`
+- 生产/`main` 最新：`20260824130514_reservation_phase_3a_shadow_timezone_access`
+- 本地 pending：`20260824132704_phase_3a_venue_settings_policy_consolidation`
 
 本次未发现之前的 “Remote migration versions not found in local migrations directory” 漂移。
 
@@ -302,7 +304,7 @@ Supabase 新项目正在趋向默认不把新表暴露到 Data API；migration �
 - [Database linter](https://supabase.com/docs/guides/database/database-linter)
 - [Password security](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
 
-Performance advisor 在 Phase 2 上线后为 40 条 INFO 级尚未使用索引，没有更高等级 finding。Phase 2 仍未切换读取，Reservation/payment indexes 尚未被业务查询使用是预期状态；不能只因 `unused_index` 就删除，需结合 Phase 3 shadow queries、生产查询计划和增长后数据再决定。
+Performance advisor 在 Phase 2/Phase 3A foundation 后为 40 条 INFO 级尚未使用索引。Migration 41 上线后新增 1 条 `multiple_permissive_policies` WARN，Issue #131 的第 42 个 pending migration 以不扩大权限的 policy consolidation 为目标；部署前不能把 40 INFO + 1 WARN 接受为新基线。Phase 2 仍未切换读取，Reservation/payment indexes 尚未被业务查询使用是预期状态；不能只因 `unused_index` 就删除，需结合 Phase 3 shadow queries、生产查询计划和增长后数据再决定。
 
 ## 12. 馆务中心 RPC
 
