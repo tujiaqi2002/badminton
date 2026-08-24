@@ -173,7 +173,9 @@ $$;
 do $$
 declare
   v_column_grant_count integer;
+  v_column_privilege_count integer;
   v_policy_count integer;
+  v_permissive_select_policy_count integer;
 begin
   select count(*)::integer
     into v_column_grant_count
@@ -195,6 +197,42 @@ begin
   end if;
 
   select count(*)::integer
+    into v_column_privilege_count
+  from information_schema.column_privileges as privilege
+  where privilege.table_schema = 'public'
+    and privilege.table_name = 'venue_settings'
+    and privilege.grantee = 'authenticated';
+
+  if v_column_privilege_count <> 1 then
+    raise exception
+      'Phase 3A venue_settings column privileges are too broad';
+  end if;
+
+  if has_table_privilege(
+       'authenticated',
+       'public.venue_settings',
+       'select'
+     )
+     or has_table_privilege(
+       'authenticated',
+       'public.venue_settings',
+       'insert'
+     )
+     or has_table_privilege(
+       'authenticated',
+       'public.venue_settings',
+       'update'
+     )
+     or has_table_privilege(
+       'authenticated',
+       'public.venue_settings',
+       'delete'
+     ) then
+    raise exception
+      'Phase 3A venue_settings table privileges are too broad';
+  end if;
+
+  select count(*)::integer
     into v_policy_count
   from pg_policies as policy
   where policy.schemaname = 'public'
@@ -206,6 +244,43 @@ begin
 
   if v_policy_count <> 1 then
     raise exception 'Phase 3A venue timezone manager policy is missing';
+  end if;
+
+  if exists (
+    select 1
+    from pg_policies as policy
+    where policy.schemaname = 'public'
+      and policy.tablename = 'venue_settings'
+      and policy.policyname = 'venue_settings_rpc_only'
+  ) then
+    raise exception
+      'Phase 3A redundant venue_settings_rpc_only policy still exists';
+  end if;
+
+  select count(*)::integer
+    into v_permissive_select_policy_count
+  from pg_policies as policy
+  where policy.schemaname = 'public'
+    and policy.tablename = 'venue_settings'
+    and policy.permissive = 'PERMISSIVE'
+    and policy.roles @> array['authenticated']::name[]
+    and policy.cmd in ('ALL', 'SELECT');
+
+  if v_permissive_select_policy_count <> 1 then
+    raise exception
+      'Phase 3A venue timezone SELECT policies are not consolidated';
+  end if;
+
+  if exists (
+    select 1
+    from pg_policies as policy
+    where policy.schemaname = 'public'
+      and policy.tablename = 'venue_settings'
+      and policy.roles @> array['authenticated']::name[]
+      and policy.cmd in ('ALL', 'INSERT', 'UPDATE', 'DELETE')
+  ) then
+    raise exception
+      'Phase 3A venue_settings DML is not RLS default-denied';
   end if;
 end;
 $$;
