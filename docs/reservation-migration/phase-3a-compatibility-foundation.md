@@ -1,8 +1,8 @@
 # Reservation Phase 3A：未激活兼容基础层
 
 > Issue：[#128](https://github.com/tujiaqi2002/badminton/issues/128)
-> 状态：本地实现与隔离验证；未合并、未部署、未激活 dual-write。
-> Migration：`20260824052629_reservation_phase_3a_compatibility_foundation`
+> 状态：foundation 已应用生产；未执行 catch-up、未激活 dual-write；shadow timezone access follow-up 待评审。
+> Migrations：`20260824052629_reservation_phase_3a_compatibility_foundation`（生产）、`20260824130514_reservation_phase_3a_shadow_timezone_access`（pending）
 
 ## 中文
 
@@ -127,7 +127,9 @@ Phase 3B activation 前必须追加并验证最小的 audited relationship/finan
 
 ### 7. 隔离验证
 
-提交前 fresh production read-only preflight 确认远端仍只有 39 个 migrations；192/192 bookings 已有 ownership，123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00，ownership/Session/payment drift 为 0，17 个 direct writers 名单没有漂移。当前 advisors 仍为既有 security 47（2 INFO / 45 WARN）与 performance 40 INFO；由于 Phase 3A 尚未部署，这不是对本地第 40 个 migration 的远端 advisor 验证。
+PR #129 合并后，第 40 个 migration 于 2026-08-24 12:59:44 UTC 成功进入生产。postgres/admin diagnostic 在把 inventory 正确限定为 17 个 `public` legacy writers 后返回 `phase_3a_reservation_compatibility_verified`；192/192 bookings owned，123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00，shadow/ownership/Session/payment drift 与 catch-up events 均为 0，冻结指纹和 advisor 47/40 基线不变。
+
+真实 authenticated 测试发现 `security_invoker` view 无权读取 RPC-only `venue_settings.timezone`，因此返回 `42501`。follow-up 只增加 authenticated `timezone` 单列 grant 与 manager-only SELECT policy；其他配置和 writes 继续 RPC-only。diagnostic 同时修正为只统计 17 个 `public` legacy writers，private reconcile helper 继续由独立 privilege check 覆盖。
 
 PGlite 使用真实 Phase 1、Phase 2、Phase 3A migrations，当前 13 项测试通过：
 
@@ -153,11 +155,10 @@ psql ... -f supabase/diagnostics/phase_3a_reservation_compatibility.sql
 
 当前 Supabase GitHub integration 会在 migration PR 合并到 `main` 后自动应用 pending migration。因此本分支/PR：
 
-- 可以开发、提交、push 和评审；
-- 不授权 merge；
-- 不授权生产部署；
-- merge 前必须 fresh remote/local history、生产只读 snapshot、隔离 apply、diagnostic、advisors 与明确生产授权；
-- Phase 3A 上线后仍不执行 catch-up、不激活 dual-write；Phase 3B 另开 activation PR。
+- 第 40 个 foundation migration 已应用生产；
+- 第 41 个 timezone access follow-up 可以开发、提交、push 和评审，但不授权 merge/生产部署；
+- follow-up merge 前必须 fresh remote/local history、生产只读 snapshot、隔离 apply、diagnostic、advisors 与明确生产授权；
+- follow-up 上线后仍不执行 catch-up、不激活 dual-write；Phase 3B 另开 activation PR。
 
 ---
 
@@ -284,7 +285,9 @@ Before Phase 3B activation, the smallest audited relationship/financial transiti
 
 ### 7. Isolated verification
 
-A fresh production read-only preflight before submission confirms that remote still has only 39 migrations; all 192 bookings are owned, with 123 Reservations, 135 Sessions, 131 Parties, 23 Payments, 26 allocations/CAD 1,642.00, zero ownership/Session/payment drift, and the exact same set of 17 direct writers. The current advisor baseline remains 47 security findings (2 INFO / 45 WARN) and 40 performance INFO findings. Because Phase 3A is not deployed, this is not a remote advisor validation of the local fortieth migration.
+After PR #129 merged, the fortieth migration reached production successfully at 2026-08-24 12:59:44 UTC. The postgres/admin diagnostic, with inventory correctly scoped to the 17 legacy `public` writers, returns `phase_3a_reservation_compatibility_verified`. All 192 bookings remain owned, with 123 Reservations, 135 Sessions, 131 Parties, 23 Payments, 26 allocations/CAD 1,642.00, zero shadow/ownership/Session/payment drift, zero catch-up events, unchanged frozen fingerprints, and the unchanged 47/40 advisor baseline.
+
+Real authenticated-role testing found that the `security_invoker` view cannot read RPC-only `venue_settings.timezone`, producing `42501`. The follow-up grants authenticated SELECT on the `timezone` column only and adds a manager-only SELECT policy; every other setting and all writes remain RPC-only. The diagnostic now counts only the 17 legacy `public` writers, while the private reconcile helper remains covered by a separate privilege check.
 
 PGlite applies the real Phase 1, Phase 2, and Phase 3A migrations. All 13 current tests pass:
 
@@ -310,8 +313,7 @@ The production diagnostic must return `phase_3a_reservation_compatibility_verifi
 
 The current Supabase GitHub integration automatically applies pending migrations when a migration PR is merged into `main`. Therefore this branch/PR:
 
-- may be developed, committed, pushed, and reviewed;
-- is not authorized for merge;
-- is not authorized for production deployment;
-- requires fresh local/remote history, a production read-only snapshot, isolated apply, diagnostics, advisors, and explicit production authorization before merge;
-- still does not execute catch-up or activate dual-write after Phase 3A deployment; Phase 3B uses a separate activation PR.
+- the fortieth foundation migration is already applied in production;
+- the forty-first timezone access follow-up may be developed, committed, pushed, and reviewed, but is not authorized for merge or production deployment;
+- the follow-up requires fresh local/remote history, a production read-only snapshot, isolated apply, diagnostics, advisors, and explicit production authorization before merge;
+- the follow-up still does not execute catch-up or activate dual-write; Phase 3B uses a separate activation PR.

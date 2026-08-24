@@ -186,7 +186,7 @@ Issue #123 / migration `20260824015013_reservation_deterministic_backfill` 将�
 
 隔离环境实际应用 Phase 1 + Phase 2 migration 及完整诊断；两个独立数据库的 aggregate/role/ledger/ownership mapping fingerprint 一致，8 个 happy/negative/rollback tests 通过。PR #126 合并后，Supabase GitHub integration 于 2026-08-24 04:46:10 UTC 自动应用第 39 个 migration；上线后只读诊断完整通过。详细证据见 [`docs/reservation-migration/phase-2-backfill.md`](./docs/reservation-migration/phase-2-backfill.md)。
 
-### Phase 3A compatibility foundation（本地已起草，未合并、未部署、未激活）
+### Phase 3A compatibility foundation（生产已应用；timezone access follow-up 待评审；未激活）
 
 Issue #128 / migration `20260824052629_reservation_phase_3a_compatibility_foundation` 只为后续 dual-write 建立未激活基础：复用 Phase 2 的 deterministic UUIDv5 与严格 Toronto DST 规则，提供 private、cursor-bounded、advisory-lock + stable row-lock 的 group/recurrence catch-up，以及 manager-only、zero-PII 的 security-invoker shadow mismatch view/RPC。migration 本身不调用 catch-up，不包装或替换旧 writer，不切换 read path，也不新增 client DML 或 Realtime publication。
 
@@ -196,15 +196,17 @@ Phase 1 的 `bookings_enforce_session_projection` 会立即校验 owned booking 
 
 Phase 2/3A 共 13 项 PGlite integration tests 已通过：完整 Phase 2 映射、authenticated 馆长/非馆长的实际 view/RPC 权限路径、空 drift、分批幂等 catch-up、新 legacy group、客户身份冲突、unsafe link 与付款 drift 均有覆盖。设计与发布门禁见 [`docs/reservation-migration/phase-3a-compatibility-foundation.md`](./docs/reservation-migration/phase-3a-compatibility-foundation.md)，部署后只读验证脚本为 [`supabase/diagnostics/phase_3a_reservation_compatibility.sql`](./supabase/diagnostics/phase_3a_reservation_compatibility.sql)。
 
-提交前 fresh production read-only preflight 仍为 39 migrations、192/192 owned bookings、123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocation entries/CAD 1,642.00；partial ownership、Session projection、booking/payment balance mismatch 均为 0，17 个 direct writer 名单无漂移。远端尚未包含任何 Phase 3A 对象；advisor 基线仍为 security 47（2 INFO / 45 WARN）和 performance 40 INFO。
+PR #129 合并后，Supabase integration 于 2026-08-24 12:59:44 UTC 成功应用第 40 个 migration。上线后 postgres/admin diagnostic 在把 writer inventory 正确限定为 17 个 `public` legacy writers 后完整通过；192/192 ownership、aggregate/payment/Session 对账、Realtime boundary 与冻结 legacy/slot/payment-audit 指纹均无漂移，catch-up audit events 为 0，advisor 基线仍为 security 47（2 INFO / 45 WARN）和 performance 40 INFO。
+
+真实 `authenticated` 角色验证发现 view 对 `public.venue_settings.timezone` 的依赖被既有 `venue_settings_rpc_only` RLS 与缺失 grant 正确阻止，导致 manager/non-manager 都收到 `42501`。不能为此开放整张配置表。pending migration `20260824130514_reservation_phase_3a_shadow_timezone_access` 只授予 authenticated `timezone` 单列 SELECT，并增加 manager-only SELECT policy；其他 columns 与所有 writes 继续 RPC-only。PGlite 已按生产 RLS/grant 形状验证 manager 可读 clean status、non-manager 为 0 rows/RPC rejected，且 column grant 精确为一列。
 
 ## 8. 线上迁移状态
 
-2026-08-24 Phase 2 上线后，生产与 `main` 均核对到 39 个版本；当前 Phase 3A 工作分支本地有第 40 个 pending migration，尚未合并或部署：
+2026-08-24 Phase 3A foundation 上线后，生产与 `main` 均核对到 40 个版本；当前修复分支本地有第 41 个 pending migration，尚未合并或部署：
 
 - 首个：`20260812161833_private_manager_schedule`
-- 生产/`main` 最新：`20260824015013_reservation_deterministic_backfill`
-- 本地 pending：`20260824052629_reservation_phase_3a_compatibility_foundation`
+- 生产/`main` 最新：`20260824052629_reservation_phase_3a_compatibility_foundation`
+- 本地 pending：`20260824130514_reservation_phase_3a_shadow_timezone_access`
 
 本次未发现之前的 “Remote migration versions not found in local migrations directory” 漂移。
 

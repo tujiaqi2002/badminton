@@ -134,7 +134,7 @@ begin
       pg_get_functiondef(routine.oid) as definition
     from pg_proc as routine
     join pg_namespace as namespace on namespace.oid = routine.pronamespace
-    where namespace.nspname in ('public', 'private')
+    where namespace.nspname = 'public'
       and routine.prokind = 'f'
   ), writers as (
     select routine_name
@@ -166,6 +166,46 @@ begin
 
   if v_count <> 1 then
     raise exception 'Phase 3A ownership timestamp trigger is missing';
+  end if;
+end;
+$$;
+
+do $$
+declare
+  v_column_grant_count integer;
+  v_policy_count integer;
+begin
+  select count(*)::integer
+    into v_column_grant_count
+  from information_schema.column_privileges as privilege
+  where privilege.table_schema = 'public'
+    and privilege.table_name = 'venue_settings'
+    and privilege.grantee = 'authenticated'
+    and privilege.privilege_type = 'SELECT';
+
+  if v_column_grant_count <> 1
+     or not has_column_privilege(
+       'authenticated',
+       'public.venue_settings',
+       'timezone',
+       'select'
+     ) then
+    raise exception
+      'Phase 3A venue timezone column grant is missing or too broad';
+  end if;
+
+  select count(*)::integer
+    into v_policy_count
+  from pg_policies as policy
+  where policy.schemaname = 'public'
+    and policy.tablename = 'venue_settings'
+    and policy.policyname =
+      'managers read venue timezone for reservation shadow'
+    and policy.cmd = 'SELECT'
+    and policy.roles = array['authenticated']::name[];
+
+  if v_policy_count <> 1 then
+    raise exception 'Phase 3A venue timezone manager policy is missing';
   end if;
 end;
 $$;

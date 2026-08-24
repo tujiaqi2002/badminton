@@ -19,6 +19,10 @@ const phase3aPath = new URL(
   '../migrations/20260824052629_reservation_phase_3a_compatibility_foundation.sql',
   import.meta.url,
 )
+const phase3aAccessFixPath = new URL(
+  '../migrations/20260824130514_reservation_phase_3a_shadow_timezone_access.sql',
+  import.meta.url,
+)
 
 const productionFingerprints = {
   booking: '20802718eff3b81bd5fe38d99808e8d8',
@@ -163,6 +167,14 @@ function baseSchemaSql({ forceSessionCollision = false } = {}) {
       timezone text not null,
       currency character(3) not null
     );
+    alter table public.venue_settings enable row level security;
+    alter table public.venue_settings force row level security;
+    create policy venue_settings_rpc_only
+      on public.venue_settings
+      for all
+      to authenticated
+      using (false)
+      with check (false);
 
     create table public.bookings (
       id uuid primary key,
@@ -229,8 +241,7 @@ function baseSchemaSql({ forceSessionCollision = false } = {}) {
     grant execute on function auth.uid() to anon, authenticated, service_role;
     grant select on table
       public.staff_members,
-      public.bookings,
-      public.venue_settings
+      public.bookings
     to authenticated;
 
     create function public.set_updated_at()
@@ -670,6 +681,10 @@ async function applyPhase3a(db) {
   await db.exec(await readFile(phase3aPath, 'utf8'))
 }
 
+async function applyPhase3aAccessFix(db) {
+  await db.exec(await readFile(phase3aAccessFixPath, 'utf8'))
+}
+
 async function shadowMismatchCodes(db) {
   const result = await db.query(`
     select mismatch_code, count(*)::integer as mismatch_count
@@ -685,6 +700,7 @@ test('Phase 3A installs an inactive, clean, idempotent compatibility foundation'
   try {
     await db.exec(migration)
     await applyPhase3a(db)
+    await applyPhase3aAccessFix(db)
 
     const securityBoundary = await db.query(`
       select
@@ -740,7 +756,21 @@ test('Phase 3A installs an inactive, clean, idempotent compatibility foundation'
             'service_role',
             'private.catch_up_reservation_aggregates(uuid,integer)',
             'execute'
-          ) as catch_up_has_no_client_execute
+          ) as catch_up_has_no_client_execute,
+        has_column_privilege(
+          'authenticated',
+          'public.venue_settings',
+          'timezone',
+          'select'
+        )
+          and (
+            select count(*) = 1
+            from information_schema.column_privileges as privilege
+            where privilege.table_schema = 'public'
+              and privilege.table_name = 'venue_settings'
+              and privilege.grantee = 'authenticated'
+              and privilege.privilege_type = 'SELECT'
+          ) as timezone_grant_is_column_only
       from pg_class as view
       join pg_namespace as view_schema on view_schema.oid = view.relnamespace
       cross join pg_proc as diagnostic
@@ -755,6 +785,7 @@ test('Phase 3A installs an inactive, clean, idempotent compatibility foundation'
       diagnostic_is_invoker_with_empty_path: true,
       diagnostic_grants_are_minimal: true,
       catch_up_has_no_client_execute: true,
+      timezone_grant_is_column_only: true,
     }])
 
     const managerId = uuid(6, 1)
@@ -776,6 +807,14 @@ test('Phase 3A installs an inactive, clean, idempotent compatibility foundation'
     `)
     assert.equal(managerStatus.rows[0].result.status, 'clean')
     assert.equal(managerStatus.rows[0].result.mismatch_count, 0)
+    const managerTimezone = await db.query(`
+      select timezone from public.venue_settings
+    `)
+    assert.deepEqual(managerTimezone.rows, [{ timezone: 'America/Toronto' }])
+    await assert.rejects(
+      db.query('select currency from public.venue_settings'),
+      /permission denied/,
+    )
     await db.exec('reset role;')
 
     const nonManagerId = uuid(9, 2)
