@@ -172,3 +172,13 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - 此次确认当前 GitHub integration 会把包含 pending migration 的 `main` merge 直接变成生产部署，原先“先 merge、再单独 dry-run/push”的门禁与实际配置不符。
 
 阶段结果：Phase 2 已成为生产事实，但 legacy RPC/前端仍未 dual-write/read cutover。未来数据库 PR 必须在 merge 前完成生产 preflight 与授权，或先关闭 GitHub 自动部署；Phase 3 仍需独立 Issue 与用户确认。
+
+## 18. 2026-08-24：Reservation Phase 3A compatibility foundation 起草
+
+- 用户 review 并明确确认 Issue #128 后，开始第 40 个 additive migration；当前只允许开发与评审，没有 merge 或生产部署授权。
+- 生产 routine catalog 与 migration code 交叉核对出 17 个直接 booking writer、3 个 wrapper 和 2 个未部署 Stripe Edge write path，形成 Phase 3B 的 writer coverage 边界。
+- 新增 deterministic private catch-up、zero-PII shadow mismatch view/RPC、最小 grants 和诊断；migration 不执行 catch-up、不替换 writer、不启用 dual-write/read cutover。
+- 发现 Phase 1 Session projection trigger 会拒绝 owned booking 的 legacy-only 排期更新；保留该安全约束，并把事务内 Session/allocation 同步列为 Phase 3B 前置条件。
+- 已验证安全的新 legacy group 可以幂等补齐；同一 group 的客户身份冲突、跨既有 Reservation link/unlink 与 payment drift 均 fail-closed，不自动创造身份、关系、付款或退款事实。Phase 2/3A 共 13 项隔离测试通过。
+
+阶段结果：Phase 3A 已成为可评审、未部署的兼容基础草案。生产仍为 39 个 migration 和 legacy write/read path；merge 会触发 Supabase 自动部署，因此必须在 fresh production preflight、独立评审和明确生产授权后进行，Phase 3B activation 仍需单独 PR。

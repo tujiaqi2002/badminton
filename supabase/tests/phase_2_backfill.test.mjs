@@ -15,6 +15,10 @@ const diagnosticPath = new URL(
   '../diagnostics/phase_2_reservation_backfill.sql',
   import.meta.url,
 )
+const phase3aPath = new URL(
+  '../migrations/20260824052629_reservation_phase_3a_compatibility_foundation.sql',
+  import.meta.url,
+)
 
 const productionFingerprints = {
   booking: '20802718eff3b81bd5fe38d99808e8d8',
@@ -644,6 +648,364 @@ test('Phase 2 rolls back every write after a late failure', async () => {
   try {
     await assert.rejects(db.exec(failingMigration), /division by zero/)
     await rollbackAfterFailure(db)
+  } finally {
+    await db.close()
+  }
+})
+
+async function applyPhase3a(db) {
+  await db.exec(await readFile(phase3aPath, 'utf8'))
+}
+
+async function shadowMismatchCodes(db) {
+  const result = await db.query(`
+    select mismatch_code, count(*)::integer as mismatch_count
+    from public.reservation_shadow_mismatches
+    group by mismatch_code
+    order by mismatch_code
+  `)
+  return result.rows
+}
+
+test('Phase 3A installs an inactive, clean, idempotent compatibility foundation', async () => {
+  const { db, migration } = await buildDatabase()
+  try {
+    await db.exec(migration)
+    await applyPhase3a(db)
+
+    const securityBoundary = await db.query(`
+      select
+        coalesce('security_invoker=true' = any(view.reloptions), false)
+          as shadow_security_invoker,
+        not has_table_privilege(
+          'anon',
+          'public.reservation_shadow_mismatches',
+          'select'
+        )
+          and has_table_privilege(
+            'authenticated',
+            'public.reservation_shadow_mismatches',
+            'select'
+          )
+          and not has_table_privilege(
+            'service_role',
+            'public.reservation_shadow_mismatches',
+            'select'
+          ) as shadow_grants_are_minimal,
+        diagnostic.prosecdef = false
+          and diagnostic.proconfig is not null
+          and (
+            'search_path=' = any(diagnostic.proconfig)
+            or 'search_path=""' = any(diagnostic.proconfig)
+          ) as diagnostic_is_invoker_with_empty_path,
+        not has_function_privilege(
+          'anon',
+          'public.admin_get_reservation_shadow_status(integer)',
+          'execute'
+        )
+          and has_function_privilege(
+            'authenticated',
+            'public.admin_get_reservation_shadow_status(integer)',
+            'execute'
+          )
+          and not has_function_privilege(
+            'service_role',
+            'public.admin_get_reservation_shadow_status(integer)',
+            'execute'
+          ) as diagnostic_grants_are_minimal,
+        not has_function_privilege(
+          'anon',
+          'private.catch_up_reservation_aggregates(uuid,integer)',
+          'execute'
+        )
+          and not has_function_privilege(
+            'authenticated',
+            'private.catch_up_reservation_aggregates(uuid,integer)',
+            'execute'
+          )
+          and not has_function_privilege(
+            'service_role',
+            'private.catch_up_reservation_aggregates(uuid,integer)',
+            'execute'
+          ) as catch_up_has_no_client_execute
+      from pg_class as view
+      join pg_namespace as view_schema on view_schema.oid = view.relnamespace
+      cross join pg_proc as diagnostic
+      where view_schema.nspname = 'public'
+        and view.relname = 'reservation_shadow_mismatches'
+        and diagnostic.oid =
+          'public.admin_get_reservation_shadow_status(integer)'::regprocedure
+    `)
+    assert.deepEqual(securityBoundary.rows, [{
+      shadow_security_invoker: true,
+      shadow_grants_are_minimal: true,
+      diagnostic_is_invoker_with_empty_path: true,
+      diagnostic_grants_are_minimal: true,
+      catch_up_has_no_client_execute: true,
+    }])
+
+    assert.deepEqual(await shadowMismatchCodes(db), [])
+    await db.exec('select private.assert_reservation_shadow_clean();')
+
+    const before = await mappingFingerprint(db)
+    const auditBefore = await scalar(db, `
+      select count(*)::integer as value
+      from private.app_audit_events
+    `, 'value')
+    const first = await db.query(`
+      select private.catch_up_reservation_aggregates(null, 100) as result
+    `)
+    assert.equal(first.rows[0].result.processed_group_count, 100)
+    assert.equal(first.rows[0].result.has_more, true)
+
+    const second = await db.query(`
+      select private.catch_up_reservation_aggregates(
+        ${(first.rows[0].result.last_group_id
+          ? sqlString(first.rows[0].result.last_group_id)
+          : 'null')}::uuid,
+        100
+      ) as result
+    `)
+    assert.equal(second.rows[0].result.processed_group_count, 31)
+    assert.equal(second.rows[0].result.has_more, false)
+    assert.equal(await mappingFingerprint(db), before)
+    assert.equal(await scalar(db, `
+      select count(*)::integer as value
+      from private.app_audit_events
+    `, 'value'), auditBefore)
+    assert.deepEqual(await shadowMismatchCodes(db), [])
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 3A deterministically catches up a new unowned booking without duplicating facts', async () => {
+  const { db, migration } = await buildDatabase()
+  const bookingId = uuid(8, 1)
+  const groupId = uuid(8, 2)
+  const userId = uuid(6, 1)
+  const courtId = uuid(5, 1)
+  try {
+    await db.exec(migration)
+    await applyPhase3a(db)
+    await db.exec(`
+      insert into public.bookings (
+        id, user_id, court_id, start_at, end_at, status, payment_status,
+        payment_method, total_amount, currency, party_size, hold_expires_at,
+        stripe_checkout_session_id, stripe_payment_intent_id, cancelled_at,
+        created_at, updated_at, customer_name, customer_email, customer_phone,
+        customer_notes, booking_group_id, recurrence_series_id, recurrence_week,
+        system_calculated_amount, price_source, price_override_amount,
+        price_overridden_by, price_overridden_at, booking_link_id
+      ) values (
+        ${sqlString(bookingId)}::uuid,
+        ${sqlString(userId)}::uuid,
+        ${sqlString(courtId)}::uuid,
+        '2027-04-01 10:00:00'::timestamp,
+        '2027-04-01 11:00:00'::timestamp,
+        'confirmed',
+        'pay_at_venue',
+        'venue',
+        44,
+        'CAD',
+        2,
+        null,
+        null,
+        null,
+        null,
+        '2026-08-24 06:00:00+00'::timestamptz,
+        '2026-08-24 06:00:00+00'::timestamptz,
+        'Phase 3 synthetic customer',
+        'phase3@example.invalid',
+        '5550000000',
+        null,
+        ${sqlString(groupId)}::uuid,
+        null,
+        null,
+        44,
+        'system',
+        null,
+        null,
+        null,
+        null
+      );
+    `)
+
+    assert.deepEqual(await shadowMismatchCodes(db), [
+      { mismatch_code: 'booking_unowned', mismatch_count: 1 },
+      { mismatch_code: 'group_ownership_mismatch', mismatch_count: 1 },
+    ])
+
+    await db.exec('select private.catch_up_reservation_aggregates(null, 200);')
+    await db.exec('select private.assert_reservation_shadow_clean();')
+
+    const ownership = await db.query(`
+      select reservation_id, session_id, updated_at
+      from public.bookings
+      where id = ${sqlString(bookingId)}::uuid
+    `)
+    assert.ok(ownership.rows[0].reservation_id)
+    assert.ok(ownership.rows[0].session_id)
+    assert.equal(
+      new Date(ownership.rows[0].updated_at).toISOString(),
+      '2026-08-24T06:00:00.000Z',
+    )
+
+    const countsBeforeRetry = await db.query(`
+      select
+        (select count(*) from public.reservations)::integer as reservations,
+        (select count(*) from public.reservation_sessions)::integer as sessions,
+        (select count(*) from public.reservation_parties)::integer as parties,
+        (select count(*) from public.reservation_legacy_sources)::integer as sources
+    `)
+    await db.exec('select private.catch_up_reservation_aggregates(null, 200);')
+    const countsAfterRetry = await db.query(`
+      select
+        (select count(*) from public.reservations)::integer as reservations,
+        (select count(*) from public.reservation_sessions)::integer as sessions,
+        (select count(*) from public.reservation_parties)::integer as parties,
+        (select count(*) from public.reservation_legacy_sources)::integer as sources
+    `)
+    assert.deepEqual(countsAfterRetry.rows[0], countsBeforeRetry.rows[0])
+    assert.deepEqual(await shadowMismatchCodes(db), [])
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 3A fails closed when one legacy group points at multiple auth users', async () => {
+  const { db, migration } = await buildDatabase()
+  const conflictingUserId = uuid(9, 1)
+  const groupId = uuid(2, 1)
+  try {
+    await db.exec(migration)
+    await applyPhase3a(db)
+    await db.exec(`
+      insert into auth.users (id) values (${sqlString(conflictingUserId)}::uuid);
+      update public.bookings
+         set user_id = ${sqlString(conflictingUserId)}::uuid
+       where id = (
+         select booking.id
+         from public.bookings as booking
+         where booking.booking_group_id = ${sqlString(groupId)}::uuid
+         order by booking.id
+         limit 1
+       );
+    `)
+
+    assert.deepEqual(
+      (await shadowMismatchCodes(db)).filter(
+        (row) => row.mismatch_code === 'group_aggregate_facts_inconsistent',
+      ),
+      [{ mismatch_code: 'group_aggregate_facts_inconsistent', mismatch_count: 1 }],
+    )
+    await assert.rejects(
+      db.exec(`
+        select private.reconcile_legacy_booking_group(
+          ${sqlString(groupId)}::uuid,
+          null,
+          'system'
+        );
+      `),
+      /conflicting aggregate facts/,
+    )
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 3A fails closed when a legacy link would merge owned Reservations', async () => {
+  const { db, migration } = await buildDatabase()
+  const linkId = uuid(9, 1)
+  const sourceGroupId = uuid(2, 20)
+  const targetGroupId = uuid(2, 21)
+  try {
+    await db.exec(migration)
+    await applyPhase3a(db)
+    const before = await db.query(`
+      select booking_group_id, min(reservation_id::text) as reservation_id
+      from public.bookings
+      where booking_group_id in (
+        ${sqlString(sourceGroupId)}::uuid,
+        ${sqlString(targetGroupId)}::uuid
+      )
+      group by booking_group_id
+      order by booking_group_id
+    `)
+
+    await db.exec(`
+      update public.bookings
+      set booking_link_id = ${sqlString(linkId)}::uuid
+      where booking_group_id in (
+        ${sqlString(sourceGroupId)}::uuid,
+        ${sqlString(targetGroupId)}::uuid
+      );
+    `)
+
+    assert.deepEqual(await shadowMismatchCodes(db), [
+      { mismatch_code: 'link_scope_mismatch', mismatch_count: 1 },
+    ])
+    await assert.rejects(
+      db.exec(`select private.reconcile_legacy_booking_group(
+        ${sqlString(sourceGroupId)}::uuid,
+        null,
+        'system'
+      );`),
+      /relationship transition required/i,
+    )
+
+    const after = await db.query(`
+      select booking_group_id, min(reservation_id::text) as reservation_id
+      from public.bookings
+      where booking_group_id in (
+        ${sqlString(sourceGroupId)}::uuid,
+        ${sqlString(targetGroupId)}::uuid
+      )
+      group by booking_group_id
+      order by booking_group_id
+    `)
+    assert.deepEqual(after.rows, before.rows)
+    await assert.rejects(
+      db.exec('select private.assert_reservation_shadow_clean();'),
+      /link_scope_mismatch/,
+    )
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 3A reports payment drift without inventing a receipt', async () => {
+  const { db, migration } = await buildDatabase()
+  try {
+    await db.exec(migration)
+    await applyPhase3a(db)
+    const booking = await db.query(`
+      select id
+      from public.bookings
+      where payment_status = 'pay_at_venue'
+      order by id
+      limit 1
+    `)
+    const paymentCount = await scalar(db, `
+      select count(*)::integer as value from public.payments
+    `, 'value')
+
+    await db.exec(`
+      update public.bookings
+      set payment_status = 'paid'
+      where id = ${sqlString(booking.rows[0].id)}::uuid;
+    `)
+
+    assert.deepEqual(await shadowMismatchCodes(db), [
+      { mismatch_code: 'booking_payment_balance_mismatch', mismatch_count: 1 },
+    ])
+    await db.exec('select private.catch_up_reservation_aggregates(null, 200);')
+    assert.equal(await scalar(db, `
+      select count(*)::integer as value from public.payments
+    `, 'value'), paymentCount)
+    assert.deepEqual(await shadowMismatchCodes(db), [
+      { mismatch_code: 'booking_payment_balance_mismatch', mismatch_count: 1 },
+    ])
   } finally {
     await db.close()
   }

@@ -142,6 +142,8 @@ Issue #118 已确认未来把现有 `booking_group_id` / `booking_link_id` 统�
 
 Phase 2 的历史回填使用内部 `legacy_unspecified` 付款意向，因为旧 booking 只证明 paid/pay-at-venue 状态，不能证明客户当时选择单人支付还是 split。它不会取消未来的 single/equal/custom 选项，也不会替历史记录虚构 payer、payment shares、provider 或时间。该 snapshot 已于 2026-08-24 回填生产，但前端和 RPC 尚未 read/write cutover；Phase 3 之前新产生的 legacy booking 仍可能没有 aggregate ownership，必须由后续 catch-up + dual-write reconciliation 处理。完整规则见 [`docs/reservation-migration/phase-2-backfill.md`](./docs/reservation-migration/phase-2-backfill.md)。
 
+Phase 3A / Issue #128 当前只建立未激活的兼容基础：安全 legacy group 可以确定性、幂等 catch-up；已经分别属于不同 Reservation 的 group 再被 link/unlink，以及无法由旧字段证明的 merge/split 或付款变化，必须停下并显示 shadow mismatch，不能自动猜测。该分支不改变客户或馆长界面、不执行 catch-up、不启用 dual-write；完整中英文边界见 [`docs/reservation-migration/phase-3a-compatibility-foundation.md`](./docs/reservation-migration/phase-3a-compatibility-foundation.md)。
+
 订单较多时，“我的预订”默认展示即将开始的订单，并提供 Upcoming/Past/Cancelled tabs、日期/场地/编号等搜索、折叠式高级筛选、已应用筛选 chip 与清除入口。结果按月份分组，筛选和搜索只改变列表可见性，不隐藏单张订单卡片上的既有信息或取消动作。
 
 ## 6. 馆长预订管理
