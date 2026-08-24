@@ -182,3 +182,13 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - 已验证安全的新 legacy group 可以幂等补齐；同一 group 的客户身份冲突、跨既有 Reservation link/unlink 与 payment drift 均 fail-closed，不自动创造身份、关系、付款或退款事实。Phase 2/3A 共 13 项隔离测试通过。
 
 阶段结果：Phase 3A 已成为可评审、未部署的兼容基础草案。生产仍为 39 个 migration 和 legacy write/read path；merge 会触发 Supabase 自动部署，因此必须在 fresh production preflight、独立评审和明确生产授权后进行，Phase 3B activation 仍需单独 PR。
+
+## 19. 2026-08-24：Reservation Phase 3A foundation 上线并发现最小权限缺口
+
+- 用户在明确获知 merge 会自动部署后确认继续；PR #129 于 12:59:02 UTC 合并，Supabase integration 于 12:59:44 UTC 成功应用第 40 个 migration，GitHub Pages build/deploy 同时通过。
+- migration 没有调用 catch-up；上线后仍为 192/192 owned bookings、123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00，shadow/session/payment drift 为 0，audit 总数和冻结 legacy/slot/payment-audit 指纹未改变。
+- 初始只读 diagnostic 把新的 private reconcile helper 计入 legacy writer inventory；将范围限定为 `public` 后返回 `phase_3a_reservation_compatibility_verified`。这是验证脚本问题，不是数据写入失败。
+- 真实 authenticated 测试随后发现 shadow view 依赖的 `venue_settings.timezone` 仍受 RPC-only RLS/privilege 保护，因此 manager/non-manager 均先收到 `42501`。现有隔离测试曾用过宽的 venue_settings grant，现已改为 production-like RLS 形状。
+- 最小修复只允许 authenticated 读取 `timezone` 单列，并用额外 SELECT policy 限定馆长；不开放其他配置字段或写操作。第 41 个 migration 已在独立分支起草和隔离验证，尚未获得 merge/生产授权。
+
+阶段结果：Phase 3A 数据基础已安全上线但 manager shadow access 仍待第 41 个 migration 修复；legacy 产品行为未变，Phase 3B 继续被门禁阻止。
