@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-23。当前工作分支：`codex/issue-121-reservation-schema`。
+> 项目：`project-001-badminton`。核对日期：2026-08-23。当前工作分支：`codex/phase-1-production-verification`。
 
 ## 1. 一句话结论
 
@@ -13,8 +13,8 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 仓库：`tujiaqi2002/badminton`，默认分支 `main`。
 - 生产前端：`https://tujiaqi2002.github.io/badminton/`，由 GitHub Actions 从 `main` 发布。
 - 后端：Supabase project `ldbtrouofmqmnkyxiewk`，PostgreSQL + Auth + Realtime + RPC/RLS。
-- `main` 当前已包含 PR #117；对应 GitHub Pages workflow 已成功发布。
-- 数据库目录和远端 migration history 均为 37 个版本，已在 Issue #119 Phase 0 只读核对一致。
+- `main` 当前已包含 PR #120（Phase 0）和 PR #122（Phase 1）；两次 GitHub Pages workflow 均成功。
+- 数据库目录和远端 migration history 均为 38 个版本；最新版本为 `20260823072016_reservation_aggregate_schema`。
 - 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；#93 增加了首组 6 个纯逻辑单元测试，但仍没有集成或 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
 - `App.jsx`、`AdminSchedule.jsx`、`i18n.js` 和 `styles.css` 已成为大型集中模块，后续改动的回归面较大。
@@ -38,22 +38,20 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #121：Reservation migration Phase 1 additive schema
+### Issue #123：Reservation migration Phase 2 deterministic backfill
 
-- 分支：`codex/issue-121-reservation-schema`，stacked on Phase 0 / PR #120。
-- Parent design：`https://github.com/tujiaqi2002/badminton/issues/118`，已于 2026-08-23 获得产品确认。
-- Phase Issue：`https://github.com/tujiaqi2002/badminton/issues/121`，用户已在 review #120 后明确授权开始。
-- PR：`https://github.com/tujiaqi2002/badminton/pull/122`，base 为 Phase 0 分支；等待评审，未合并、未部署，Supabase Preview integration 当前为 skipped。
-- 范围：只加不删地建立 Reservation/Session/Party/Payment/recurrence 父实体与 ledger；现有 `bookings` 只新增 nullable ownership FKs。
-- 本地 migration：38；生产仍为 37。新版本 `20260823072016_reservation_aggregate_schema` 未应用、未部署。
-- 权限：9 张新 public 表均 RLS + FORCE RLS；authenticated 只有 manager-only SELECT，anon/service_role 无 direct grants，没有新 public RPC。
+- Parent design：`https://github.com/tujiaqi2002/badminton/issues/118`；Phase 2 Issue：`https://github.com/tujiaqi2002/badminton/issues/123`。
+- Phase 0 / PR #120 和 Phase 1 / PR #122 已合并；第 38 个 migration `20260823072016_reservation_aggregate_schema` 已存在于生产 migration history。
+- Phase 1 生产诊断于 2026-08-23 通过：9 张新表保持为空，192 条 legacy booking 的 `reservation_id` / `session_id` 全部仍为 null，139 条有效 `court_slots` 投影未改变。
+- 权限：9 张新 public 表均 RLS + FORCE RLS；authenticated 只有 manager-only SELECT，anon/service_role 无 direct grants，没有新 public RPC 或 Realtime publication。
 - 账务真实性：正常 Payment 必须有真实 `occurred_at`；仅 `legacy_reconciliation` 可为 null，避免为缺少付款审计的历史 paid rows 虚构时间。
-- 兼容：legacy group/link/recurrence/payment、现有 RPC、GiST overlap、`court_slots`、Realtime 和前端均未改变。
-- 验证：migration 在隔离 PostgreSQL 中实际应用，schema assertions 与负向约束测试通过；Codex 内置 Node.js v24.19.0 / pnpm 11.19.0 下 22/22 tests、lint、build 通过（CI 仍使用 Node 22 / pnpm 11.16.0）；报告见 [`docs/reservation-migration/phase-1-schema.md`](./docs/reservation-migration/phase-1-schema.md)。
-- Phase 2 仍被门禁：缺少付款审计的 paid rows 必须使用明确的 reconciliation 语义，且需先做 Toronto DST 转换专项验证。
+- 当前生产行为仍完整使用 legacy group/link/recurrence/payment 与旧 RPC；Phase 1 只上线物理基础，没有 backfill、dual write 或 read cutover。
+- Phase 2 已获产品确认但尚未实现；开始前仍须完成 Toronto DST 转换专项验证，并严格执行 deterministic grouping、主要联系人 fallback 和 legacy payment reconciliation 规则。
 
 ### 最近合并
 
+- PR #122 / Issue #121：Reservation Phase 1 additive schema，已于 2026-08-23 合并；生产 schema 验证通过。
+- PR #120 / Issue #119：Reservation Phase 0 baseline，已于 2026-08-23 合并。
 - PR #117 / Issue #116：Drag Feedback / Schedule Side Panels，已于 2026-08-23 合并并成功发布。
 - PR #111 / Issue #110：Remove redundant move scope note，已合并/关闭。
 - PR #114 / Issue #113：Booking relationship popover outside-click dismissal，已合并/关闭。
@@ -102,7 +100,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 ### P0：发布与数据安全
 
 - 尚未建立可靠的 PR Preview/staging，reviewer 很难在合并前直接体验。
-- Supabase migration history 曾两次出现远端/本地不一致；2026-08-23 Phase 0 已对齐到 37/37，后续每个数据库阶段仍必须先对齐再推送。
+- Supabase migration history 曾两次出现远端/本地不一致；2026-08-23 Phase 0 对齐到 37/37，Phase 1 上线后对齐到 38/38；后续每个数据库阶段仍必须先对齐再推送。
 - 支付代码存在但未形成可证明的生产闭环，不能对客户宣称在线支付可用。
 - Reservation 迁移会跨 schema、权限、计价、付款和审计；必须按 #118 的 Phase 0–5 逐步交付，禁止一次性替换 legacy 模型。
 
