@@ -249,7 +249,7 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 
 ## 24. 2026-08-24：Reservation Phase 3B.2 在独立 staging 原子激活
 
-- 按高风险门禁创建 Issue #136，并在用户确认后从 Draft PR #135 head 建立 `codex/phase-3b-atomic-writer-activation`。授权只包含 staging activation/validation；PR merge、production writes、read/UI cutover、Stripe 和 legacy decommission 仍被明确排除。
+- 按高风险门禁创建 Issue #136，并在用户确认后从 Draft PR #135 head 建立 `codex/phase-3b-atomic-writer-activation`。提交后建立 Draft PR #137，base 精确指向 `codex/phase-3b-inactive-transaction-kernel`，保持 3B.1 / 3B.2 一目标一分支。授权只包含 staging activation/validation；PR merge、production writes、read/UI cutover、Stripe 和 legacy decommission 仍被明确排除。
 - 第 45 个 append-only migration 在一个 transaction 中冻结旧定义、移入 17 个 private legacy delegates，并以相同 public signatures 重建授权优先的 Phase 3B entries。3 个 wrappers 保持 indirect，最终边界为 17 public entries / 0 public direct legacy writers / 17 private delegates / 3 wrappers。
 - 为表达移动、merge/split/reverse 后 physical/effective Session 的演进，新增 append-only `reservation_session_assignments` 和 membership pointer；controlled activation context 允许 legacy delegate 的事务中间态，deferred constraint 保证提交前 aggregate、legacy projection、payment 与 audit 一致。
 - 新的 manager-only explicit-primary link RPC 支持不同客户 merge 与 single/equal/custom payment intent。旧 link 仅在 primary 无歧义时兼容；mark-paid 追加 Payment/allocation，paid 改为 unpaid 追加 refund，不删除旧账本事实。
@@ -266,7 +266,7 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 
 ## English record: Phase 3B.2 atomic staging activation
 
-After Issue #136 received explicit confirmation, a separate branch was stacked on Draft PR #135. The scope remained staging activation and validation only; merge, production writes, read/UI cutover, Stripe, and legacy decommission were excluded.
+After Issue #136 received explicit confirmation, a separate branch was stacked on Draft PR #135. Draft PR #137 targets the Phase 3B.1 head branch instead of `main`, preserving one objective per branch. The scope remained staging activation and validation only; merge, production writes, read/UI cutover, Stripe, and legacy decommission were excluded.
 
 Migration 45 atomically freezes and moves all 17 legacy direct writers to private delegates, recreates the same public signatures as authorization-first Phase 3B entries, and keeps the three wrappers indirect. It adds append-only Session assignment history, explicit-primary different-customer merge, stable idempotency, append-only Payment/refund behavior, and commit-time projection checks. Repeated hosted rollback dry-runs exposed and resolved operation-type, deterministic-ID, membership-shape, PostgreSQL UUID aggregate, legacy payment-plan, and Phase 3A shadow-compatibility issues before the real stage apply.
 

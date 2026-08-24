@@ -227,9 +227,9 @@ Hosted staging 首次运行 diagnostic 时发现 inventory column 使用 ICU/def
 
 staging advisors 为 49 security（生产既有 47 + 新项目平台自带 `public.rls_auto_enable()` 的 anon/authenticated EXECUTE 两条已记录 WARN）及 74 performance INFO。4 条 `unindexed_foreign_keys` 指向 composite FK column order；逐项核对发现完整反向等值索引或 `booking_id` 唯一主键已覆盖 FK maintenance lookup，因此不建立重复索引。70 条 `unused_index` 来自 fresh synthetic stage 的零业务流量，需在 activation/真实 query plan 后再判断。
 
-### Phase 3B.2 atomic writer activation（Issue #136；staging 已激活，生产未应用）
+### Phase 3B.2 atomic writer activation（Issue #136 / Draft PR #137；staging 已激活，生产未应用）
 
-Issue #136 只授权从 Draft PR #135 head 建立 stacked branch，并在 `badminton_stage` 激活和验证 writer。生产 project `ldbtrouofmqmnkyxiewk`、PR merge、read/UI cutover、Stripe 和 legacy decommission 全部保持未授权。
+Issue #136 只授权从 Draft PR #135 head 建立 stacked branch，并在 `badminton_stage` 激活和验证 writer。Draft PR #137 的 base 精确为 `codex/phase-3b-inactive-transaction-kernel`，因此不会单独把 3B.2 送往 `main`。生产 project `ldbtrouofmqmnkyxiewk`、PR merge、read/UI cutover、Stripe 和 legacy decommission 全部保持未授权。
 
 Migration `20260824172041_reservation_phase_3b_atomic_writer_activation` 使用单一 `BEGIN`/`COMMIT` 原子完成 17-writer activation。它先核对 44-version baseline fingerprint、Phase 3B.1 inactive kernel、Phase 3A shadow、RLS/grants/Realtime 与 17 direct / 3 wrapper inventory；任一前置不符都在替换 function 前 fail closed。旧 public function 的规范化定义和 hash 被冻结到 private inventory，随后 17 个精确 signature 被移到 `private.reservation_phase3b_legacy_*`；同名 public signature 重建为 `SECURITY DEFINER SET search_path = ''` entry，先校验调用者，再在受控 activation context 中委托 legacy mutation 并调用 private transaction primitive。
 
@@ -483,7 +483,7 @@ Vite `base` 为 `./`，支持 `/badminton/` 子路径。
 
 ## English update: Phase 3B.2 technical record
 
-Issue #136 authorizes only a stacked Phase 3B.2 branch and atomic writer activation on the synthetic `badminton_stage` project. Production, merge, read/UI cutover, Stripe, and legacy decommission are not authorized.
+Issue #136 authorizes only a stacked Phase 3B.2 branch and atomic writer activation on the synthetic `badminton_stage` project. Draft PR #137 targets the head branch of Draft PR #135, not `main`. Production, merge, read/UI cutover, Stripe, and legacy decommission are not authorized.
 
 `20260824172041_reservation_phase_3b_atomic_writer_activation` performs the complete 17-writer activation in one transaction after fail-closed checks of the 44-version baseline, inactive kernel, shadow state, security boundary, Realtime publication, and exact writer inventory. It freezes the exact legacy definitions, moves them to private delegates, and recreates the existing public signatures as authorization-first, empty-search-path entries. The resulting boundary is 17 public entries, zero public direct legacy writers, 17 private legacy delegates, and three indirect wrappers. The only new public RPC is manager-gated explicit-primary linking.
 

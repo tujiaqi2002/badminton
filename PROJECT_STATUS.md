@@ -39,9 +39,9 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #136：Reservation Phase 3B.2 staging-only atomic writer activation
+### Issue #136 / Draft PR #137：Reservation Phase 3B.2 staging-only atomic writer activation
 
-- 用户已在 Issue 创建后明确确认 Phase 3B.2；授权范围仅为从 Draft PR #135 head 叠加独立分支、起草 activation/tests/rollback，并将 migration 只应用到 `badminton_stage`。未授权 PR merge、任何生产写入、read/UI cutover、Stripe 或 legacy decommission。
+- 用户已在 Issue 创建后明确确认 Phase 3B.2；Draft PR #137 从 #135 head 叠加，base 为 `codex/phase-3b-inactive-transaction-kernel`，没有直接指向 `main`。授权范围仅为起草 activation/tests/rollback，并将 migration 只应用到 `badminton_stage`。未授权 PR merge、任何生产写入、read/UI cutover、Stripe 或 legacy decommission。
 - 第 45 个 append-only migration 在单一事务中原子激活全部 17 个 direct writer：既有 public signature 保持不变，旧定义冻结到 private legacy delegate，新 public entry 在调用 Phase 3B primitive 前先校验客户/馆长权限。3 个 wrapper 继续只间接委托，不形成旁路。
 - activation 新增 append-only `reservation_session_assignments`，显式记录 physical/effective Session 投影变化；merge/split/reverse 继续以 transition、Party lineage 和 versioned membership 表达当前商业归属，不改写 booking origin。
 - 新 manager-only `admin_link_booking_groups_with_primary(...)` 支持不同客户显式选主联系人，并选择 `single_payer` / `split_equal` / `split_custom`；旧双参数 link 只在 primary 唯一无歧义时兼容，不从姓名、电话或时间自动猜测。
@@ -208,7 +208,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## English update: Phase 3B.2 staging activation
 
-Issue #136 is explicitly authorized only for atomic writer activation and validation on `badminton_stage`. The stage database is aligned to 46 migrations. Migration 45 atomically replaces all 17 direct public writers with authorized Phase 3B entries while preserving the exact legacy definitions as private delegates; the three wrappers remain indirect. Migration 46 adds eight ordered composite-FK indexes and reduces the staging `unindexed_foreign_keys` advisor count to zero.
+Issue #136 is explicitly authorized only for atomic writer activation and validation on `badminton_stage`. Draft PR #137 is stacked on the head branch of Draft PR #135 rather than targeting `main` directly. The stage database is aligned to 46 migrations. Migration 45 atomically replaces all 17 direct public writers with authorized Phase 3B entries while preserving the exact legacy definitions as private delegates; the three wrappers remain indirect. Migration 46 adds eight ordered composite-FK indexes and reduces the staging `unindexed_foreign_keys` advisor count to zero.
 
 The hosted activation diagnostic is clean: 192 memberships, zero shadow/session/payment drift, zero incomplete operations, seven Phase 3B tables with FORCE RLS, no client DML or private-helper EXECUTE, and only `public.court_slots` in Realtime. The writer boundary is 17 public entries, zero public direct legacy writers, 17 private legacy delegates, and three wrappers. The synthetic hosted writer matrix, multi-connection contention checks, and an outer-transaction emergency rollback rehearsal all passed without persistent staging drift. Bundled Node `v24.19.0` / pnpm `11.19.0` produced 25 passes, zero failures, and one explicit local-PostgreSQL skip across 26 reservation tests; lint and build passed with only the existing large-chunk warning. Pinned CI remains the final Node 22 / pnpm 11.16.0 / PostgreSQL 16 compatibility gate.
 
