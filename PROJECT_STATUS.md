@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-24。当前工作分支：`codex/phase-3b-inactive-transaction-kernel`。
+> 项目：`project-001-badminton`。核对日期：2026-08-24。当前工作分支：`codex/phase-3b-atomic-writer-activation`。
 
 ## 1. 一句话结论
 
@@ -13,7 +13,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 仓库：`tujiaqi2002/badminton`，默认分支 `main`。
 - 生产前端：`https://tujiaqi2002.github.io/badminton/`，由 GitHub Actions 从 `main` 发布。
 - 后端：Supabase project `ldbtrouofmqmnkyxiewk`，PostgreSQL + Auth + Realtime + RPC/RLS。
-- 独立数据库 staging：Supabase project `badminton_stage` / `vcoujmzsgdboidndtzzg`，只含确定性合成数据，不复制生产客户或 Auth 数据。
+- 独立数据库 staging：Supabase project `badminton_stage` / `vcoujmzsgdboidndtzzg`，已对齐当前 Phase 3B.2 分支的 46 个 migration，只含确定性合成数据，不复制生产客户或 Auth 数据。
 - `main` 当前已包含 PR #129（Phase 3A compatibility foundation）、PR #130（shadow timezone access）、PR #132（RLS policy consolidation）和 PR #133（Phase 3A production verification），以及此前的 Phase 0/1/2 与产品 PR。
 - 生产 migration history 与 `main` 均为 42 个版本，最新为 `20260824132704_phase_3a_venue_settings_policy_consolidation`；当前没有 pending production migration。
 - 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；Reservation Phase 2/3A 已有实际应用 migration 的 PGlite 集成测试，但仍没有浏览器 E2E test script。
@@ -39,9 +39,24 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
+### Issue #136：Reservation Phase 3B.2 staging-only atomic writer activation
+
+- 用户已在 Issue 创建后明确确认 Phase 3B.2；授权范围仅为从 Draft PR #135 head 叠加独立分支、起草 activation/tests/rollback，并将 migration 只应用到 `badminton_stage`。未授权 PR merge、任何生产写入、read/UI cutover、Stripe 或 legacy decommission。
+- 第 45 个 append-only migration 在单一事务中原子激活全部 17 个 direct writer：既有 public signature 保持不变，旧定义冻结到 private legacy delegate，新 public entry 在调用 Phase 3B primitive 前先校验客户/馆长权限。3 个 wrapper 继续只间接委托，不形成旁路。
+- activation 新增 append-only `reservation_session_assignments`，显式记录 physical/effective Session 投影变化；merge/split/reverse 继续以 transition、Party lineage 和 versioned membership 表达当前商业归属，不改写 booking origin。
+- 新 manager-only `admin_link_booking_groups_with_primary(...)` 支持不同客户显式选主联系人，并选择 `single_payer` / `split_equal` / `split_custom`；旧双参数 link 只在 primary 唯一无歧义时兼容，不从姓名、电话或时间自动猜测。
+- legacy “标记已付”现在在同一事务内追加 Payment/allocation ledger；已付改回未付通过追加 refund 表达，不删除或改写原付款历史。排期、资料、取消、关系和撤回都在同一事务中验证 aggregate + legacy projection + audit postconditions。
+- 第 46 个 performance-only follow-up 为 8 个 composite FK 补齐与声明列顺序一致的索引；staging performance advisor 的 `unindexed_foreign_keys` 已从 8 降为 0。剩余 62 条均为 INFO，主要是 fresh synthetic stage 上的 `unused_index`，不根据空流量统计删索引。
+- hosted activation 后诊断返回 `phase_3b_atomic_writer_activation_verified`：46 个 migration、192/192 membership、0 shadow/session/payment drift、0 incomplete operation、7 张 Phase 3B public table 全部 FORCE RLS，client DML/private helper EXECUTE 为 0，Realtime 仍只有 `public.court_slots`。writer 边界为 17 public entries / 0 public direct legacy writers / 17 private legacy delegates / 3 wrappers。
+- hosted writer matrix 覆盖 17 个 direct writer、显式 primary、权限拒绝、幂等重试与晚回滚；外层事务回滚后 staging 持久数据回到 192 memberships 且诊断仍 clean。多连接 contention 已验证 same-key payment、同 booking 竞争排期与重叠 merge scope；Phase 3B.1 CI 继续覆盖真实 committed-winner 的 Payment/AA/refund races。
+- emergency rollback artifact 已在真实激活的 staging 中使用外层 transaction 完整执行：内层恢复 17 public legacy writers，保留所有 append-only history；外层 rollback 后 staging 回到 activated 状态且数据无污染。
+- Phase 3A 旧诊断已向前兼容：未激活时仍校验 17 direct writers，激活后则校验 17/17/3 边界；Phase 2 与 Phase 3A hosted diagnostics 在激活后仍全部通过。
+- 最终本地使用 bundled Node `v24.19.0` / pnpm `11.19.0`：`test:reservation` 共 26 项，25 pass / 0 fail / 1 skip（本机未配置真实 PostgreSQL URL）；`lint` 和 `build` 通过，build 只有既有 >500 kB chunk warning。仓库 CI 使用固定 Node 22 / pnpm 11.16.0 / PostgreSQL 16，仍是最终兼容门禁。
+- production 仍是 42 个 migration、legacy write/read path 仍是权威路径；Phase 3B.2 验收只允许下一步请求 fresh production read-only preflight。旧 RPC/字段只能在 Phase 4 cutover、生产观察与 rollback window 结束后，通过独立 Phase 5 高风险 Issue 评估下线。
+
 ### Issue #134 / Draft PR #135：Reservation Phase 3B.1 inactive transaction kernel
 
-- 用户已确认只开始 Phase 3B.1 authoring；当前分支可以起草 append-only migration、隔离验证和 review PR，但不授权 PR merge、生产自动部署/catch-up、Phase 3B.2 writer activation、read/UI cutover、Stripe 部署或 legacy decommission。
+- Issue #134 当时只授权 Phase 3B.1 authoring，不包含 3B.2；后续 Issue #136 已独立授权 **staging-only** activation。两个 Issue 都不授权 PR merge、生产自动部署/catch-up、read/UI cutover、Stripe 部署或 legacy decommission。
 - 本地第 43 个 migration 草案新增 append-only merge/split/reverse lineage、当前 effective allocation membership、private idempotency journal、Payment/refund 与 schedule/details/cancel primitives，以及 17 direct writers + 3 wrappers + 2 undeployed Stripe paths 的 fail-closed inventory；第 44 个 append-only follow-up 把 inventory signature 固定为 `C` collation，消除 hosted Supabase 中 catalog signature 与 ICU 默认排序不同造成的误报。
 - merge/split 保留 `bookings.reservation_id` 作为不可变物理 Reservation 来源；`booking.session_id` 继续承担该 origin 内的 legacy 排期投影，当前商业归属由 versioned membership 解析。Party lineage 支持 one-to-many 和 many-to-one，reverse 追加新 transition、不删除历史，并把后续 Session 修改带回 restored scope。
 - 为支持不同 origin 合并后的一人付清，payment allocation 的 booking FK 草案改为单列 `booking_id`；private payment primitive 仍验证 effective Reservation、currency、payer、余额和完整 scope。一次付清、AA 与退款共用 append-only Payment/allocation ledger。
@@ -190,3 +205,11 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 不在没有第二家真实客户前抽象 marketplace。
 - 不把 AI 功能置于排期正确性、预览环境和测试之前。
 - 不在没有明确授权和未提交工作核对前清理旧 worktree；PR #90 已合并不等于自动授权清理。
+
+## English update: Phase 3B.2 staging activation
+
+Issue #136 is explicitly authorized only for atomic writer activation and validation on `badminton_stage`. The stage database is aligned to 46 migrations. Migration 45 atomically replaces all 17 direct public writers with authorized Phase 3B entries while preserving the exact legacy definitions as private delegates; the three wrappers remain indirect. Migration 46 adds eight ordered composite-FK indexes and reduces the staging `unindexed_foreign_keys` advisor count to zero.
+
+The hosted activation diagnostic is clean: 192 memberships, zero shadow/session/payment drift, zero incomplete operations, seven Phase 3B tables with FORCE RLS, no client DML or private-helper EXECUTE, and only `public.court_slots` in Realtime. The writer boundary is 17 public entries, zero public direct legacy writers, 17 private legacy delegates, and three wrappers. The synthetic hosted writer matrix, multi-connection contention checks, and an outer-transaction emergency rollback rehearsal all passed without persistent staging drift. Bundled Node `v24.19.0` / pnpm `11.19.0` produced 25 passes, zero failures, and one explicit local-PostgreSQL skip across 26 reservation tests; lint and build passed with only the existing large-chunk warning. Pinned CI remains the final Node 22 / pnpm 11.16.0 / PostgreSQL 16 compatibility gate.
+
+Production remains untouched at 42 migrations and still uses the legacy write/read path. Neither PR merge nor production activation is authorized. Phase 4 read/UI cutover, Stripe, and every legacy decommission action remain out of scope. Legacy retirement may be considered only under a separate high-risk Phase 5 issue after production cutover, observation, and the rollback window.

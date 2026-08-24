@@ -108,6 +108,8 @@ do $$
 declare
   v_count integer;
   v_writer_names text[];
+  v_phase3b_inventory jsonb;
+  v_phase3b_active boolean := false;
   v_expected_writer_names constant text[] := array[
     'public.admin_cancel_booking',
     'public.admin_create_multi_booking',
@@ -148,10 +150,30 @@ begin
   from writers;
 
   if v_count <> 17 or v_writer_names is distinct from v_expected_writer_names then
-    raise exception
-      'Phase 3A writer inventory drifted: expected %, found %',
-      v_expected_writer_names,
-      coalesce(v_writer_names, '{}'::text[]);
+    if v_count = 0
+       and to_regclass('private.reservation_phase3b_activation_state') is not null then
+      execute 'select exists (
+        select 1
+        from private.reservation_phase3b_activation_state as state
+        where state.singleton and state.status = ''activated''
+      )' into v_phase3b_active;
+    end if;
+
+    if v_phase3b_active then
+      execute 'select private.assert_reservation_phase3b_writer_inventory()'
+        into v_phase3b_inventory;
+      if (v_phase3b_inventory ->> 'public_entry_count')::integer <> 17
+         or (v_phase3b_inventory ->> 'private_legacy_writer_count')::integer <> 17
+         or (v_phase3b_inventory ->> 'wrapper_count')::integer <> 3 then
+        raise exception 'Phase 3B activated writer inventory drifted: %',
+          v_phase3b_inventory;
+      end if;
+    else
+      raise exception
+        'Phase 3A writer inventory drifted: expected %, found %',
+        v_expected_writer_names,
+        coalesce(v_writer_names, '{}'::text[]);
+    end if;
   end if;
 
   select count(*)::integer

@@ -246,3 +246,30 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - 最终 bundled Node `v24.19.0` / pnpm `11.19.0` 本地结果为 46 pass、0 fail、1 个无本地 PostgreSQL 时的明确 skip；lint/build 通过。推送 commit `699d11d` 后，[Actions run 32753722730](https://github.com/tujiaqi2002/badminton/actions/runs/32753722730) 在 PostgreSQL 16.15 上重新得到 22/22、0 fail、0 skip，真实 same-key Payment、AA 与 refund race 均通过。合并、生产自动部署、Phase 3B.2 activation、read/UI cutover、Stripe 与 legacy decommission 仍未授权。
 
 阶段结果：production-like hosted Supabase apply 与 follow-up PostgreSQL CI 门禁均已完成，且在真正 merge 前发现并修复了一个 collation portability bug。生产仍是 42 migrations 和 legacy write/read path；下一步只能在 fresh production preflight 后由用户单独确认是否 merge/自动部署。
+
+## 24. 2026-08-24：Reservation Phase 3B.2 在独立 staging 原子激活
+
+- 按高风险门禁创建 Issue #136，并在用户确认后从 Draft PR #135 head 建立 `codex/phase-3b-atomic-writer-activation`。授权只包含 staging activation/validation；PR merge、production writes、read/UI cutover、Stripe 和 legacy decommission 仍被明确排除。
+- 第 45 个 append-only migration 在一个 transaction 中冻结旧定义、移入 17 个 private legacy delegates，并以相同 public signatures 重建授权优先的 Phase 3B entries。3 个 wrappers 保持 indirect，最终边界为 17 public entries / 0 public direct legacy writers / 17 private delegates / 3 wrappers。
+- 为表达移动、merge/split/reverse 后 physical/effective Session 的演进，新增 append-only `reservation_session_assignments` 和 membership pointer；controlled activation context 允许 legacy delegate 的事务中间态，deferred constraint 保证提交前 aggregate、legacy projection、payment 与 audit 一致。
+- 新的 manager-only explicit-primary link RPC 支持不同客户 merge 与 single/equal/custom payment intent。旧 link 仅在 primary 无歧义时兼容；mark-paid 追加 Payment/allocation，paid 改为 unpaid 追加 refund，不删除旧账本事实。
+- 多次 hosted `BEGIN`/`ROLLBACK` dry-run 在真实 PostgreSQL 17.6 中发现并修复六类只靠静态 review 难以发现的兼容问题：operation type 闭集限制、Session-assignment deterministic UUID 缺口、schedule-only membership transition shape、PostgreSQL 不支持 `min(uuid)`、legacy split 的 `legacy_unspecified` intent，以及 Phase 3A raw shadow 对新 effective relationship 的预期 mismatch。修复都进入同一 activation migration 并在真实应用前完成。
+- activation 只应用到 `badminton_stage`，并将远端历史精确对齐 repo version `20260824172041`。该项目随后有 192 memberships、0 shadow/session/payment drift、0 incomplete operation、7 张 FORCE RLS Phase 3B 表、zero client DML/private EXECUTE，Realtime 仍只有 `court_slots`。
+- synthetic hosted writer matrix 在一个外层 transaction 内覆盖 17 个 direct writers、explicit primary、permission rejection、idempotent retry 和 late rollback；运行中临时新建 8 条 booking，回滚后持久 stage 恢复 192 memberships 和 clean diagnostic。
+- 多个真实 hosted connection 验证 same-key payment、same-booking competing schedules 和 overlapping merge scopes 无 drift；Phase 3B.1 的 PostgreSQL 16 CI 继续提供 same-key Payment、overlapping AA 与 competing refund 的 committed-winner 证据。
+- emergency rollback artifact 在已激活 stage 上以外层 transaction 完整演练：内部成功恢复 17 public legacy writers 且不删除历史，外层 rollback 后持久 stage 恢复 activated 并无数据污染。
+- performance advisor 在 activation 后报告 8 个 composite FK 列顺序缺口；第 46 个 performance-only follow-up 补全 8 个索引，`unindexed_foreign_keys` 降为 0。剩余 62 条全部为 INFO，主要是 fresh synthetic stage 的 unused indexes，不删除。
+- Phase 2 diagnostic 在 staging synthetic fingerprints 下仍返回 123 Reservations、135 Sessions、192 allocations、131 Parties、23 Payments、26 allocations / CAD 1,642.00；Phase 3A diagnostic 已向前兼容 activated catalog 并保持 0 mismatch。Stage migration history 最终与 repo 46 个 version/name 完全一致。
+- Codex bundled Node `v24.19.0` / pnpm `11.19.0` 的最终本地门禁为 26 tests 中 25 pass / 0 fail / 1 个无本地 PostgreSQL URL 的明确 skip，lint/build 通过，仅有既有 large-chunk warning。固定 Node 22 / pnpm 11.16.0 / PostgreSQL 16 PR CI 继续作为最终环境兼容门禁。
+
+阶段结果：Phase 3B.2 的 staging-only activation、writer matrix、hosted contention、diagnostics、advisors 和 emergency rollback rehearsal 已完成。生产仍为 42 migrations 且继续使用 legacy write/read path。下一步只是 fresh production read-only preflight 和请求独立 merge/production activation 授权；legacy 下线仍属于 Phase 5。
+
+## English record: Phase 3B.2 atomic staging activation
+
+After Issue #136 received explicit confirmation, a separate branch was stacked on Draft PR #135. The scope remained staging activation and validation only; merge, production writes, read/UI cutover, Stripe, and legacy decommission were excluded.
+
+Migration 45 atomically freezes and moves all 17 legacy direct writers to private delegates, recreates the same public signatures as authorization-first Phase 3B entries, and keeps the three wrappers indirect. It adds append-only Session assignment history, explicit-primary different-customer merge, stable idempotency, append-only Payment/refund behavior, and commit-time projection checks. Repeated hosted rollback dry-runs exposed and resolved operation-type, deterministic-ID, membership-shape, PostgreSQL UUID aggregate, legacy payment-plan, and Phase 3A shadow-compatibility issues before the real stage apply.
+
+The activation was applied only to `badminton_stage`. The full synthetic 17-writer matrix, permission and retry paths, multi-connection payment/schedule/relationship contention, all Phase 2/3A/3B diagnostics, and an emergency rollback rehearsal passed. Migration 46 added eight ordered composite-FK indexes and reduced the unindexed-FK advisor count to zero. The stage history now exactly matches 46 repository migrations and returns to a clean persistent 192-membership baseline after every rollback test. Bundled Node `v24.19.0` / pnpm `11.19.0` produced 25 passes, zero failures, and one explicit local-PostgreSQL skip across 26 tests; lint and build passed, while pinned CI remains the final compatibility gate.
+
+Production remains untouched at 42 migrations with the legacy write/read path. The next allowed action is a fresh read-only production preflight followed by a separate request for merge/production-activation authorization. Legacy retirement remains a Phase 5 decision after cutover, observation, and the rollback window.
