@@ -47,7 +47,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - private catch-up 只处理安全、可确定的 legacy group；已拥有不同 Reservation 后再 link/unlink、结构性 merge/split 或账务漂移一律 fail-closed 并进入 mismatch diagnostics，不猜测关系或付款历史。
 - manager-only shadow view/RPC 明确使用 security-invoker 与最小 grants；private helper 不向 client roles 开放。ownership-only 更新保持 legacy `updated_at` 和 `court_slots` Realtime projection 不变。
 - 2026-08-24 提交前 fresh read-only preflight 再次确认生产只有 39 个 migrations，192/192 bookings owned，123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00，ownership/session/payment drift 均为 0，direct writer inventory 仍精确为 17；advisors 仍是既有 security 47（2 INFO / 45 WARN）与 performance 40 INFO。
-- 13 项 Phase 2/3A 隔离集成测试已通过，包括全量幂等 catch-up、新增 legacy group、客户身份冲突、unsafe link 与付款漂移。完整 lint/build/安全检查仍是提交 PR 前门禁。
+- 13 项 Phase 2/3A 隔离集成测试已通过，包括 authenticated 馆长/非馆长的真实 view/RPC 权限路径、全量幂等 catch-up、新增 legacy group、客户身份冲突、unsafe link 与付款漂移。
 - 当前 Supabase GitHub integration 会在 migration PR 合并到 `main` 后自动部署；本分支可以开发、push 和评审，但没有 merge 或生产部署授权。
 
 ### 已完成生产基线：Issue #123 Phase 2 deterministic backfill

@@ -194,7 +194,7 @@ Issue #128 / migration `20260824052629_reservation_phase_3a_compatibility_founda
 
 Phase 1 的 `bookings_enforce_session_projection` 会立即校验 owned booking 的 legacy local schedule 与 Session `timestamptz`。因此现有只更新 `bookings` 的 move/reschedule/swap/undo RPC 在 owned rows 上不能作为 Phase 3 写入路径；Phase 3B 必须在同一事务中按固定锁顺序同步 Session 与 Court allocation，不能删除或放宽该约束。ownership-only catch-up trigger 只保留旧 `updated_at`；`sync_public_court_slot` 对非排期字段变化提前返回，避免污染 slot/Realtime 证据。
 
-Phase 2/3A 共 13 项 PGlite integration tests 已通过：完整 Phase 2 映射、空 drift、分批幂等 catch-up、新 legacy group、客户身份冲突、unsafe link 与付款 drift 均有覆盖。设计与发布门禁见 [`docs/reservation-migration/phase-3a-compatibility-foundation.md`](./docs/reservation-migration/phase-3a-compatibility-foundation.md)，部署后只读验证脚本为 [`supabase/diagnostics/phase_3a_reservation_compatibility.sql`](./supabase/diagnostics/phase_3a_reservation_compatibility.sql)。
+Phase 2/3A 共 13 项 PGlite integration tests 已通过：完整 Phase 2 映射、authenticated 馆长/非馆长的实际 view/RPC 权限路径、空 drift、分批幂等 catch-up、新 legacy group、客户身份冲突、unsafe link 与付款 drift 均有覆盖。设计与发布门禁见 [`docs/reservation-migration/phase-3a-compatibility-foundation.md`](./docs/reservation-migration/phase-3a-compatibility-foundation.md)，部署后只读验证脚本为 [`supabase/diagnostics/phase_3a_reservation_compatibility.sql`](./supabase/diagnostics/phase_3a_reservation_compatibility.sql)。
 
 提交前 fresh production read-only preflight 仍为 39 migrations、192/192 owned bookings、123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocation entries/CAD 1,642.00；partial ownership、Session projection、booking/payment balance mismatch 均为 0，17 个 direct writer 名单无漂移。远端尚未包含任何 Phase 3A 对象；advisor 基线仍为 security 47（2 INFO / 45 WARN）和 performance 40 INFO。
 

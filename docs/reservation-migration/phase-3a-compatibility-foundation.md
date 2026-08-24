@@ -132,6 +132,7 @@ Phase 3B activation 前必须追加并验证最小的 audited relationship/finan
 PGlite 使用真实 Phase 1、Phase 2、Phase 3A migrations，当前 13 项测试通过：
 
 - Phase 2 完整 backfill 与 7 个 negative/rollback cases；
+- authenticated 馆长可读取 clean shadow 状态，非馆长看不到 mismatch rows 且不能调用汇总 RPC；
 - Phase 3A 对 frozen aggregate 返回零 mismatch；
 - 全量 catch-up 重跑不改变 mapping/audit；
 - 新 unowned booking 被确定性补齐且不重复；
@@ -288,6 +289,7 @@ A fresh production read-only preflight before submission confirms that remote st
 PGlite applies the real Phase 1, Phase 2, and Phase 3A migrations. All 13 current tests pass:
 
 - complete Phase 2 backfill plus seven negative/rollback cases;
+- an authenticated manager can read the clean shadow status, while a non-manager sees no mismatch rows and cannot call the summary RPC;
 - zero Phase 3A mismatch on the frozen aggregate;
 - full catch-up rerun changes no mapping or audit fact;
 - a new unowned booking is caught up deterministically without duplicates;

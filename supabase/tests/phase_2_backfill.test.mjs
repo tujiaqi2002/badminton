@@ -131,7 +131,12 @@ function baseSchemaSql({ forceSessionCollision = false } = {}) {
     create role service_role nologin;
 
     create function auth.uid()
-    returns uuid language sql stable as $$ select null::uuid $$;
+    returns uuid language sql stable as $$
+      select nullif(
+        current_setting('request.jwt.claim.sub', true),
+        ''
+      )::uuid
+    $$;
 
     create function extensions.uuid_generate_v5(p_namespace uuid, p_name text)
     returns uuid language sql immutable set search_path = '' as $$
@@ -219,6 +224,14 @@ function baseSchemaSql({ forceSessionCollision = false } = {}) {
       metadata jsonb not null default '{}'::jsonb,
       reverts_operation_id text
     );
+
+    grant usage on schema auth to anon, authenticated, service_role;
+    grant execute on function auth.uid() to anon, authenticated, service_role;
+    grant select on table
+      public.staff_members,
+      public.bookings,
+      public.venue_settings
+    to authenticated;
 
     create function public.set_updated_at()
     returns trigger language plpgsql set search_path = '' as $$
@@ -743,6 +756,48 @@ test('Phase 3A installs an inactive, clean, idempotent compatibility foundation'
       diagnostic_grants_are_minimal: true,
       catch_up_has_no_client_execute: true,
     }])
+
+    const managerId = uuid(6, 1)
+    await db.exec(`
+      select set_config(
+        'request.jwt.claim.sub',
+        ${sqlString(managerId)},
+        false
+      );
+      set role authenticated;
+    `)
+    const managerShadow = await db.query(`
+      select count(*)::integer as mismatch_count
+      from public.reservation_shadow_mismatches
+    `)
+    assert.equal(managerShadow.rows[0].mismatch_count, 0)
+    const managerStatus = await db.query(`
+      select public.admin_get_reservation_shadow_status(10) as result
+    `)
+    assert.equal(managerStatus.rows[0].result.status, 'clean')
+    assert.equal(managerStatus.rows[0].result.mismatch_count, 0)
+    await db.exec('reset role;')
+
+    const nonManagerId = uuid(9, 2)
+    await db.exec(`
+      insert into auth.users (id) values (${sqlString(nonManagerId)}::uuid);
+      select set_config(
+        'request.jwt.claim.sub',
+        ${sqlString(nonManagerId)},
+        false
+      );
+      set role authenticated;
+    `)
+    const nonManagerShadow = await db.query(`
+      select count(*)::integer as mismatch_count
+      from public.reservation_shadow_mismatches
+    `)
+    assert.equal(nonManagerShadow.rows[0].mismatch_count, 0)
+    await assert.rejects(
+      db.exec('select public.admin_get_reservation_shadow_status(10);'),
+      /Manager access required/,
+    )
+    await db.exec('reset role;')
 
     assert.deepEqual(await shadowMismatchCodes(db), [])
     await db.exec('select private.assert_reservation_shadow_clean();')
