@@ -160,7 +160,7 @@ Issue #118 已确认目标 ownership model 为 `Reservation → Sessions → Cou
 
 Phase 0 报告位于 [`docs/reservation-migration/phase-0-baseline.md`](./docs/reservation-migration/phase-0-baseline.md)，可复跑只读 SQL 位于 [`supabase/diagnostics/phase_0_reservation_baseline.sql`](./supabase/diagnostics/phase_0_reservation_baseline.sql)。报告只给 Phase 1 additive schema 有条件通过，不授权 migration 或生产写入。
 
-### Phase 1 additive schema（生产已应用，尚未 backfill/cutover）
+### Phase 1 additive schema（生产已应用；backfill 见 Phase 2，尚未 cutover）
 
 Issue #121 / migration `20260823072016_reservation_aggregate_schema` 新增 9 张空表：`recurrence_series`、`reservations`、`reservation_legacy_sources`、`reservation_parties`、`reservation_party_roles`、`reservation_sessions`、`reservation_payment_shares`、`payments`、`payment_allocation_entries`。现有 `bookings` 只增加 nullable、无 default 的 `reservation_id` / `session_id`。
 
@@ -176,7 +176,7 @@ Issue #121 / migration `20260823072016_reservation_aggregate_schema` 新增 9 �
 
 详细设计与隔离验证证据见 [`docs/reservation-migration/phase-1-schema.md`](./docs/reservation-migration/phase-1-schema.md)。2026-08-23 生产复核确认 migration history、9 张空表、nullable/default-free ownership columns、约束、RLS/FORCE RLS、最小 grants、private integrity functions、触发器和 FK indexes 均完整；没有新增 Realtime table，也没有 backfill 任何 legacy booking。
 
-### Phase 2 deterministic backfill（已起草并隔离验证，尚未应用生产）
+### Phase 2 deterministic backfill（生产已应用，尚未 dual-write/read cutover）
 
 Issue #123 / migration `20260824015013_reservation_deterministic_backfill` 将冻结的 192 条 legacy bookings 映射为 123 Reservations、135 Sessions、131 Parties、2 个 recurrence series、23 Payments 和 26 allocations。`bookings` 只补 ownership columns，旧 group/link/recurrence、价格、状态、时间和 slot 投影保持不变；没有 dual-write、read cutover、public RPC、Realtime 或 client DML grant。
 
@@ -184,18 +184,18 @@ Issue #123 / migration `20260824015013_reservation_deterministic_backfill` 将�
 
 历史 payer intent 不可证明，因此 payment plan 增加内部 `legacy_unspecified`，不创建 payment shares。5 条有付款审计的 paid bookings 按最后有效 paid transition 重建为 2 笔 audit-backed Payments；21 条无审计 paid bookings 各自创建 1:1 reconciliation Payment/allocation。总 Payment 和 allocation 均为 CAD 1,642.00，未知 payer/provider/time 保持 null，`pay_at_venue` 不转为 succeeded，cancelled + paid 不推断 refund。
 
-隔离环境实际应用 Phase 1 + Phase 2 migration 及完整诊断；两个独立数据库的 aggregate/role/ledger/ownership mapping fingerprint 一致，8 个 happy/negative/rollback tests 通过。详细证据见 [`docs/reservation-migration/phase-2-backfill.md`](./docs/reservation-migration/phase-2-backfill.md)。生产仍只有 38 个 migration；第 39 个 migration 必须在 fresh baseline、`db push --dry-run` 和单独生产授权后才可执行。
+隔离环境实际应用 Phase 1 + Phase 2 migration 及完整诊断；两个独立数据库的 aggregate/role/ledger/ownership mapping fingerprint 一致，8 个 happy/negative/rollback tests 通过。PR #126 合并后，Supabase GitHub integration 于 2026-08-24 04:46:10 UTC 自动应用第 39 个 migration；上线后只读诊断完整通过。详细证据见 [`docs/reservation-migration/phase-2-backfill.md`](./docs/reservation-migration/phase-2-backfill.md)。
 
 ## 8. 线上迁移状态
 
-2026-08-23 Phase 1 上线后，线上与本地均核对到 38 个版本，范围：
+2026-08-24 Phase 2 上线后，线上与本地均核对到 39 个版本，范围：
 
 - 首个：`20260812161833_private_manager_schedule`
-- 最新：`20260823072016_reservation_aggregate_schema`
+- 最新：`20260824015013_reservation_deterministic_backfill`
 
 本次未发现之前的 “Remote migration versions not found in local migrations directory” 漂移。
 
-Phase 1 生产验证结果为 `phase_1_reservation_schema_verified`：192 条 legacy booking 未写 ownership columns，9 张新表总行数为 0，139 条有效 `court_slots` 与 booking 投影一致。Phase 2 之前不得把空 schema 描述成已经迁移业务数据。
+Phase 2 生产验证结果为 `phase_2_reservation_backfill_verified`：123 Reservations、135 Sessions、192 owned Court allocations、131 Party snapshots、23 reconciliation Payments、26 allocations 和 CAD 1,642.00；legacy booking payload、139 条有效 `court_slots` 与 dedicated payment audit evidence 未改变。当前仍没有 dual write/read cutover，因此这个 aggregate 是历史 snapshot，不代表后续 legacy writes 会自动同步。
 
 ### 迁移规则
 
@@ -203,6 +203,7 @@ Phase 1 生产验证结果为 `phase_1_reservation_schema_verified`：192 条 le
 - 已在线应用的 migration 不得回改。
 - DDL 使用 Supabase migration 工具，不用普通 SQL query 工具。
 - 推送新 migration 前先比较 local/remote versions。
+- 当前 Supabase GitHub integration 会在 `main` merge 后自动部署 pending migrations；所以有 migration 的 PR 必须在 merge 前完成 production preflight/授权，或先关闭自动部署，不能把 merge 与 production deployment 当成两个独立动作。
 
 如果再次出现 remote version 缺失：先停止发布，找回对应 SQL 或拉取远端状态，核对内容后才允许 migration repair；不能仅为了消除提示而伪造 applied 状态。
 
@@ -273,7 +274,7 @@ Phase 1 生产验证结果为 `phase_1_reservation_schema_verified`：192 条 le
 
 Supabase 新项目正在趋向默认不把新表暴露到 Data API；migration 仍必须明确决定 RLS 和 grants，不能依赖 Dashboard 默认值。
 
-### 线上安全顾问现状（2026-08-23）
+### 线上安全顾问现状（2026-08-24）
 
 - 47 条 security findings：2 INFO、45 WARN。
 - `private.manager_accounts` 和 `venue_member_tiers` 报告 “RLS enabled, no policy”。当前 direct grants/schema access 已关闭，实际 deny-by-default；新表仍要显式表达 policy 与 grants。
@@ -286,7 +287,7 @@ Supabase 新项目正在趋向默认不把新表暴露到 Data API；migration �
 - [Database linter](https://supabase.com/docs/guides/database/database-linter)
 - [Password security](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
 
-Performance advisor 在 Phase 1 上线后为 44 条 INFO 级尚未使用索引，没有更高等级 finding；其中 Phase 1 新索引因新表为空而尚未使用是预期状态。项目数据量较小，不能只因 `unused_index` 就删除；需结合生产查询计划和增长后数据再决定。
+Performance advisor 在 Phase 2 上线后为 40 条 INFO 级尚未使用索引，没有更高等级 finding。Phase 2 仍未切换读取，Reservation/payment indexes 尚未被业务查询使用是预期状态；不能只因 `unused_index` 就删除，需结合 Phase 3 shadow queries、生产查询计划和增长后数据再决定。
 
 ## 12. 馆务中心 RPC
 

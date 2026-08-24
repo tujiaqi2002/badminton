@@ -161,3 +161,14 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - 使用实际 Phase 1/2 SQL 在隔离 PostgreSQL-compatible 环境应用，完整诊断通过；两个独立数据库的映射指纹一致，customer/DST/payment evidence/UUID/over-allocation/late rollback 等 8 项测试全部通过。
 
 阶段结果：Phase 2 已成为可评审、未应用的 migration。生产仍运行 38 个 migration 和完整 legacy 行为；必须 fresh baseline、dry-run、单独授权后才可 `db push`，通过生产诊断后也要停在 Phase 3 前。
+
+## 17. 2026-08-24：Reservation Phase 2 被 GitHub integration 自动部署
+
+- 用户确认继续后合并 PR #126；Supabase GitHub integration 自动克隆 `main`，并于 04:46:10 UTC 对 protected production branch 应用 `20260824015013_reservation_deterministic_backfill`。
+- 自动部署没有应用 seed、没有部署 Edge Functions；migration 产生 192 条同一时刻、明确 operation/source 的 ownership audit events。
+- 上线后只读诊断返回 `phase_2_reservation_backfill_verified`：123 Reservations、135 Sessions、192 Court allocations、131 Parties、23 Payments、26 allocations 和 CAD 1,642.00 全部一致。
+- booking 非 ownership payload、139 条 `court_slots`、dedicated payment audit 指纹均与冻结基线相同；customer/session/relationship/DST/pricing/payment evidence 异常为 0。
+- Security advisor 仍为既有 47 条（2 INFO / 45 WARN），没有 Phase 2 新 finding；Performance advisor 为 40 条 `unused_index` INFO，没有更高等级 finding。
+- 此次确认当前 GitHub integration 会把包含 pending migration 的 `main` merge 直接变成生产部署，原先“先 merge、再单独 dry-run/push”的门禁与实际配置不符。
+
+阶段结果：Phase 2 已成为生产事实，但 legacy RPC/前端仍未 dual-write/read cutover。未来数据库 PR 必须在 merge 前完成生产 preflight 与授权，或先关闭 GitHub 自动部署；Phase 3 仍需独立 Issue 与用户确认。

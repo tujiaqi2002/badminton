@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-23。当前工作分支：`codex/issue-123-reservation-backfill`。
+> 项目：`project-001-badminton`。核对日期：2026-08-24。当前工作分支：`codex/phase-2-production-verification`。
 
 ## 1. 一句话结论
 
@@ -13,9 +13,9 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 仓库：`tujiaqi2002/badminton`，默认分支 `main`。
 - 生产前端：`https://tujiaqi2002.github.io/badminton/`，由 GitHub Actions 从 `main` 发布。
 - 后端：Supabase project `ldbtrouofmqmnkyxiewk`，PostgreSQL + Auth + Realtime + RPC/RLS。
-- `main` 当前已包含 PR #120（Phase 0）、#122（Phase 1）、#124（Phase 1 production verification）和 #125（My Bookings search/filter）。
-- 生产 migration history 与 `main` 均为 38 个版本；当前 Phase 2 分支新增第 39 个、尚未应用的 `20260824015013_reservation_deterministic_backfill`。
-- 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；当前 Phase 2 分支另有实际应用 migration 的 PGlite 集成测试，但仍没有浏览器 E2E test script。
+- `main` 当前已包含 PR #126（Phase 2 deterministic backfill）以及此前的 Phase 0/1 与产品 PR。
+- 生产 migration history 与 `main` 均为 39 个版本；最新为 `20260824015013_reservation_deterministic_backfill`。
+- 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；Phase 2 已增加实际应用 migration 的 PGlite 集成测试，但仍没有浏览器 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
 - `App.jsx`、`AdminSchedule.jsx`、`i18n.js` 和 `styles.css` 已成为大型集中模块，后续改动的回归面较大。
 
@@ -41,17 +41,19 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 ### Issue #123：Reservation migration Phase 2 deterministic backfill
 
 - Parent design：`https://github.com/tujiaqi2002/badminton/issues/118`；Phase 2 Issue：`https://github.com/tujiaqi2002/badminton/issues/123`。
-- Phase 0 / PR #120 和 Phase 1 / PR #122 已合并；第 38 个 migration `20260823072016_reservation_aggregate_schema` 已存在于生产 migration history。
-- Phase 1 生产诊断于 2026-08-23 通过：9 张新表保持为空，192 条 legacy booking 的 `reservation_id` / `session_id` 全部仍为 null，139 条有效 `court_slots` 投影未改变。
+- Phase 0 / PR #120、Phase 1 / PR #122 和 Phase 2 / PR #126 均已合并；第 39 个 migration 已进入生产 history。
+- Supabase GitHub integration 在 PR #126 合并到 `main` 后自动运行 protected-branch deployment，于 2026-08-24 04:46:10 UTC 应用 Phase 2；不是本地手动 `db push`。
 - 权限：9 张新 public 表均 RLS + FORCE RLS；authenticated 只有 manager-only SELECT，anon/service_role 无 direct grants，没有新 public RPC 或 Realtime publication。
 - 账务真实性：正常 Payment 必须有真实 `occurred_at`；仅 `legacy_reconciliation` 可为 null，避免为缺少付款审计的历史 paid rows 虚构时间。
-- 当前生产行为仍完整使用 legacy group/link/recurrence/payment 与旧 RPC；Phase 1 只上线物理基础，没有 backfill、dual write 或 read cutover。
-- Phase 2 已获产品确认并完成可评审草案：冻结基线为 123 Reservations、135 Sessions、131 Parties、23 Payments 和 26 allocations；migration、诊断与 8 个隔离正/负向测试已通过。
+- 当前生产行为仍使用 legacy group/link/recurrence/payment 与旧 RPC；Phase 2 只回填已有 snapshot，没有 dual write、read cutover 或前端切换。
+- Phase 2 生产诊断结果为 `phase_2_reservation_backfill_verified`：123 Reservations、135 Sessions、131 Parties、192 Court allocations、23 Payments、26 allocations，reconciled total 为 CAD 1,642.00。
 - Toronto nonexistent/ambiguous DST、客户冲突、付款证据矛盾、UUID collision、over-allocation 和 late rollback 均已验证 fail-closed；两个独立数据库产生相同完整 mapping fingerprint。
-- Phase 2 **尚未执行生产 `db push`**，没有 dual-write/read cutover。生产执行前必须刷新只读基线、review 任意漂移、跑 `db push --dry-run` 并取得单独明确授权。
+- 上线后 security advisor 仍为 47 条既有 finding（2 INFO / 45 WARN），没有 Phase 2 新 finding；performance advisor 为 40 条 `unused_index` INFO，没有更高等级 finding。
+- 当前 GitHub integration 会在 `main` merge 后自动应用 pending production migrations；后续 migration PR 必须把 merge 本身视为生产部署门禁，或先明确关闭自动部署，不能再假设 merge 后还可单独 dry-run/push。
 
 ### 最近合并
 
+- PR #126 / Issue #123：Reservation Phase 2 deterministic backfill，已于 2026-08-24 合并并由 Supabase GitHub integration 自动应用生产；只读诊断和 GitHub Pages deployment 均通过。
 - PR #124：Phase 1 production verification，已于 2026-08-23 合并。
 - PR #125：My Bookings search/filter，已于 2026-08-23 合并。
 - PR #122 / Issue #121：Reservation Phase 1 additive schema，已于 2026-08-23 合并；生产 schema 验证通过。
@@ -104,7 +106,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 ### P0：发布与数据安全
 
 - 尚未建立可靠的 PR Preview/staging，reviewer 很难在合并前直接体验。
-- Supabase migration history 曾两次出现远端/本地不一致；2026-08-23 Phase 0 对齐到 37/37，Phase 1 上线后对齐到 38/38；Phase 2 分支的第 39 个 migration 仍未应用，必须先重新核对 38 个远端版本和 fresh baseline 才能推送。
+- Supabase GitHub integration 会自动部署 `main` 的 pending migrations；2026-08-24 PR #126 合并后约 38 秒即应用生产，越过了原计划的 merge 后 manual dry-run 门禁。未来必须在 merge 前完成 production baseline/dry-run/授权，或先关闭该自动部署集成。
 - 支付代码存在但未形成可证明的生产闭环，不能对客户宣称在线支付可用。
 - Reservation 迁移会跨 schema、权限、计价、付款和审计；必须按 #118 的 Phase 0–5 逐步交付，禁止一次性替换 legacy 模型。
 
