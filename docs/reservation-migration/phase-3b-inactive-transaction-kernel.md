@@ -121,7 +121,7 @@ helper 设置 transaction-local `lock_timeout = 5s`、`statement_timeout = 30s`�
 
 任何漏列或新增 writer 都会让 activation preflight fail closed，不能带旁路进入 3B.2。
 
-2026-08-24 的 production read-only canonical baseline 为：17 direct writers / `ac236997585da13cc6cc0439b8eafcf0`，3 wrappers / `d1eb5d63d36f01f1caad2e4e9e516dbf`，全部 public functions / `a0ec014bfec41a70762ce5c95122e774`。这些值只证明该时点的函数定义；PR merge 前必须 fresh 重算，不能把旧 fingerprint 当作持续事实。
+2026-08-24 merge-preflight 使用本 migration 的空 `search_path`、signature-order canonical 算法 fresh 重算：17 direct writers / `a28b88496f1ed14e5cceed2a6cbc9b99`，3 wrappers / `d1eb5d63d36f01f1caad2e4e9e516dbf`，236 个 public functions / `a0ec014bfec41a70762ce5c95122e774`。direct/wrapper 集合完全匹配且 missing-or-unsafe 为 0。早期记录的 direct 子集值 `ac236997585da13cc6cc0439b8eafcf0` 无法由已提交的 canonical 算法复现，已废止；all-public 总指纹不变证明这不是生产函数漂移。所有值仍只证明该时点的函数定义，merge 前必须 fresh 重算。
 
 ### 8. RLS、审计与诊断
 
@@ -162,6 +162,8 @@ PGlite 能验证事务原子性、失败回滚、锁顺序实现和顺序重试�
 Draft PR #135 的首轮 [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283) 已在固定 Node 22、pnpm 11.16.0 与 PostgreSQL 16.15 上完整执行，结果为 22/22 tests、0 fail、0 skip；real-PostgreSQL concurrency、lint 与 build 全部通过。并发结果没有出现重复 Payment、AA 超额分配、双退款成功、deadlock 或失败事务遗留的 `started` operation。这个结果关闭了 PR 的真实 session CI 门禁，但不替代 production-like Supabase branch apply、fresh production preflight 或明确的 merge/生产授权。
 
 同一时点 production 只读复核仍为 42 个 migrations，最新 `20260824132704_phase_3a_venue_settings_policy_consolidation`；security advisors 47（2 INFO / 45 WARN），performance advisors 40（全部 `unused_index` INFO）。本地第 43 个 migration 没有 push，所以这些是未应用 3B.1 的生产基线，不代表 3B.1 部署后 advisor 结果。
+
+2026-08-24 15:57 UTC merge-preflight 再次实际执行 Phase 2 与 Phase 3A read-only diagnostics：192/192 bookings owned、123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00、0 shadow mismatch/catch-up、1,739 audit events，Realtime 仍只包含 `court_slots`；PR base 与 `origin/main` 一致，分支 0 behind / 2 ahead、mergeable clean。Supabase organization 为 Free plan且只有 production `main`；隔离 branch 当前报价为 USD 0.01344/小时，未取得成本确认前没有创建。因此 PostgreSQL CI 与 production read-only preflight 已完成，但 production-like Supabase branch apply 仍未完成。
 
 ### 10. 3B.2 接口契约与退役时间
 
@@ -282,7 +284,7 @@ Helpers set transaction-local `lock_timeout = 5s` and `statement_timeout = 30s`;
 
 `assert_reservation_phase3b_writer_inventory()` verifies the exact direct-writer set, definer/security settings and current grants, ensures wrappers remain indirect, and returns reviewable function fingerprints. Any missing or additional writer fails activation preflight closed.
 
-The 2026-08-24 production read-only canonical baseline is: 17 direct writers / `ac236997585da13cc6cc0439b8eafcf0`, 3 wrappers / `d1eb5d63d36f01f1caad2e4e9e516dbf`, and all public functions / `a0ec014bfec41a70762ce5c95122e774`. These values prove only that point-in-time definition set and must be freshly recomputed before merge.
+The 2026-08-24 merge preflight used this migration's empty-`search_path`, signature-ordered canonical algorithm and freshly produced: 17 direct writers / `a28b88496f1ed14e5cceed2a6cbc9b99`, 3 wrappers / `d1eb5d63d36f01f1caad2e4e9e516dbf`, and 236 public functions / `a0ec014bfec41a70762ce5c95122e774`. The direct/wrapper sets match exactly and missing-or-unsafe is zero. The earlier direct-subset value `ac236997585da13cc6cc0439b8eafcf0` cannot be reproduced by the committed canonical algorithm and is retired; the unchanged all-public fingerprint proves this is not production function drift. These values still prove only that point-in-time definition set and must be freshly recomputed before merge.
 
 ### 8. RLS, audit, and diagnostics
 
@@ -301,6 +303,8 @@ Final local verification used the Codex Desktop bundled Node `v24.19.0` and pnpm
 Draft PR #135's first [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283) completed on pinned Node 22, pnpm 11.16.0, and PostgreSQL 16.15 with 22/22 tests, zero failures, and zero skips; the real-PostgreSQL concurrency test, lint, and build all passed. The concurrent cases produced no duplicate Payment, AA over-allocation, double-refund winner, deadlock, or committed stale `started` operation. This closes the PR's real-session CI gate, but does not replace a production-like Supabase branch apply, fresh production preflight, or explicit merge/production authorization.
 
 The same point-in-time production read-only check still showed 42 migrations, latest `20260824132704_phase_3a_venue_settings_policy_consolidation`; 47 security advisories (2 INFO / 45 WARN); and 40 performance advisories (all `unused_index` INFO). The local 43rd migration was not pushed, so those values are the pre-3B.1 baseline, not post-deployment advisor results.
+
+At 15:57 UTC on 2026-08-24, the merge preflight reran the Phase 2 and Phase 3A read-only diagnostics: 192/192 bookings owned, 123 Reservations, 135 Sessions, 131 Parties, 23 Payments, 26 allocations/CAD 1,642.00, zero shadow mismatch/catch-up, 1,739 audit events, and only `court_slots` in Realtime. The PR base equals `origin/main`; the branch is zero behind/two ahead and mergeable clean. The Supabase organization is on the Free plan with production `main` only. An isolated branch is currently quoted at USD 0.01344/hour and was not created without cost confirmation. PostgreSQL CI and production read-only preflight are complete, but a production-like Supabase branch apply is not.
 
 ### 10. Phase 3B.2 contract and decommission timing
 
