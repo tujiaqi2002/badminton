@@ -1,6 +1,6 @@
 # Tiger Project History
 
-> 从项目起点到 2026-08-24 的阶段性开发历史。本文解释“如何走到现在”，当前状态以 [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) 为准。
+> 从项目起点到 2026-08-25 的阶段性开发历史。本文解释“如何走到现在”，当前状态以 [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) 为准。
 
 ## 0. 起点：从通用预约系统蓝图收敛到真实球馆
 
@@ -265,16 +265,42 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - staging 验收后于 18:26 UTC 执行 fresh production read-only preflight：生产仍是 healthy PostgreSQL 17.6 / 42 migrations / Phase 3A，Phase 2/3A diagnostics 及 123/135/192/131/23/26 / CAD 1,642.00 对账通过，192/192 owned、0 shadow mismatch、17 direct + 3 safe wrapper、236 public functions、1,739 audits、composite payment FK、仅 `court_slots` Realtime、0 Edge Functions 和 47/40 advisor 基线全部无漂移。Phase 3B kernel/activation/Session assignment 明确尚未存在于生产。
 - Git 同期为 `main` / #135 / #137 = 42 / 44 / 46 migrations，#135 相对 main 0 behind / 5 ahead，#137 相对 #135 0 behind / 3 ahead，两个 Draft PR 均 mergeable 且 CI green。因此生产顺序继续拆分：先只授权 #135 安装 inactive kernel 并验证，再独立决定 #137 activation；本次 preflight 不自动授权任何 merge。
 
-阶段结果：Phase 3B.2 的 staging-only activation、writer matrix、hosted contention、diagnostics、advisors、emergency rollback rehearsal 和 fresh production read-only preflight 已完成。生产仍为 42 migrations 且继续使用 legacy write/read path。下一步是由用户单独确认是否先合并 #135 安装未激活 kernel；验证生产 clean 后才可再请求 #137 activation。Legacy 下线仍属于 Phase 5。
+阶段结果：Phase 3B.2 的 staging-only activation、writer matrix、hosted contention、diagnostics、advisors、emergency rollback rehearsal 和当时的 fresh production read-only preflight 已完成。生产在该时点仍为 42 migrations 且继续使用 legacy write/read path；#137 activation 仍需等 #135 inactive kernel 单独上线验证后重新授权。Legacy 下线仍属于 Phase 5。
 
-## English record: Phase 3B.2 atomic staging activation
+## 25. 2026-08-25：Phase 3B.1 以未激活状态安装到生产
 
-After Issue #136 received explicit confirmation, a separate branch was stacked on Draft PR #135. Draft PR #137 targets the Phase 3B.1 head branch instead of `main`, preserving one objective per branch. The scope remained staging activation and validation only; merge, production writes, read/UI cutover, Stripe, and legacy decommission were excluded.
+- 用户明确授权的边界只有合并 PR #135 并由 Supabase integration 自动安装 inactive kernel；不授权 PR #137 activation、read/UI cutover、Stripe 或 legacy decommission。
+- 06:22 UTC fresh production preflight 确认远端仍为 42 个 migrations、PR 0 behind / 5 ahead 且 CI 全绿；Phase 2/3A diagnostics、17 direct writers / 3 wrappers、Realtime 与 47/40 advisor 基线均符合预期。
+- PR #135 于 06:24:23 UTC 合并，merge commit 为 `e777071712ab47dea5739e718ab2a855037fb1c5`；Supabase integration 于 06:25:04 UTC 应用 migrations 43–44，[GitHub Pages run 32816825670](https://github.com/tujiaqi2002/badminton/actions/runs/32816825670) 通过。
+- 上线后 Phase 2 / Phase 3A diagnostics 继续通过：123 Reservations、135 Sessions、192 Court allocations、131 Parties、23 Payments、26 allocation entries、CAD 1,642.00，192/192 owned、0 shadow mismatch。
+- Phase 3B diagnostic 返回 `phase_3b_inactive_transaction_kernel_verified`；operation、membership、transition 均为 0，public mutation、booking dual-write trigger、Phase 3B Realtime publication 也均为 0。writer inventory 仍是 17 direct / 3 wrappers。
+- Security advisor 保持 47（2 INFO / 45 WARN）；performance advisor 为 62 个 INFO，其中 4 个是已记录 composite-FK index 提示、58 个是 unused-index 提示，没有 WARN 或 ERROR。
+- PR #137 继续保持 Draft 和 staging-only。生产没有启用新 writer、运行 catch-up、切换读取或退役任何 legacy 能力。
+
+阶段结果：生产 migration history 已精确推进到 44，Phase 3B.1 的事务能力已安装但完全未激活。下一步若要进入 Phase 3B.2，必须单独 review PR #137、重新执行 fresh production preflight，并获得明确的 merge/生产激活授权。
+
+---
+
+## English record
+
+### 24. 2026-08-24: Phase 3B.2 atomic staging activation
+
+After Issue #136 received explicit confirmation, a separate branch was stacked on Draft PR #135, preserving one objective per branch. The scope remained staging activation and validation only; merge, production writes, read/UI cutover, Stripe, and legacy decommission were excluded.
 
 Migration 45 atomically freezes and moves all 17 legacy direct writers to private delegates, recreates the same public signatures as authorization-first Phase 3B entries, and keeps the three wrappers indirect. It adds append-only Session assignment history, explicit-primary different-customer merge, stable idempotency, append-only Payment/refund behavior, and commit-time projection checks. Repeated hosted rollback dry-runs exposed and resolved operation-type, deterministic-ID, membership-shape, PostgreSQL UUID aggregate, legacy payment-plan, and Phase 3A shadow-compatibility issues before the real stage apply.
 
-The activation was applied only to `badminton_stage`. The full synthetic 17-writer matrix, permission and retry paths, multi-connection payment/schedule/relationship contention, all Phase 2/3A/3B diagnostics, and an emergency rollback rehearsal passed. Migration 46 added eight ordered composite-FK indexes and reduced the unindexed-FK advisor count to zero. The stage history now exactly matches 46 repository migrations and returns to a clean persistent 192-membership baseline after every rollback test. Bundled Node `v24.19.0` / pnpm `11.19.0` produced 25 passes, zero failures, and one explicit local-PostgreSQL skip across 26 tests; lint and build passed. [Actions run 32761921315](https://github.com/tujiaqi2002/badminton/actions/runs/32761921315) then passed 26/26 tests with zero skips plus lint/build under pinned Node 22 / pnpm 11.16.0 / PostgreSQL 16.
+The activation was applied only to `badminton_stage`. The full synthetic 17-writer matrix, permission and retry paths, multi-connection payment/schedule/relationship contention, all Phase 2/3A/3B diagnostics, and an emergency rollback rehearsal passed. Migration 46 added eight ordered composite-FK indexes and reduced the unindexed-FK advisor count to zero. The stage history exactly matched 46 repository migrations and returned to a clean persistent 192-membership baseline after every rollback test. Bundled Node `v24.19.0` / pnpm `11.19.0` produced 25 passes, zero failures, and one explicit local-PostgreSQL skip across 26 tests; lint and build passed. [Actions run 32761921315](https://github.com/tujiaqi2002/badminton/actions/runs/32761921315) then passed 26/26 tests with zero skips plus lint/build under pinned Node 22 / pnpm 11.16.0 / PostgreSQL 16.
 
-A fresh read-only production preflight then passed with the production project healthy at 42 Phase 3A migrations. Phase 2/3A diagnostics, aggregate and ledger counts, 192/192 ownership, zero shadow drift, 17 direct writers plus three safe wrappers, 1,739 audit events, the composite payment FK, `court_slots`-only Realtime, zero deployed Edge Functions, and the 47/40 advisor baseline were unchanged. Git showed 42/44/46 migrations on `main`/#135/#137 with both Draft PRs mergeable and green.
+A read-only production preflight at that time passed with production healthy at 42 Phase 3A migrations. Phase 2/3A diagnostics, aggregate and ledger counts, 192/192 ownership, zero shadow drift, 17 direct writers plus three safe wrappers, 1,739 audit events, the composite payment FK, `court_slots`-only Realtime, zero deployed Edge Functions, and the 47/40 advisor baseline were unchanged. No production activation was authorized.
 
-Production remains untouched and the legacy write/read path remains authoritative. The next decision is only whether to authorize #135 so the inactive kernel can be installed and verified. #137 activation requires a second authorization after that production check. Legacy retirement remains a Phase 5 decision after cutover, observation, and the rollback window.
+### 25. 2026-08-25: Phase 3B.1 installed in production while inactive
+
+- The user explicitly authorized only merging PR #135 and allowing the Supabase integration to install the inactive kernel. PR #137 activation, read/UI cutover, Stripe, and legacy decommission were not authorized.
+- The 06:22 UTC fresh production preflight confirmed 42 remote migrations, a 0-behind/5-ahead mergeable PR with green CI, clean Phase 2/3A diagnostics, 17 direct writers and 3 wrappers, unchanged Realtime, and the expected 47/40 advisor baseline.
+- PR #135 merged at 06:24:23 UTC with merge commit `e777071712ab47dea5739e718ab2a855037fb1c5`. Supabase integration applied migrations 43–44 at 06:25:04 UTC, and [GitHub Pages run 32816825670](https://github.com/tujiaqi2002/badminton/actions/runs/32816825670) passed.
+- Post-deployment Phase 2 and Phase 3A diagnostics still pass: 123 Reservations, 135 Sessions, 192 Court allocations, 131 Parties, 23 Payments, 26 allocation entries, CAD 1,642.00, 192/192 owned, and zero shadow mismatch.
+- The Phase 3B diagnostic returns `phase_3b_inactive_transaction_kernel_verified`; operation, membership, and transition counts are zero, as are public mutations, booking dual-write triggers, and Phase 3B Realtime publications. Writer inventory remains 17 direct writers and 3 wrappers.
+- Security advisories remain 47 (2 INFO / 45 WARN). Performance advisories are 62 INFO items: 4 recorded composite-FK index notices and 58 unused-index notices, with no WARN or ERROR.
+- PR #137 remains Draft and staging-only. Production did not activate new writers, run catch-up, switch reads, or retire any legacy capability.
+
+Stage result: production migration history now stops exactly at 44, with Phase 3B.1 transaction capabilities installed but entirely inactive. Entering Phase 3B.2 requires a separate review of PR #137, another fresh production preflight, and explicit authorization to merge and activate it in production.
