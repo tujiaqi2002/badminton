@@ -100,9 +100,11 @@ Phase 4B/4C 开始前需要：
 - 本地 Codex bundled Node `v24.19.0` / pnpm `11.19.0`：adapter tests 14/14；Reservation suite 33 tests 中 32 pass、1 个无本地 PostgreSQL 的明确 skip；lint/build 通过。
 - Default-off demo manager browser：desktop 与 390×844 mobile 排期、订单筛选和切周正常；console 0 error/warn，0 `reservation_read_shadow_v1` event。
 - Production 与 `badminton_stage` migration history 只读复核均为 48，最新 `20260825091608_reservation_phase_4a_manager_read_contract`；本阶段没有 DB push。
-- Draft PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) 的固定 [CI run 32837328760](https://github.com/tujiaqi2002/badminton/actions/runs/32837328760)：Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL 16，Reservation 33/33、adapter 14/14、0 skip，lint/build 全绿。Supabase Preview 因无 migration 正常跳过。
+- PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) 最终 merge-head [CI run 32837678041](https://github.com/tujiaqi2002/badminton/actions/runs/32837678041)：Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL 16，Reservation 33/33、adapter 14/14、0 skip，lint/build 全绿。Supabase Preview 因无 migration 正常跳过。
+- 用户授权后，PR #145 于 2026-08-25 10:36:34 UTC 合并为 `ea3e6a80afcec64736a54b2bba65f0936f7e9ab8`；Pages [run 32838082873](https://github.com/tujiaqi2002/badminton/actions/runs/32838082873) build/deploy 成功。线上页面返回 200，并引用该 run 产出的 `index-ssrRc0gW.js`。
+- GitHub Actions 未设置 `VITE_RESERVATION_READ_SHADOW`，workflow fallback 为 `false`。线上 bundle 中 `reservation_read_shadow_v1` 和 `VITE_RESERVATION_READ_SHADOW` 字面量均为 0，证明 shadow 路径已被生产构建裁剪。Production 与 `badminton_stage` 仍各为 48 migrations。
 
-PR 仍保持 Draft；以上证据不授权 merge、生产开启 shadow、默认 read/UI cutover 或 legacy decommission。
+Phase 4A.2 的默认关闭基础已部署。以上证据不授权生产开启 shadow、默认 read/UI cutover 或 legacy decommission。
 
 ---
 
@@ -169,6 +171,8 @@ Before Phase 4B or 4C can cut over a default read path, controlled manager/stagi
 - Local Codex bundled Node `v24.19.0` / pnpm `11.19.0`: 14/14 adapter tests; 32 passes and one explicit no-local-PostgreSQL skip across the 33-test Reservation suite; lint/build passed.
 - Default-off demo manager browser: desktop and 390×844 mobile schedule, order filters, and week navigation passed with zero console errors/warnings and zero `reservation_read_shadow_v1` events.
 - Read-only migration-history checks show production and `badminton_stage` remain aligned at 48, latest `20260825091608_reservation_phase_4a_manager_read_contract`; Phase 4A.2 performed no DB push.
-- Draft PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) pinned [CI run 32837328760](https://github.com/tujiaqi2002/badminton/actions/runs/32837328760) passed 33/33 Reservation PostgreSQL tests and 14/14 adapter tests with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL 16; lint/build were green. Supabase Preview correctly skipped because there is no migration.
+- PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) final merge-head [CI run 32837678041](https://github.com/tujiaqi2002/badminton/actions/runs/32837678041) passed 33/33 Reservation PostgreSQL tests and 14/14 adapter tests with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL 16; lint/build were green. Supabase Preview correctly skipped because there is no migration.
+- After explicit authorization, PR #145 merged at 2026-08-25 10:36:34 UTC as `ea3e6a80afcec64736a54b2bba65f0936f7e9ab8`. Pages [run 32838082873](https://github.com/tujiaqi2002/badminton/actions/runs/32838082873) built and deployed successfully; the live page returns 200 and references the exact `index-ssrRc0gW.js` produced by the run.
+- The GitHub Actions variable is unset, so the workflow fallback remains false. The live bundle contains zero `reservation_read_shadow_v1` and `VITE_RESERVATION_READ_SHADOW` literals, proving the shadow path was compiled away. Production and `badminton_stage` remain at 48 migrations.
 
-The PR remains Draft. This evidence does not authorize merge, enabling production shadow observation, a default read/UI cutover, or legacy decommission.
+The default-off Phase 4A.2 foundation is deployed. This evidence does not authorize enabling production shadow observation, a default read/UI cutover, or legacy decommission.
