@@ -213,3 +213,36 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - Security advisor 保持既有 47 条；performance advisor 从 40 INFO + 1 个目标 WARN 恢复为 40 INFO。没有执行 catch-up、启用 dual-write、切换读取、修改前端或开始 Phase 3B。
 
 阶段结果：Phase 3A 的 foundation、最小 timezone access 与 policy consolidation 均已成为生产事实，shadow 验证链路 clean，advisor regression 已关闭。旧 booking writers、group/link 语义和前端仍在运行；Phase 3B activation 继续需要独立 Issue、migration/PR、完整 writer coverage 与明确生产授权。
+
+## 22. 2026-08-24：Reservation Phase 3B.1 inactive transaction kernel 起草
+
+- 用户 review Issue #134 后明确确认只开始 Phase 3B.1 authoring；不授权 3B.2 activation、migration PR merge、生产自动部署/catch-up、read/UI cutover、Stripe 部署或 legacy decommission。
+- 从最新 `origin/main` 建立 `codex/phase-3b-inactive-transaction-kernel`，用 Supabase CLI 2.115.0 追加本地第 43 个 migration 草案；生产与 `main` 仍为 42 个 migration，没有执行 `db push`。
+- 新 schema 用 immutable transition/source/target/allocation/Party lineage 表记录 merge、split 与 reverse，并以 versioned membership 解析 current effective Reservation/Session；physical booking ownership 外键保持历史 origin，不因关系变化改写。
+- 隔离 reverse-split 测试发现 Party lineage 必须支持多个 split Party 汇回同一 original Party；将 lineage identity 修正为 transition + source Party + target Party，正式表达 one-to-many 与 many-to-one，而不是丢弃重复关系。
+- 付款 primitive 证明一人付清与 AA 可共用同一 append-only Payment/allocation ledger；跨 origin 合并使用 effective Reservation 作为收款 scope，refund 追加负数 entries。原 booking 价格、Payment、allocation 与 origin 均保持不变。
+- private primitives 覆盖 attach、reschedule、cancel/restore、details + explicit Party lineage、payment/refund、merge/split/reverse；reverse 从当前 effective Session 生成新的 restored/projection Session，使合并后的排期或资料修改不会被旧值覆盖，分化 Session 也不会被错误合并。stable operation key、request fingerprint、固定锁顺序与事务超时保证重试和失败整体回滚。
+- writer inventory 使用 schema-qualified canonical signatures 固定 17 direct writers、3 wrappers 与 2 undeployed Stripe paths；真实 `search_path` 差异不再造成误判，新增 rogue writer、client direct execute 或权限漂移均 fail closed。
+- 新 read-only diagnostic 验证 inactive zero-row 状态、RLS/FORCE RLS、最小 grants、private function security、writer inventory、payment FK、无 public mutation/dual-write trigger/Realtime publication。PGlite 隔离测试覆盖 merge/split、付款、回滚、权限与诊断；真实 session contention 由下一条独立 CI 补充。
+- 为把并发从静态设计变成可重复证据，新增 PR-only PostgreSQL 16 CI：完整应用 Phase 1/2/3A/3B.1 migration chain，以三个真实连接并发执行 same-key Payment retry、两笔 overlapping AA 与 competing full refund；本机无 Docker/Postgres 时用环境变量明确 skip，PR CI 不允许 skip。
+- commit `ddda6a1` 已推送并建立 Draft PR #135。首轮 [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283) 在 PostgreSQL 16.15、Node 22 与 pnpm 11.16.0 下得到 22/22 tests、0 fail、0 skip；真实并发、lint、build 全部通过。Supabase Preview 因未配置付费 preview branch 而按设计 skip，不代表 production-like Supabase apply 已完成。
+- 2026-08-24 15:57 UTC 执行 merge 前只读 preflight：Git branch 0 behind / 2 ahead、PR mergeable clean；production 仍为 42 migrations。Phase 2/3A diagnostics、192/192 ownership、123/135/131/23/26 aggregate counts、CAD 1,642.00 ledger、0 shadow/catch-up、1,739 audit events、仅 `court_slots` Realtime、47/40 advisors 全部保持基线。
+- fresh writer inventory 确认 17 direct、3 wrappers、0 missing/unsafe，236 个 public functions 总指纹仍为 `a0ec014bfec41a70762ce5c95122e774`。使用 3B.1 migration 内正式 canonical 算法得到 direct `a28b88496f1ed14e5cceed2a6cbc9b99`、wrapper `d1eb5d63d36f01f1caad2e4e9e516dbf`；旧 direct 值 `ac236997585da13cc6cc0439b8eafcf0` 无法按该算法复现，因此作为记录口径错误废止，而不是生产函数漂移。
+- Supabase organization 是 Free plan，只有 production `main`；隔离 branch 报价为 USD 0.01344/小时。尚未取得付费 branch 创建授权，所以 production-like Supabase apply 仍未完成，production 未发生任何写入。
+
+阶段结果：Phase 3B.1 已形成未激活、可评审的事务内核与中英文契约，Draft PR #135 的真实 PostgreSQL CI 与 fresh production read-only preflight 已通过，但尚未合并或部署。现有 public writer/read/UI 与生产数据完全未切换；下一步是经成本确认创建短时 Supabase branch 并完成 production-like apply，之后必须在独立授权下才可 merge/自动部署，再另行确认 Phase 3B.2 activation。
+
+## 23. 2026-08-24：独立 Supabase staging 完成 Phase 3B.1 hosted apply
+
+- 用户另建 `badminton_stage`（project ref `vcoujmzsgdboidndtzzg`）并明确授权按推荐顺序初始化；生产 `ldbtrouofmqmnkyxiewk` 始终排除在所有写操作之外。
+- 独立项目为空库，而仓库第一个 migration 依赖更早的基础 schema。初始化因此从首个 migration 前的 Git schema 恢复基线，原样重放 migrations 1–37，再写入 192 条/131 group 的确定性 synthetic legacy fixture。所有客户邮箱均为 `example.invalid`，Auth 只有一个 synthetic manager，未复制生产 PII。
+- Phase 1 原样应用后，新 aggregate 表为空且 192 个 legacy allocation 未拥有；插入 6 条 synthetic payment audit evidence 后，从 staging 读取四个数据指纹，只替换 Phase 2 中冻结的生产指纹。Phase 2 DDL/回填逻辑未改，并通过正式 diagnostic：123 Reservations、135 Sessions、192 allocations、131 Parties、23 Payments、26 allocation entries、CAD 1,642.00。
+- Phase 3A 三个 migrations 原样应用并通过 diagnostic：192/192 owned、0 shadow mismatch。Phase 3B.1 migration 也成功安装，但首次 hosted diagnostic 抓到 writer inventory expected/candidate 使用不同 collation 导致相同集合排序不同。
+- 按 append-only 规则新增 `20260824164530_phase_3b_writer_inventory_c_collation`，把 exact regprocedure signature 固定为 `C` collation；不回改 migration 43。修复后 hosted 3B diagnostic 通过：kernel 0 operation / 0 membership / 0 transition、17 direct / 3 wrapper、0 client mutation、0 dual-write trigger、0 新 Realtime publication。
+- 这个发现同时纠正了旧 fingerprint 解释：`a28b...` 是 ICU/default ordering，生产按 `C` ordering 的 raw direct fingerprint 是 `ac236...`。Raw function definition 还受 LF/CRLF 与纯格式化影响，不再作为跨项目 equality gate；canonical signature set、security config、grants 和 wrapper indirectness 仍 fail closed，raw fingerprint 只做同库 before/after review。
+- staging migration history 已移除一次性 bootstrap marker，并精确对齐仓库 44 个 version/name。27 张 public 表全部 RLS，6 张 3B 表全部 FORCE RLS；Phase 3B client DML 和 private helper client EXECUTE 均为 0，Realtime 仍只有 `court_slots`。
+- Advisors 为 49 security（生产既有 47 + staging 项目自带 `public.rls_auto_enable()` 的 2 条已记录 WARN）和 74 performance INFO。4 个 composite-FK 提示逐项确认已有完整反向等值索引或唯一 `booking_id` 主键覆盖，不新增重复索引；其余 70 个 unused-index 提示来自 fresh synthetic 数据库无业务流量。
+- 回滚型 payment probe 得到相同确定性 Payment ID 且未留下 Payment/operation；但连接器串行化请求，因此不把它算作并发锁证据。真实并发继续由 PostgreSQL CI 的 same-key、AA 与 refund race 用例负责。
+- 最终 bundled Node `v24.19.0` / pnpm `11.19.0` 本地结果为 46 pass、0 fail、1 个无本地 PostgreSQL 时的明确 skip；lint/build 通过。推送 commit `699d11d` 后，[Actions run 32753722730](https://github.com/tujiaqi2002/badminton/actions/runs/32753722730) 在 PostgreSQL 16.15 上重新得到 22/22、0 fail、0 skip，真实 same-key Payment、AA 与 refund race 均通过。合并、生产自动部署、Phase 3B.2 activation、read/UI cutover、Stripe 与 legacy decommission 仍未授权。
+
+阶段结果：production-like hosted Supabase apply 与 follow-up PostgreSQL CI 门禁均已完成，且在真正 merge 前发现并修复了一个 collation portability bug。生产仍是 42 migrations 和 legacy write/read path；下一步只能在 fresh production preflight 后由用户单独确认是否 merge/自动部署。

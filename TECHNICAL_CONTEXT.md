@@ -24,6 +24,7 @@
 - Supabase project ref：`ldbtrouofmqmnkyxiewk`。
 - Supabase URL：`https://ldbtrouofmqmnkyxiewk.supabase.co`。
 - 数据库：PostgreSQL 17.6（平台 build `17.6.1.155`），项目状态在 2026-08-23 为 `ACTIVE_HEALTHY`。
+- 独立 staging：`badminton_stage` / project ref `vcoujmzsgdboidndtzzg`，PostgreSQL 17.6、同为 `us-west-2`；只使用 `example.invalid` 客户与单一 synthetic Auth/manager，不复制任何生产 PII。生产 ref 禁止用于 staging fixture 或未授权 migration。
 - 自定义域名 `tiger.io` 尚未配置；用户拥有并完成 DNS 前不能添加 `CNAME`。
 
 禁止提交数据库密码、access token、service-role、Stripe secret、Webhook secret、真实馆长邮箱和客户数据。
@@ -204,12 +205,36 @@ PR #129 合并后，Supabase integration 于 2026-08-24 12:59:44 UTC 成功应�
 
 用户在 fresh production preflight 后明确授权 PR #132 merge/生产部署。PR 于 2026-08-24 13:47:59 UTC 合并，Supabase integration 于 13:48:37 UTC 应用第 42 个 migration。上线后 Phase 2/3A diagnostics、真实 manager/non-manager authenticated 路径、RLS/grants metadata、数据总量与四个冻结指纹全部通过；审计总数仍为 1,739，catch-up events 为 0，17 个 public booking writers、private helper grants 和仅 `court_slots` 的 Realtime boundary 均未改变。Security advisor 保持 47 条，performance advisor 恢复为 40 个 `unused_index` INFO，目标 WARN 消失。
 
+### Phase 3B.1 inactive transaction kernel（Draft PR #135；未生产、未激活）
+
+Issue #134 已获得仅限 3B.1 authoring 的明确确认。本地 migration `20260824143442_reservation_phase_3b_inactive_transaction_kernel` 为未来原子 writer activation 增加私有事务 primitive，但不替换任何 public routine、不调用 catch-up、不切 read path、不新增 client DML 或 Realtime publication。合并 migration PR 会触发生产自动部署，因此 merge/生产必须重新取得明确授权。
+
+关系变化采用 append-only 表达：`reservation_transitions`、source/target/allocation/Party lineage 表保存 merge、split 和 reverse；`reservation_allocation_memberships` 是唯一可变、可重建的 current-effective projection。`bookings.reservation_id` 继续是不可变 physical Reservation origin；`booking.session_id` 是该 origin 内的 legacy schedule projection，可在 reschedule/reverse 时原子指向新的 projection Session。membership 只允许由新 transition 单版本推进，transition history 拒绝 UPDATE/DELETE。Party lineage 主键允许 one-to-many 与 many-to-one，覆盖 split 后 reverse 汇回同一 Party 的合法场景。reverse 根据当前 effective Session 重建 restored Session，因此后续 schedule/details 不会被 transition 创建时的旧 Session facts 覆盖；分化后的 Session 保持分开。
+
+付款语义把 `payment_allocation_entries.reservation_id` 定义为收款时的 commercial/effective Reservation，而 `booking.reservation_id` 继续保留 physical origin。为允许一笔 Payment 跨多个 origin 的 Court，草案把 allocation booking FK 从 composite `(booking_id, reservation_id)` 调整为 `booking_id -> bookings.id`；业务归属由 private payment primitive 在锁内验证 effective membership、currency、payer Party、剩余金额与完整 scope。Payment/refund/allocation 继续 append-only；refund 使用新的负数 entries，legacy payment status 在同一事务从 ledger balance 投影。
+
+所有 private mutation 使用 stable `operation_id` + request fingerprint，设置 transaction-local 5 秒 lock timeout / 30 秒 statement timeout，并使用 operation advisory lock、按 UUID 排序的 booking advisory locks，再按 Reservation → Session → booking → membership/Party/Payment 顺序取得 row locks。相同请求重试返回原结果；key 被不同请求复用、已提交未完成 operation 或不完整 merge/split scope均 fail closed。任何 constraint 失败会回滚 journal、新 aggregate、legacy projection 和 audit。
+
+`private.reservation_phase3b_writer_inventory` 固定 17 个 schema-qualified direct writer signatures、3 个 wrappers 与 2 个 undeployed Stripe paths；assertion 根据 catalog/body/grants/security config 精确对账并输出 fingerprint，新增 rogue writer 时 fail closed。六张 public transition/membership 表均 RLS + FORCE RLS，authenticated 只有 manager-only SELECT，所有 client role 无 DML；全部 private helpers 为 security-invoker、空 `search_path` 且无 client EXECUTE。
+
+Hosted staging 首次运行 diagnostic 时发现 inventory column 使用 ICU/default collation，而由 `pg_catalog.format` 生成的 candidate signature 使用 `C` collation；同一 17-member 集合因此出现数组顺序误报。Append-only migration `20260824164530_phase_3b_writer_inventory_c_collation` 将 signature identity/order 固定为 `C`，hosted diagnostic 随后通过。此前 `a28b...` 是 ICU/default ordering；生产当前按 `C` ordering 的 direct raw fingerprint 为 `ac236...`。raw `pg_get_functiondef` fingerprint 还会受 CRLF 和纯 SQL 格式化影响，不能作为跨项目相等断言；跨环境硬门禁是 canonical signature 集合、`prosecdef`/empty `search_path`、最小 grants 与 wrapper indirectness，raw fingerprint 只用于同一数据库的 fresh before/after review。
+
+隔离测试使用真实 Phase 1/2/3A migration 链，覆盖 inactive apply、幂等、schedule/details/cancel 与 full rollback、不同客户显式-primary merge、Party lineage、一人/AA/退款、跨-origin Payment、已付款 split、merge/split reverse、permission denial、writer drift 和 read-only diagnostic。Draft PR #135 的首轮 `reservation-db-tests` 已在 PostgreSQL 16.15、Node 22、pnpm 11.16.0 上使用三个真实连接通过：22/22 tests、0 fail、0 skip，same-key Payment retry、重叠 AA 与 competing refund 均证明 advisory/row lock 顺序、幂等和失败回滚在真实 session 下成立；lint 与 build 同时通过。证据为 [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283)。设计见 [`docs/reservation-migration/phase-3b-inactive-transaction-kernel.md`](./docs/reservation-migration/phase-3b-inactive-transaction-kernel.md)，诊断见 [`supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql`](./supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql)。
+
+最终本地使用 bundled Node `v24.19.0` / pnpm `11.19.0` 跑通 21 个 PGlite migration-chain tests、lint 与 build；1 个 real-PostgreSQL concurrency test 因本机无服务明确 skip，并已由上述 PR CI 成功执行。2026-08-24 15:57 UTC fresh production Phase 2/3A diagnostics 再次通过：192/192 bookings owned、123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00、0 shadow mismatch/catch-up、1,739 audit events，Realtime 仍只有 `court_slots`。production 仍为 42 migrations 与未应用 3B.1 的 advisor 47 security（2 INFO / 45 WARN）/ 40 performance INFO 基线；没有执行 local `db push`。
+
+用户另建并授权初始化独立 `badminton_stage` 后，已用首个 migration 前的 Git schema、原始 migrations 1–38、确定性 synthetic legacy fixture、仅替换四个冻结数据指纹的 Phase 2，以及原始 Phase 3A/3B migrations 完成 hosted replay。Migration history 与仓库 44 个 version/name 精确一致；Phase 2/3A/3B diagnostics、RLS/grants、Realtime 和 inactive-zero-row 门禁全部通过。初始化生成器与双语说明位于 [`supabase/staging`](./supabase/staging)。该项目完成 production-like hosted apply；follow-up [Actions run 32753722730](https://github.com/tujiaqi2002/badminton/actions/runs/32753722730) 又在 PostgreSQL 16.15 上得到 22/22、0 fail、0 skip。两项证据仍不授权 merge/生产自动部署，merge 前还必须 fresh production preflight。
+
+staging advisors 为 49 security（生产既有 47 + 新项目平台自带 `public.rls_auto_enable()` 的 anon/authenticated EXECUTE 两条已记录 WARN）及 74 performance INFO。4 条 `unindexed_foreign_keys` 指向 composite FK column order；逐项核对发现完整反向等值索引或 `booking_id` 唯一主键已覆盖 FK maintenance lookup，因此不建立重复索引。70 条 `unused_index` 来自 fresh synthetic stage 的零业务流量，需在 activation/真实 query plan 后再判断。
+
 ## 8. 线上迁移状态
 
 2026-08-24 PR #132 上线后，生产与 `main` 均核对到 42 个版本；当前没有 pending production migration：
 
 - 首个：`20260812161833_private_manager_schedule`
 - 生产/`main` 最新：`20260824132704_phase_3a_venue_settings_policy_consolidation`
+
+独立 `badminton_stage` 已对齐当前分支的 44 个版本，最新为 `20260824164530_phase_3b_writer_inventory_c_collation`。其中 Phase 2 migration 的 DDL/回填逻辑未变，只把四个冻结生产数据指纹替换为合成 fixture 的 staging 指纹；production history 和数据没有被写入。当前分支 merge 后会让 migrations 43–44 通过 GitHub integration 自动进入生产，所以仍必须取得明确 merge/生产授权。
 
 本次未发现之前的 “Remote migration versions not found in local migrations directory” 漂移。
 

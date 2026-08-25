@@ -27,6 +27,18 @@ const phase3aPolicyConsolidationPath = new URL(
   '../migrations/20260824132704_phase_3a_venue_settings_policy_consolidation.sql',
   import.meta.url,
 )
+const phase3bInactiveKernelPath = new URL(
+  '../migrations/20260824143442_reservation_phase_3b_inactive_transaction_kernel.sql',
+  import.meta.url,
+)
+const phase3bWriterInventoryCollationPath = new URL(
+  '../migrations/20260824164530_phase_3b_writer_inventory_c_collation.sql',
+  import.meta.url,
+)
+const phase3bInactiveKernelDiagnosticPath = new URL(
+  '../diagnostics/phase_3b_inactive_transaction_kernel.sql',
+  import.meta.url,
+)
 
 const productionFingerprints = {
   booking: '20802718eff3b81bd5fe38d99808e8d8',
@@ -475,7 +487,7 @@ function specialize(sql, localFingerprints) {
 }
 
 async function buildDatabase(options = {}) {
-  const db = new PGlite()
+  const db = options.db ?? new PGlite()
   const bookings = buildBookings()
   await db.exec(baseSchemaSql(options))
   await db.exec(bookingSeedSql(bookings))
@@ -691,6 +703,145 @@ async function applyPhase3aAccessFix(db) {
 
 async function applyPhase3aPolicyConsolidation(db) {
   await db.exec(await readFile(phase3aPolicyConsolidationPath, 'utf8'))
+}
+
+async function applyPhase3bInactiveKernel(db) {
+  await db.exec(await readFile(phase3bInactiveKernelPath, 'utf8'))
+  await db.exec(await readFile(phase3bWriterInventoryCollationPath, 'utf8'))
+}
+
+function uuidArraySql(values) {
+  return `array[${values.map((value) => `${sqlString(value)}::uuid`).join(', ')}]::uuid[]`
+}
+
+function numericArraySql(values) {
+  return `array[${values.map((value) => `${value}::numeric`).join(', ')}]::numeric[]`
+}
+
+async function buildPhase3bDatabase(options = {}) {
+  const setup = await buildDatabase(options)
+  await setup.db.exec(setup.migration)
+  await applyPhase3a(setup.db)
+  await applyPhase3aAccessFix(setup.db)
+  await applyPhase3aPolicyConsolidation(setup.db)
+  await applyPhase3bInactiveKernel(setup.db)
+  return setup.db
+}
+
+async function installWriterInventoryStubs(db) {
+  const inventory = await db.query(`
+    select signature, writer_kind
+    from private.reservation_phase3b_writer_inventory
+    where writer_kind in ('direct', 'wrapper')
+    order by signature
+  `)
+
+  for (const writer of inventory.rows) {
+    const body = writer.writer_kind === 'direct'
+      ? `update public.bookings set updated_at = updated_at where false;`
+      : `perform 1;`
+    await db.exec(`
+      create or replace function ${writer.signature}
+      returns void
+      language plpgsql
+      security definer
+      set search_path = ''
+      as $stub$
+      begin
+        ${body}
+      end;
+      $stub$;
+
+      revoke all on function ${writer.signature} from public, anon;
+      grant execute on function ${writer.signature}
+        to authenticated, service_role;
+    `)
+  }
+}
+
+async function prepareTransitionTarget(db, {
+  targetReservationId,
+  sourcePartyIds,
+  targetPartyIds,
+  primarySourcePartyId,
+  paymentPlan = 'single_payer',
+}) {
+  assert.equal(sourcePartyIds.length, targetPartyIds.length)
+  const actorId = uuid(6, 1)
+  const sourceParties = await db.query(`
+    select
+      party.id,
+      party.party_type,
+      party.display_name,
+      party.email,
+      party.phone,
+      party.auth_user_id
+    from public.reservation_parties as party
+    where party.id = any(${uuidArraySql(sourcePartyIds)})
+    order by array_position(${uuidArraySql(sourcePartyIds)}, party.id)
+  `)
+  assert.equal(sourceParties.rows.length, sourcePartyIds.length)
+
+  await db.exec(`
+    insert into public.reservations (
+      id, currency, payment_plan, source, created_by
+    ) values (
+      ${sqlString(targetReservationId)}::uuid,
+      'CAD',
+      ${sqlString(paymentPlan)},
+      'system',
+      ${sqlString(actorId)}::uuid
+    );
+  `)
+
+  for (let index = 0; index < sourceParties.rows.length; index += 1) {
+    const source = sourceParties.rows[index]
+    const targetPartyId = targetPartyIds[index]
+    await db.exec(`
+      insert into public.reservation_parties (
+        id, reservation_id, party_type, display_name, email, phone,
+        auth_user_id, source, created_by
+      ) values (
+        ${sqlString(targetPartyId)}::uuid,
+        ${sqlString(targetReservationId)}::uuid,
+        ${sqlString(source.party_type)},
+        ${sqlString(source.display_name)},
+        ${sqlString(source.email)},
+        ${sqlString(source.phone)},
+        ${source.auth_user_id ? `${sqlString(source.auth_user_id)}::uuid` : 'null'},
+        'system',
+        ${sqlString(actorId)}::uuid
+      );
+
+      insert into public.reservation_party_roles (
+        reservation_id, party_id, role, created_by
+      )
+      select
+        ${sqlString(targetReservationId)}::uuid,
+        ${sqlString(targetPartyId)}::uuid,
+        role.role,
+        ${sqlString(actorId)}::uuid
+      from public.reservation_party_roles as role
+      where role.party_id = ${sqlString(source.id)}::uuid
+        and role.role <> 'primary_contact'
+      on conflict do nothing;
+    `)
+  }
+
+  const primaryIndex = sourcePartyIds.indexOf(primarySourcePartyId)
+  assert.notEqual(primaryIndex, -1)
+  const primaryTargetPartyId = targetPartyIds[primaryIndex]
+  await db.exec(`
+    insert into public.reservation_party_roles (
+      reservation_id, party_id, role, created_by
+    ) values (
+      ${sqlString(targetReservationId)}::uuid,
+      ${sqlString(primaryTargetPartyId)}::uuid,
+      'primary_contact',
+      ${sqlString(actorId)}::uuid
+    );
+  `)
+  return { primaryTargetPartyId }
 }
 
 async function shadowMismatchCodes(db) {
@@ -1215,5 +1366,1204 @@ test('Phase 3A reports payment drift without inventing a receipt', async () => {
     ])
   } finally {
     await db.close()
+  }
+})
+
+test('Phase 3B.1 installs an inactive private kernel without replacing writers', async () => {
+  const { db, migration } = await buildDatabase()
+  try {
+    await db.exec(migration)
+    await applyPhase3a(db)
+    await applyPhase3aAccessFix(db)
+    await applyPhase3aPolicyConsolidation(db)
+
+    const publicFunctionsBefore = await scalar(db, `
+      select md5(coalesce(string_agg(
+        routine.oid::regprocedure::text || ':' || pg_get_functiondef(routine.oid),
+        '' order by routine.oid::regprocedure::text
+      ), '')) as value
+      from pg_proc as routine
+      join pg_namespace as schema on schema.oid = routine.pronamespace
+      where schema.nspname = 'public'
+    `, 'value')
+
+    await applyPhase3bInactiveKernel(db)
+
+    const inactive = await db.query(`
+      select private.assert_reservation_phase3b_kernel_inactive() as result
+    `)
+    assert.equal(inactive.rows[0].result.status, 'inactive')
+    assert.equal(inactive.rows[0].result.transition_count, 0)
+    assert.equal(inactive.rows[0].result.membership_count, 0)
+    assert.equal(inactive.rows[0].result.operation_count, 0)
+
+    assert.equal(await scalar(db, `
+      select md5(coalesce(string_agg(
+        routine.oid::regprocedure::text || ':' || pg_get_functiondef(routine.oid),
+        '' order by routine.oid::regprocedure::text
+      ), '')) as value
+      from pg_proc as routine
+      join pg_namespace as schema on schema.oid = routine.pronamespace
+      where schema.nspname = 'public'
+    `, 'value'), publicFunctionsBefore)
+
+    const boundary = await db.query(`
+      select
+        (select count(*) = 6
+          from pg_class as relation
+          join pg_namespace as schema on schema.oid = relation.relnamespace
+          where schema.nspname = 'public'
+            and relation.relname in (
+              'reservation_transitions',
+              'reservation_transition_sources',
+              'reservation_transition_targets',
+              'reservation_transition_allocations',
+              'reservation_transition_parties',
+              'reservation_allocation_memberships'
+            )
+            and relation.relrowsecurity
+            and relation.relforcerowsecurity
+        ) as all_new_tables_force_rls,
+        not has_function_privilege(
+          'anon',
+          'private.reservation_phase3b_record_payment(uuid,uuid[],numeric[],text,text,timestamp with time zone,uuid,uuid)',
+          'execute'
+        )
+          and not has_function_privilege(
+            'authenticated',
+            'private.reservation_phase3b_record_payment(uuid,uuid[],numeric[],text,text,timestamp with time zone,uuid,uuid)',
+            'execute'
+          )
+          and not has_function_privilege(
+            'service_role',
+            'private.reservation_phase3b_record_payment(uuid,uuid[],numeric[],text,text,timestamp with time zone,uuid,uuid)',
+            'execute'
+          ) as private_payment_has_no_client_execute,
+        not has_table_privilege(
+          'authenticated',
+          'public.reservation_transitions',
+          'insert'
+        )
+          and not has_table_privilege(
+            'authenticated',
+            'public.reservation_transitions',
+            'update'
+          )
+          and not has_table_privilege(
+            'authenticated',
+            'public.reservation_transitions',
+            'delete'
+          ) as transition_dml_is_private,
+        exists (
+          select 1
+          from pg_constraint as constraint_row
+          where constraint_row.conrelid =
+            'public.payment_allocation_entries'::regclass
+            and constraint_row.conname =
+              'payment_allocation_entries_booking_fkey'
+            and constraint_row.contype = 'f'
+            and constraint_row.confrelid = 'public.bookings'::regclass
+            and cardinality(constraint_row.conkey) = 1
+            and cardinality(constraint_row.confkey) = 1
+            and constraint_row.convalidated
+        ) as payment_fk_supports_effective_scope,
+        not exists (
+          select 1
+          from pg_constraint as foreign_key
+          where foreign_key.contype = 'f'
+            and foreign_key.conrelid in (
+              'private.reservation_phase3b_operations'::regclass,
+              'public.reservation_transitions'::regclass,
+              'public.reservation_transition_sources'::regclass,
+              'public.reservation_transition_targets'::regclass,
+              'public.reservation_transition_allocations'::regclass,
+              'public.reservation_transition_parties'::regclass,
+              'public.reservation_allocation_memberships'::regclass
+            )
+            and not exists (
+              select 1
+              from pg_index as index_row
+              where index_row.indrelid = foreign_key.conrelid
+                and index_row.indisvalid
+                and index_row.indisready
+                and index_row.indnkeyatts >= cardinality(foreign_key.conkey)
+                and (
+                  select count(distinct foreign_key_column.attnum)
+                  from unnest(foreign_key.conkey)
+                    as foreign_key_column(attnum)
+                  join unnest(index_row.indkey::smallint[]) with ordinality
+                    as index_column(attnum, position)
+                    on index_column.attnum = foreign_key_column.attnum
+                   and index_column.position <= cardinality(foreign_key.conkey)
+                ) = cardinality(foreign_key.conkey)
+            )
+        ) as all_new_foreign_keys_indexed
+    `)
+    assert.deepEqual(boundary.rows, [{
+      all_new_tables_force_rls: true,
+      private_payment_has_no_client_execute: true,
+      transition_dml_is_private: true,
+      payment_fk_supports_effective_scope: true,
+      all_new_foreign_keys_indexed: true,
+    }])
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 3B.1 idempotently attaches a newly-created legacy group', async () => {
+  const db = await buildPhase3bDatabase()
+  const bookingId = uuid(8, 11)
+  const groupId = uuid(8, 12)
+  const userId = uuid(6, 1)
+  const courtId = uuid(5, 1)
+  try {
+    await db.exec(`
+      insert into public.bookings (
+        id, user_id, court_id, start_at, end_at, status, payment_status,
+        payment_method, total_amount, currency, party_size, hold_expires_at,
+        stripe_checkout_session_id, stripe_payment_intent_id, cancelled_at,
+        created_at, updated_at, customer_name, customer_email, customer_phone,
+        customer_notes, booking_group_id, recurrence_series_id, recurrence_week,
+        system_calculated_amount, price_source, price_override_amount,
+        price_overridden_by, price_overridden_at, booking_link_id
+      ) values (
+        ${sqlString(bookingId)}::uuid,
+        ${sqlString(userId)}::uuid,
+        ${sqlString(courtId)}::uuid,
+        '2027-06-01 10:00:00'::timestamp,
+        '2027-06-01 11:00:00'::timestamp,
+        'confirmed', 'pay_at_venue', 'venue', 48, 'CAD', 2,
+        null, null, null, null,
+        '2026-08-24 15:00:00+00'::timestamptz,
+        '2026-08-24 15:00:00+00'::timestamptz,
+        'Phase 3B synthetic customer',
+        'phase3b@example.invalid',
+        '5550000011', null,
+        ${sqlString(groupId)}::uuid,
+        null, null, 48, 'system', null, null, null, null
+      );
+    `)
+
+    const operationId = 'phase3b-test-attach-group'
+    const first = await db.query(`
+      select private.reservation_phase3b_attach_legacy_groups(
+        ${uuidArraySql([groupId])},
+        ${sqlString(operationId)},
+        ${sqlString(userId)}::uuid
+      ) as reservation_ids
+    `)
+    assert.equal(first.rows[0].reservation_ids.length, 1)
+
+    const stateAfterFirst = await db.query(`
+      select
+        booking.reservation_id,
+        booking.session_id,
+        membership.origin_reservation_id,
+        membership.effective_reservation_id,
+        membership.effective_session_id,
+        membership.version
+      from public.bookings as booking
+      join public.reservation_allocation_memberships as membership
+        on membership.booking_id = booking.id
+      where booking.id = ${sqlString(bookingId)}::uuid
+    `)
+    assert.equal(stateAfterFirst.rows[0].version, 0)
+    assert.equal(
+      stateAfterFirst.rows[0].reservation_id,
+      stateAfterFirst.rows[0].effective_reservation_id,
+    )
+    assert.equal(
+      stateAfterFirst.rows[0].session_id,
+      stateAfterFirst.rows[0].effective_session_id,
+    )
+
+    const second = await db.query(`
+      select private.reservation_phase3b_attach_legacy_groups(
+        ${uuidArraySql([groupId])},
+        ${sqlString(operationId)},
+        ${sqlString(userId)}::uuid
+      ) as reservation_ids
+    `)
+    assert.deepEqual(second.rows[0], first.rows[0])
+    assert.equal(await scalar(db, `
+      select count(*)::integer as value
+      from private.reservation_phase3b_operations
+      where operation_id = ${sqlString(operationId)}
+        and status = 'completed'
+    `, 'value'), 1)
+    assert.deepEqual(await shadowMismatchCodes(db), [])
+
+    await assert.rejects(
+      db.exec(`
+        select private.reservation_phase3b_attach_legacy_groups(
+          ${uuidArraySql([uuid(2, 30)])},
+          ${sqlString(operationId)},
+          ${sqlString(userId)}::uuid
+        )
+      `),
+      /idempotency key was reused/i,
+    )
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 3B.1 schedule, details, and cancellation primitives are atomic and idempotent', async () => {
+  const db = await buildPhase3bDatabase()
+  const groupId = uuid(2, 30)
+  const actorId = uuid(6, 1)
+  try {
+    const scope = await db.query(`
+      select booking.id, booking.session_id
+      from public.bookings as booking
+      where booking.booking_group_id = ${sqlString(groupId)}::uuid
+      order by booking.id
+    `)
+    const bookingIds = scope.rows.map((row) => row.id)
+    const sessionId = scope.rows[0].session_id
+    assert.equal(new Set(scope.rows.map((row) => row.session_id)).size, 1)
+
+    const session = await db.query(`
+      select starts_at, ends_at
+      from public.reservation_sessions
+      where id = ${sqlString(sessionId)}::uuid
+    `)
+    const newStart = new Date(
+      new Date(session.rows[0].starts_at).getTime() + 2 * 60 * 60 * 1000,
+    ).toISOString()
+    const newEnd = new Date(
+      new Date(session.rows[0].ends_at).getTime() + 2 * 60 * 60 * 1000,
+    ).toISOString()
+
+    const moved = await db.query(`
+      select private.reservation_phase3b_reschedule_session(
+        ${sqlString(sessionId)}::uuid,
+        ${sqlString(newStart)}::timestamptz,
+        ${sqlString(newEnd)}::timestamptz,
+        'phase3b-test-reschedule',
+        ${sqlString(actorId)}::uuid
+      ) as booking_count
+    `)
+    assert.equal(moved.rows[0].booking_count, bookingIds.length)
+    const movedRetry = await db.query(`
+      select private.reservation_phase3b_reschedule_session(
+        ${sqlString(sessionId)}::uuid,
+        ${sqlString(newStart)}::timestamptz,
+        ${sqlString(newEnd)}::timestamptz,
+        'phase3b-test-reschedule',
+        ${sqlString(actorId)}::uuid
+      ) as booking_count
+    `)
+    assert.deepEqual(movedRetry.rows, moved.rows)
+
+    const aligned = await db.query(`
+      select count(*)::integer as aligned_count
+      from public.bookings as booking
+      join public.reservation_sessions as session
+        on session.id = booking.session_id
+       and session.reservation_id = booking.reservation_id
+      cross join public.venue_settings as settings
+      where booking.id = any(${uuidArraySql(bookingIds)})
+        and booking.start_at = timezone(settings.timezone, session.starts_at)
+        and booking.end_at = timezone(settings.timezone, session.ends_at)
+    `)
+    assert.equal(aligned.rows[0].aligned_count, bookingIds.length)
+
+    await db.exec(`
+      select private.reservation_phase3b_update_booking_details(
+        ${uuidArraySql(bookingIds)},
+        'Updated synthetic customer',
+        'updated@example.invalid',
+        '5550000030',
+        'Updated Phase 3B note',
+        4::smallint,
+        'phase3b-test-details',
+        ${sqlString(actorId)}::uuid
+      )
+    `)
+    const details = await db.query(`
+      select distinct customer_name, customer_notes, party_size
+      from public.bookings
+      where id = any(${uuidArraySql(bookingIds)})
+    `)
+    assert.deepEqual(details.rows, [{
+      customer_name: 'Updated synthetic customer',
+      customer_notes: 'Updated Phase 3B note',
+      party_size: 4,
+    }])
+
+    await db.exec(`
+      select private.reservation_phase3b_set_booking_status(
+        ${uuidArraySql(bookingIds)},
+        'cancelled',
+        'phase3b-test-cancel',
+        ${sqlString(actorId)}::uuid
+      )
+    `)
+    assert.equal(await scalar(db, `
+      select count(*)::integer as value
+      from public.court_slots
+      where id = any(${uuidArraySql(bookingIds)})
+    `, 'value'), 0)
+
+    await db.exec(`
+      select private.reservation_phase3b_set_booking_status(
+        ${uuidArraySql(bookingIds)},
+        'confirmed',
+        'phase3b-test-restore',
+        ${sqlString(actorId)}::uuid
+      )
+    `)
+    assert.equal(await scalar(db, `
+      select count(*)::integer as value
+      from public.court_slots
+      where id = any(${uuidArraySql(bookingIds)})
+    `, 'value'), bookingIds.length)
+
+    const beforeRollback = await db.query(`
+      select starts_at, ends_at
+      from public.reservation_sessions
+      where id = ${sqlString(sessionId)}::uuid
+    `)
+    await db.exec('begin;')
+    await db.exec(`
+      select private.reservation_phase3b_reschedule_session(
+        ${sqlString(sessionId)}::uuid,
+        ${sqlString(new Date(new Date(newStart).getTime() + 3600000).toISOString())}::timestamptz,
+        ${sqlString(new Date(new Date(newEnd).getTime() + 3600000).toISOString())}::timestamptz,
+        'phase3b-test-reschedule-rollback',
+        ${sqlString(actorId)}::uuid
+      )
+    `)
+    await assert.rejects(db.exec('select 1 / 0;'), /division by zero/i)
+    await db.exec('rollback;')
+    const afterRollback = await db.query(`
+      select starts_at, ends_at
+      from public.reservation_sessions
+      where id = ${sqlString(sessionId)}::uuid
+    `)
+    assert.deepEqual(afterRollback.rows, beforeRollback.rows)
+    assert.equal(await scalar(db, `
+      select count(*)::integer as value
+      from private.reservation_phase3b_operations
+      where operation_id = 'phase3b-test-reschedule-rollback'
+    `, 'value'), 0)
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 3B.1 merges different customers, supports one-payer and AA ledger entries, and reverses without rewriting origins', async () => {
+  const db = await buildPhase3bDatabase()
+  const actorId = uuid(6, 1)
+  const sourceGroupIds = [uuid(2, 20), uuid(2, 21)]
+  const targetReservationId = uuid(10, 1)
+  try {
+    const sources = await db.query(`
+      select distinct booking.reservation_id
+      from public.bookings as booking
+      where booking.booking_group_id = any(${uuidArraySql(sourceGroupIds)})
+      order by booking.reservation_id
+    `)
+    const sourceReservationIds = sources.rows.map((row) => row.reservation_id)
+    assert.equal(sourceReservationIds.length, 2)
+
+    const parties = await db.query(`
+      select party.id, party.reservation_id
+      from public.reservation_parties as party
+      where party.reservation_id = any(${uuidArraySql(sourceReservationIds)})
+      order by party.id
+    `)
+    const sourcePartyIds = parties.rows.map((row) => row.id)
+    assert.equal(sourcePartyIds.length, 2)
+    const targetPartyIds = [uuid(10, 11), uuid(10, 12)]
+    const prepared = await prepareTransitionTarget(db, {
+      targetReservationId,
+      sourcePartyIds,
+      targetPartyIds,
+      primarySourcePartyId: sourcePartyIds[0],
+      paymentPlan: 'split_custom',
+    })
+
+    const bookingScope = await db.query(`
+      select booking.id, booking.reservation_id, booking.session_id,
+        booking.total_amount
+      from public.bookings as booking
+      where booking.reservation_id = any(${uuidArraySql(sourceReservationIds)})
+      order by booking.id
+    `)
+    const bookingIds = bookingScope.rows.map((row) => row.id)
+    const physicalOrigins = new Map(
+      bookingScope.rows.map((row) => [row.id, row.reservation_id]),
+    )
+    const originalSessionIds = [...new Set(
+      bookingScope.rows.map((row) => row.session_id),
+    )].sort()
+    const originalSessions = await db.query(`
+      select id, reservation_id, starts_at, ends_at, party_size, notes
+      from public.reservation_sessions
+      where id = any(${uuidArraySql(originalSessionIds)})
+      order by id
+    `)
+    const bookingTargets = bookingIds.map(() => targetReservationId)
+
+    await assert.rejects(
+      db.exec(`
+        select private.reservation_phase3b_apply_transition(
+          'merge',
+          ${uuidArraySql(sourceReservationIds)},
+          ${uuidArraySql([uuid(10, 2)])},
+          array[null::uuid],
+          ${uuidArraySql(bookingIds)},
+          ${uuidArraySql(bookingIds.map(() => uuid(10, 2)))},
+          ${uuidArraySql(sourcePartyIds)},
+          ${uuidArraySql(targetPartyIds)},
+          'phase3b-test-ambiguous-primary',
+          ${sqlString(actorId)}::uuid
+        )
+      `),
+      /primary|invalid shapes/i,
+    )
+
+    await assert.rejects(
+      db.exec(`
+        select private.reservation_phase3b_apply_transition(
+          'merge',
+          ${uuidArraySql(sourceReservationIds)},
+          ${uuidArraySql([targetReservationId])},
+          ${uuidArraySql([prepared.primaryTargetPartyId])},
+          ${uuidArraySql(bookingIds)},
+          ${uuidArraySql(bookingTargets)},
+          ${uuidArraySql([sourcePartyIds[0]])},
+          ${uuidArraySql([targetPartyIds[0]])},
+          'phase3b-test-incomplete-party-lineage',
+          ${sqlString(actorId)}::uuid
+        )
+      `),
+      /Every source Party requires explicit transition lineage/i,
+    )
+
+    const merge = await db.query(`
+      select private.reservation_phase3b_apply_transition(
+        'merge',
+        ${uuidArraySql(sourceReservationIds)},
+        ${uuidArraySql([targetReservationId])},
+        ${uuidArraySql([prepared.primaryTargetPartyId])},
+        ${uuidArraySql(bookingIds)},
+        ${uuidArraySql(bookingTargets)},
+        ${uuidArraySql(sourcePartyIds)},
+        ${uuidArraySql(targetPartyIds)},
+        'phase3b-test-merge',
+        ${sqlString(actorId)}::uuid
+      ) as transition_id
+    `)
+    const transitionId = merge.rows[0].transition_id
+    const mergeRetry = await db.query(`
+      select private.reservation_phase3b_apply_transition(
+        'merge',
+        ${uuidArraySql(sourceReservationIds)},
+        ${uuidArraySql([targetReservationId])},
+        ${uuidArraySql([prepared.primaryTargetPartyId])},
+        ${uuidArraySql(bookingIds)},
+        ${uuidArraySql(bookingTargets)},
+        ${uuidArraySql(sourcePartyIds)},
+        ${uuidArraySql(targetPartyIds)},
+        'phase3b-test-merge',
+        ${sqlString(actorId)}::uuid
+      ) as transition_id
+    `)
+    assert.deepEqual(mergeRetry.rows, merge.rows)
+
+    const mergedScope = await db.query(`
+      select
+        booking.id,
+        booking.reservation_id,
+        membership.origin_reservation_id,
+        membership.effective_reservation_id,
+        membership.version,
+        booking.booking_link_id
+      from public.bookings as booking
+      join public.reservation_allocation_memberships as membership
+        on membership.booking_id = booking.id
+      where booking.id = any(${uuidArraySql(bookingIds)})
+      order by booking.id
+    `)
+    assert.equal(mergedScope.rows.length, bookingIds.length)
+    for (const row of mergedScope.rows) {
+      assert.equal(row.reservation_id, physicalOrigins.get(row.id))
+      assert.equal(row.origin_reservation_id, physicalOrigins.get(row.id))
+      assert.equal(row.effective_reservation_id, targetReservationId)
+      assert.equal(row.version, 1)
+      assert.equal(row.booking_link_id, targetReservationId)
+    }
+    assert.equal(await scalar(db, `
+      select count(*)::integer as value
+      from public.reservation_transition_parties
+      where transition_id = ${sqlString(transitionId)}::uuid
+    `, 'value'), sourcePartyIds.length)
+
+    const firstPartyReservationId = parties.rows.find(
+      (row) => row.id === sourcePartyIds[0],
+    ).reservation_id
+    const firstPartyBookingIds = bookingScope.rows
+      .filter((row) => row.reservation_id === firstPartyReservationId)
+      .map((row) => row.id)
+    const untouchedPartyBefore = await db.query(`
+      select display_name, email, phone
+      from public.reservation_parties
+      where id = ${sqlString(targetPartyIds[1])}::uuid
+    `)
+    await db.exec(`
+      select private.reservation_phase3b_update_booking_details(
+        ${uuidArraySql(firstPartyBookingIds)},
+        'Updated merged caller',
+        'merged-caller@example.invalid',
+        '5550009911',
+        'Lineage-specific update',
+        3::smallint,
+        'phase3b-test-merged-details',
+        ${sqlString(actorId)}::uuid
+      )
+    `)
+    assert.deepEqual(await db.query(`
+      select display_name, email, phone
+      from public.reservation_parties
+      where id = ${sqlString(targetPartyIds[0])}::uuid
+    `).then((result) => result.rows), [{
+      display_name: 'Updated merged caller',
+      email: 'merged-caller@example.invalid',
+      phone: '5550009911',
+    }])
+    assert.deepEqual(await db.query(`
+      select display_name, email, phone
+      from public.reservation_parties
+      where id = ${sqlString(targetPartyIds[1])}::uuid
+    `).then((result) => result.rows), untouchedPartyBefore.rows)
+
+    await assert.rejects(
+      db.exec(`
+        select private.reservation_phase3b_record_payment(
+          ${sqlString(targetReservationId)}::uuid,
+          ${uuidArraySql([bookingIds[0]])},
+          array[0.001::numeric]::numeric[],
+          'venue',
+          'phase3b-test-sub-cent-payment',
+          '2026-08-24 15:59:00+00'::timestamptz,
+          ${sqlString(targetPartyIds[0])}::uuid,
+          ${sqlString(actorId)}::uuid
+        )
+      `),
+      /allocations.*invalid/i,
+    )
+    assert.equal(await scalar(db, `
+      select count(*)::integer as value
+      from private.reservation_phase3b_operations
+      where operation_id = 'phase3b-test-sub-cent-payment'
+    `, 'value'), 0)
+
+    const movedSession = await db.query(`
+      select distinct
+        membership.effective_session_id,
+        session.starts_at,
+        session.ends_at
+      from public.reservation_allocation_memberships as membership
+      join public.reservation_sessions as session
+        on session.id = membership.effective_session_id
+      where membership.booking_id = any(${uuidArraySql(firstPartyBookingIds)})
+    `)
+    assert.equal(movedSession.rows.length, 1)
+    const movedStartsAt = new Date(
+      new Date(movedSession.rows[0].starts_at).getTime() + 30 * 60 * 1000,
+    ).toISOString()
+    const movedEndsAt = new Date(
+      new Date(movedSession.rows[0].ends_at).getTime() + 30 * 60 * 1000,
+    ).toISOString()
+    await db.exec(`
+      select private.reservation_phase3b_reschedule_session(
+        ${sqlString(movedSession.rows[0].effective_session_id)}::uuid,
+        ${sqlString(movedStartsAt)}::timestamptz,
+        ${sqlString(movedEndsAt)}::timestamptz,
+        'phase3b-test-post-merge-reschedule',
+        ${sqlString(actorId)}::uuid
+      )
+    `)
+
+    const firstAmounts = bookingScope.rows.map((row) => Number(row.total_amount) / 2)
+    const paymentOne = await db.query(`
+      select private.reservation_phase3b_record_payment(
+        ${sqlString(targetReservationId)}::uuid,
+        ${uuidArraySql(bookingIds)},
+        ${numericArraySql(firstAmounts)},
+        'venue',
+        'phase3b-test-aa-payment-one',
+        '2026-08-24 16:00:00+00'::timestamptz,
+        ${sqlString(targetPartyIds[0])}::uuid,
+        ${sqlString(actorId)}::uuid
+      ) as payment_id
+    `)
+    const paymentOneId = paymentOne.rows[0].payment_id
+    assert.ok(paymentOneId)
+    assert.deepEqual(await db.query(`
+      select distinct payment_status
+      from public.bookings
+      where id = any(${uuidArraySql(bookingIds)})
+    `).then((result) => result.rows), [{ payment_status: 'pay_at_venue' }])
+
+    const paymentTwo = await db.query(`
+      select private.reservation_phase3b_record_payment(
+        ${sqlString(targetReservationId)}::uuid,
+        ${uuidArraySql(bookingIds)},
+        ${numericArraySql(firstAmounts)},
+        'venue',
+        'phase3b-test-aa-payment-two',
+        '2026-08-24 16:05:00+00'::timestamptz,
+        ${sqlString(targetPartyIds[1])}::uuid,
+        ${sqlString(actorId)}::uuid
+      ) as payment_id
+    `)
+    const paymentTwoId = paymentTwo.rows[0].payment_id
+    assert.ok(paymentTwoId)
+    assert.notEqual(paymentTwoId, paymentOneId)
+    assert.deepEqual(await db.query(`
+      select distinct payment_status
+      from public.bookings
+      where id = any(${uuidArraySql(bookingIds)})
+    `).then((result) => result.rows), [{ payment_status: 'paid' }])
+
+    const crossOriginLedger = await db.query(`
+      select count(distinct booking.reservation_id)::integer as origin_count
+      from public.payment_allocation_entries as entry
+      join public.bookings as booking on booking.id = entry.booking_id
+      where entry.payment_id = ${sqlString(paymentOneId)}::uuid
+        and entry.reservation_id = ${sqlString(targetReservationId)}::uuid
+    `)
+    assert.equal(crossOriginLedger.rows[0].origin_count, 2)
+
+    const refundableEntries = await db.query(`
+      select entry.id
+      from public.payment_allocation_entries as entry
+      where entry.payment_id = ${sqlString(paymentTwoId)}::uuid
+      order by entry.id
+    `)
+    const entryIds = refundableEntries.rows.map((row) => row.id)
+    await db.exec(`
+      select private.reservation_phase3b_refund_payment(
+        ${sqlString(paymentTwoId)}::uuid,
+        array[${entryIds.map((id) => `${id}::bigint`).join(', ')}]::bigint[],
+        ${numericArraySql(firstAmounts)},
+        'phase3b-test-aa-refund',
+        '2026-08-24 16:10:00+00'::timestamptz,
+        ${sqlString(actorId)}::uuid
+      )
+    `)
+    assert.deepEqual(await db.query(`
+      select distinct payment_status
+      from public.bookings
+      where id = any(${uuidArraySql(bookingIds)})
+    `).then((result) => result.rows), [{ payment_status: 'pay_at_venue' }])
+
+    const reverse = await db.query(`
+      select private.reservation_phase3b_reverse_transition(
+        ${sqlString(transitionId)}::uuid,
+        'phase3b-test-reverse-merge',
+        ${sqlString(actorId)}::uuid
+      ) as transition_id
+    `)
+    assert.notEqual(reverse.rows[0].transition_id, transitionId)
+    const restored = await db.query(`
+      select
+        booking.id,
+        booking.reservation_id,
+        membership.effective_reservation_id,
+        membership.effective_session_id,
+        membership.version,
+        booking.booking_link_id,
+        booking.session_id = membership.effective_session_id
+          and booking.start_at = timezone(settings.timezone, session.starts_at)
+          and booking.end_at = timezone(settings.timezone, session.ends_at)
+          as projection_aligned,
+        booking.party_size = session.party_size
+          and booking.customer_notes is not distinct from session.notes
+          as details_aligned
+      from public.bookings as booking
+      join public.reservation_allocation_memberships as membership
+        on membership.booking_id = booking.id
+      join public.reservation_sessions as session
+        on session.id = membership.effective_session_id
+       and session.reservation_id = membership.effective_reservation_id
+      cross join public.venue_settings as settings
+      where booking.id = any(${uuidArraySql(bookingIds)})
+      order by booking.id
+    `)
+    for (const row of restored.rows) {
+      assert.equal(row.reservation_id, physicalOrigins.get(row.id))
+      assert.equal(row.effective_reservation_id, physicalOrigins.get(row.id))
+      assert.equal(row.version, 2)
+      assert.equal(row.booking_link_id, null)
+      assert.equal(row.projection_aligned, true)
+      assert.equal(row.details_aligned, true)
+    }
+    assert.deepEqual(await db.query(`
+      select id, reservation_id, starts_at, ends_at, party_size, notes
+      from public.reservation_sessions
+      where id = any(${uuidArraySql(originalSessionIds)})
+      order by id
+    `).then((result) => result.rows), originalSessions.rows)
+
+    await assert.rejects(
+      db.exec(`
+        select private.reservation_phase3b_apply_transition(
+          'merge',
+          ${uuidArraySql(sourceReservationIds)},
+          ${uuidArraySql([targetReservationId])},
+          ${uuidArraySql([prepared.primaryTargetPartyId])},
+          ${uuidArraySql(bookingIds)},
+          ${uuidArraySql(bookingTargets)},
+          ${uuidArraySql(sourcePartyIds)},
+          ${uuidArraySql(targetPartyIds)},
+          'phase3b-test-reuse-transition-target',
+          ${sqlString(actorId)}::uuid
+        )
+      `),
+      /newly prepared empty Reservations/i,
+    )
+
+    await assert.rejects(
+      db.exec(`
+        update public.reservation_allocation_memberships as membership
+        set effective_reservation_id = allocation.to_reservation_id,
+            effective_session_id = allocation.to_session_id,
+            last_transition_id = allocation.transition_id,
+            version = membership.version + 1
+        from public.reservation_transition_allocations as allocation
+        where allocation.transition_id = ${sqlString(transitionId)}::uuid
+          and allocation.booking_id = ${sqlString(bookingIds[0])}::uuid
+          and membership.booking_id = allocation.booking_id
+      `),
+      /new immutable Reservation transition/i,
+    )
+
+    await assert.rejects(
+      db.exec(`
+        update public.reservation_transition_allocations
+        set legacy_link_after = null
+        where transition_id = ${sqlString(transitionId)}::uuid
+      `),
+      /append-only/i,
+    )
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 3B.1 splits one paid Reservation without rewriting price or payment history', async () => {
+  const db = await buildPhase3bDatabase()
+  const actorId = uuid(6, 1)
+  const sourceGroupId = uuid(2, 22)
+  const targetReservationIds = [uuid(11, 1), uuid(11, 2)]
+  const targetPartyIds = [uuid(11, 11), uuid(11, 12)]
+  try {
+    const source = await db.query(`
+      select distinct booking.reservation_id
+      from public.bookings as booking
+      where booking.booking_group_id = ${sqlString(sourceGroupId)}::uuid
+    `)
+    assert.equal(source.rows.length, 1)
+    const sourceReservationId = source.rows[0].reservation_id
+
+    const sourceParty = await db.query(`
+      select party.id
+      from public.reservation_parties as party
+      where party.reservation_id = ${sqlString(sourceReservationId)}::uuid
+      order by party.id
+    `)
+    assert.equal(sourceParty.rows.length, 1)
+    const sourcePartyId = sourceParty.rows[0].id
+
+    const scope = await db.query(`
+      select booking.id, booking.total_amount, booking.payment_status
+      from public.bookings as booking
+      where booking.reservation_id = ${sqlString(sourceReservationId)}::uuid
+      order by booking.id
+    `)
+    assert.equal(scope.rows.length, 2)
+    const bookingIds = scope.rows.map((row) => row.id)
+    const originalAmounts = new Map(
+      scope.rows.map((row) => [row.id, Number(row.total_amount)]),
+    )
+
+    const payment = await db.query(`
+      select private.reservation_phase3b_record_payment(
+        ${sqlString(sourceReservationId)}::uuid,
+        ${uuidArraySql(bookingIds)},
+        ${numericArraySql(scope.rows.map((row) => Number(row.total_amount)))},
+        'venue',
+        'phase3b-test-pre-split-payment',
+        '2026-08-24 17:00:00+00'::timestamptz,
+        ${sqlString(sourcePartyId)}::uuid,
+        ${sqlString(actorId)}::uuid
+      ) as payment_id
+    `)
+    const paymentId = payment.rows[0].payment_id
+    const ledgerBefore = await db.query(`
+      select entry.id, entry.payment_id, entry.reservation_id,
+        entry.booking_id, entry.amount
+      from public.payment_allocation_entries as entry
+      where entry.payment_id = ${sqlString(paymentId)}::uuid
+      order by entry.id
+    `)
+
+    const targetPrimaryPartyIds = []
+    for (let index = 0; index < targetReservationIds.length; index += 1) {
+      const prepared = await prepareTransitionTarget(db, {
+        targetReservationId: targetReservationIds[index],
+        sourcePartyIds: [sourcePartyId],
+        targetPartyIds: [targetPartyIds[index]],
+        primarySourcePartyId: sourcePartyId,
+      })
+      targetPrimaryPartyIds.push(prepared.primaryTargetPartyId)
+    }
+
+    await assert.rejects(
+      db.exec(`
+        select private.reservation_phase3b_apply_transition(
+          'split',
+          ${uuidArraySql([sourceReservationId])},
+          ${uuidArraySql(targetReservationIds)},
+          ${uuidArraySql(targetPrimaryPartyIds)},
+          ${uuidArraySql([bookingIds[0]])},
+          ${uuidArraySql([targetReservationIds[0]])},
+          ${uuidArraySql([sourcePartyId, sourcePartyId])},
+          ${uuidArraySql(targetPartyIds)},
+          'phase3b-test-incomplete-split',
+          ${sqlString(actorId)}::uuid
+        )
+      `),
+      /every current Court allocation|receive at least one/i,
+    )
+    assert.equal(await scalar(db, `
+      select count(*)::integer as value
+      from private.reservation_phase3b_operations
+      where operation_id = 'phase3b-test-incomplete-split'
+    `, 'value'), 0)
+
+    const split = await db.query(`
+      select private.reservation_phase3b_apply_transition(
+        'split',
+        ${uuidArraySql([sourceReservationId])},
+        ${uuidArraySql(targetReservationIds)},
+        ${uuidArraySql(targetPrimaryPartyIds)},
+        ${uuidArraySql(bookingIds)},
+        ${uuidArraySql(targetReservationIds)},
+        ${uuidArraySql([sourcePartyId, sourcePartyId])},
+        ${uuidArraySql(targetPartyIds)},
+        'phase3b-test-split',
+        ${sqlString(actorId)}::uuid
+      ) as transition_id
+    `)
+    const transitionId = split.rows[0].transition_id
+
+    const splitState = await db.query(`
+      select
+        booking.id,
+        booking.reservation_id,
+        booking.total_amount,
+        booking.payment_status,
+        membership.origin_reservation_id,
+        membership.effective_reservation_id,
+        membership.version
+      from public.bookings as booking
+      join public.reservation_allocation_memberships as membership
+        on membership.booking_id = booking.id
+      where booking.id = any(${uuidArraySql(bookingIds)})
+      order by booking.id
+    `)
+    for (let index = 0; index < splitState.rows.length; index += 1) {
+      const row = splitState.rows[index]
+      assert.equal(row.reservation_id, sourceReservationId)
+      assert.equal(row.origin_reservation_id, sourceReservationId)
+      assert.equal(row.effective_reservation_id, targetReservationIds[index])
+      assert.equal(Number(row.total_amount), originalAmounts.get(row.id))
+      assert.equal(row.payment_status, 'paid')
+      assert.equal(row.version, 1)
+    }
+    assert.deepEqual(await db.query(`
+      select entry.id, entry.payment_id, entry.reservation_id,
+        entry.booking_id, entry.amount
+      from public.payment_allocation_entries as entry
+      where entry.payment_id = ${sqlString(paymentId)}::uuid
+      order by entry.id
+    `).then((result) => result.rows), ledgerBefore.rows)
+
+    await db.exec(`
+      select private.reservation_phase3b_reverse_transition(
+        ${sqlString(transitionId)}::uuid,
+        'phase3b-test-reverse-split',
+        ${sqlString(actorId)}::uuid
+      )
+    `)
+    const restored = await db.query(`
+      select membership.effective_reservation_id, membership.version
+      from public.reservation_allocation_memberships as membership
+      where membership.booking_id = any(${uuidArraySql(bookingIds)})
+      order by membership.booking_id
+    `)
+    assert.deepEqual(restored.rows, bookingIds.map(() => ({
+      effective_reservation_id: sourceReservationId,
+      version: 2,
+    })))
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 3B.1 writer inventory and private permission gates fail closed', async () => {
+  const db = await buildPhase3bDatabase()
+  try {
+    await installWriterInventoryStubs(db)
+    const inventory = await db.query(`
+      select private.assert_reservation_phase3b_writer_inventory() as result
+    `)
+    assert.equal(inventory.rows[0].result.direct_writer_count, 17)
+    assert.equal(inventory.rows[0].result.wrapper_count, 3)
+    assert.equal(inventory.rows[0].result.undeployed_edge_path_count, 2)
+    assert.ok(inventory.rows[0].result.direct_writer_fingerprint)
+    assert.ok(inventory.rows[0].result.wrapper_fingerprint)
+
+    await db.exec('set role authenticated;')
+    await assert.rejects(
+      db.exec(`select private.assert_reservation_phase3b_kernel_inactive()`),
+      /permission denied/i,
+    )
+    await db.exec('reset role;')
+
+    await db.exec(`
+      create function public.rogue_phase3b_writer()
+      returns void
+      language sql
+      security definer
+      set search_path = ''
+      as $rogue$
+        update only public."bookings" set updated_at = updated_at where false
+      $rogue$;
+    `)
+    await assert.rejects(
+      db.exec(`select private.assert_reservation_phase3b_writer_inventory()`),
+      /writer inventory drift/i,
+    )
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 3B.1 read-only diagnostic verifies an untouched inactive install', async () => {
+  const db = await buildPhase3bDatabase()
+  try {
+    await installWriterInventoryStubs(db)
+    await db.exec(await readFile(phase3bInactiveKernelDiagnosticPath, 'utf8'))
+    const diagnostic = await db.query(`
+      select jsonb_build_object(
+        'status', 'phase_3b_inactive_transaction_kernel_verified',
+        'kernel', private.assert_reservation_phase3b_kernel_inactive(),
+        'writer_inventory', private.assert_reservation_phase3b_writer_inventory()
+      ) as result
+    `)
+    const result = diagnostic.rows[0].result
+    assert.equal(
+      result.status,
+      'phase_3b_inactive_transaction_kernel_verified',
+    )
+    assert.equal(result.kernel.status, 'inactive')
+    assert.equal(result.kernel.transition_count, 0)
+    assert.equal(result.kernel.membership_count, 0)
+    assert.equal(result.kernel.operation_count, 0)
+    assert.equal(result.writer_inventory.direct_writer_count, 17)
+    assert.equal(result.writer_inventory.wrapper_count, 3)
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 3B.1 serializes real PostgreSQL payment retries, AA writes, and refund races', {
+  skip: !process.env.PHASE3B_POSTGRES_URL,
+  timeout: 120_000,
+}, async () => {
+  const { Client } = await import('pg')
+  const clients = []
+  const connect = async () => {
+    const client = new Client({ connectionString: process.env.PHASE3B_POSTGRES_URL })
+    await client.connect()
+    clients.push(client)
+    return {
+      async exec(sql) {
+        await client.query(sql)
+      },
+      async query(sql) {
+        const result = await client.query(sql)
+        return Array.isArray(result) ? result.at(-1) : result
+      },
+      async close() {
+        await client.end()
+      },
+    }
+  }
+
+  const rootDb = await connect()
+  let workerA
+  let workerB
+  const actorId = uuid(6, 1)
+  try {
+    await buildPhase3bDatabase({ db: rootDb })
+    workerA = await connect()
+    workerB = await connect()
+
+    const scopeForGroup = async (groupNumber) => {
+      const groupId = uuid(2, groupNumber)
+      const scope = await rootDb.query(`
+        select booking.id, booking.reservation_id, booking.total_amount
+        from public.bookings as booking
+        where booking.booking_group_id = ${sqlString(groupId)}::uuid
+        order by booking.id
+      `)
+      assert.equal(scope.rows.length, 2)
+      assert.equal(new Set(scope.rows.map((row) => row.reservation_id)).size, 1)
+      const reservationId = scope.rows[0].reservation_id
+      const party = await rootDb.query(`
+        select party.id
+        from public.reservation_parties as party
+        where party.reservation_id = ${sqlString(reservationId)}::uuid
+        order by party.id
+        limit 1
+      `)
+      return {
+        reservationId,
+        partyId: party.rows[0].id,
+        bookingIds: scope.rows.map((row) => row.id),
+        amounts: scope.rows.map((row) => Number(row.total_amount)),
+      }
+    }
+
+    const retryScope = await scopeForGroup(23)
+    const retrySql = `
+      select private.reservation_phase3b_record_payment(
+        ${sqlString(retryScope.reservationId)}::uuid,
+        ${uuidArraySql(retryScope.bookingIds)},
+        ${numericArraySql(retryScope.amounts)},
+        'venue',
+        'phase3b-ci-concurrent-idempotency',
+        '2026-08-24 18:00:00+00'::timestamptz,
+        ${sqlString(retryScope.partyId)}::uuid,
+        ${sqlString(actorId)}::uuid
+      ) as payment_id
+    `
+    const retryResults = await Promise.all([
+      workerA.query(retrySql),
+      workerB.query(retrySql),
+    ])
+    assert.equal(
+      retryResults[0].rows[0].payment_id,
+      retryResults[1].rows[0].payment_id,
+    )
+    const retryPaymentId = retryResults[0].rows[0].payment_id
+    assert.equal(await scalar(rootDb, `
+      select count(*)::integer as value
+      from public.payments
+      where id = ${sqlString(retryPaymentId)}::uuid
+    `, 'value'), 1)
+    assert.equal(await scalar(rootDb, `
+      select count(*)::integer as value
+      from public.payment_allocation_entries
+      where payment_id = ${sqlString(retryPaymentId)}::uuid
+    `, 'value'), retryScope.bookingIds.length)
+
+    const aaScope = await scopeForGroup(24)
+    const halfAmounts = aaScope.amounts.map((amount) => amount / 2)
+    const aaSql = (operationId, occurredAt) => `
+      select private.reservation_phase3b_record_payment(
+        ${sqlString(aaScope.reservationId)}::uuid,
+        ${uuidArraySql(aaScope.bookingIds)},
+        ${numericArraySql(halfAmounts)},
+        'venue',
+        ${sqlString(operationId)},
+        ${sqlString(occurredAt)}::timestamptz,
+        ${sqlString(aaScope.partyId)}::uuid,
+        ${sqlString(actorId)}::uuid
+      ) as payment_id
+    `
+    const aaResults = await Promise.all([
+      workerA.query(aaSql(
+        'phase3b-ci-concurrent-aa-a',
+        '2026-08-24 18:05:00+00',
+      )),
+      workerB.query(aaSql(
+        'phase3b-ci-concurrent-aa-b',
+        '2026-08-24 18:05:01+00',
+      )),
+    ])
+    assert.notEqual(
+      aaResults[0].rows[0].payment_id,
+      aaResults[1].rows[0].payment_id,
+    )
+    assert.deepEqual(await rootDb.query(`
+      select distinct payment_status
+      from public.bookings
+      where id = any(${uuidArraySql(aaScope.bookingIds)})
+    `).then((result) => result.rows), [{ payment_status: 'paid' }])
+
+    const refundableEntries = await rootDb.query(`
+      select id, amount
+      from public.payment_allocation_entries
+      where payment_id = ${sqlString(retryPaymentId)}::uuid
+      order by id
+    `)
+    const refundEntryIds = refundableEntries.rows.map((row) => row.id)
+    const refundAmounts = refundableEntries.rows.map((row) => Number(row.amount))
+    const refundSql = (operationId) => `
+      select private.reservation_phase3b_refund_payment(
+        ${sqlString(retryPaymentId)}::uuid,
+        array[${refundEntryIds.map((id) => `${id}::bigint`).join(', ')}]::bigint[],
+        ${numericArraySql(refundAmounts)},
+        ${sqlString(operationId)},
+        '2026-08-24 18:10:00+00'::timestamptz,
+        ${sqlString(actorId)}::uuid
+      ) as refund_id
+    `
+    const refundRace = await Promise.allSettled([
+      workerA.query(refundSql('phase3b-ci-concurrent-refund-a')),
+      workerB.query(refundSql('phase3b-ci-concurrent-refund-b')),
+    ])
+    assert.equal(
+      refundRace.filter((result) => result.status === 'fulfilled').length,
+      1,
+    )
+    assert.equal(
+      refundRace.filter((result) => result.status === 'rejected').length,
+      1,
+    )
+    assert.match(
+      refundRace.find((result) => result.status === 'rejected').reason.message,
+      /Refund exceeds the remaining amount/i,
+    )
+    assert.equal(await scalar(rootDb, `
+      select count(*)::integer as value
+      from public.payments
+      where reverses_payment_id = ${sqlString(retryPaymentId)}::uuid
+    `, 'value'), 1)
+    assert.deepEqual(await rootDb.query(`
+      select distinct payment_status
+      from public.bookings
+      where id = any(${uuidArraySql(retryScope.bookingIds)})
+    `).then((result) => result.rows), [{ payment_status: 'refunded' }])
+    assert.equal(await scalar(rootDb, `
+      select count(*)::integer as value
+      from private.reservation_phase3b_operations
+      where status = 'started'
+    `, 'value'), 0)
+  } finally {
+    for (const client of clients.slice(1)) {
+      if (!client.ended) await client.end()
+    }
+    if (!clients[0].ended) await clients[0].end()
   }
 })
