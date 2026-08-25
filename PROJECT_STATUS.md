@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-24。当前工作分支：`codex/phase-3b-inactive-transaction-kernel`。
+> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/phase-3b1-production-verification`。
 
 ## 1. 一句话结论
 
@@ -13,9 +13,9 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 仓库：`tujiaqi2002/badminton`，默认分支 `main`。
 - 生产前端：`https://tujiaqi2002.github.io/badminton/`，由 GitHub Actions 从 `main` 发布。
 - 后端：Supabase project `ldbtrouofmqmnkyxiewk`，PostgreSQL + Auth + Realtime + RPC/RLS。
-- 独立数据库 staging：Supabase project `badminton_stage` / `vcoujmzsgdboidndtzzg`，只含确定性合成数据，不复制生产客户或 Auth 数据。
-- `main` 当前已包含 PR #129（Phase 3A compatibility foundation）、PR #130（shadow timezone access）、PR #132（RLS policy consolidation）和 PR #133（Phase 3A production verification），以及此前的 Phase 0/1/2 与产品 PR。
-- 生产 migration history 与 `main` 均为 42 个版本，最新为 `20260824132704_phase_3a_venue_settings_policy_consolidation`；当前没有 pending production migration。
+- 独立数据库 staging：Supabase project `badminton_stage` / `vcoujmzsgdboidndtzzg`，已对齐 Phase 3B.2 Draft PR #137 的 46 个 migration，只含确定性合成数据，不复制生产客户或 Auth 数据。
+- `main` 当前已包含 PR #135（Phase 3B.1 inactive kernel），以及此前 Phase 0/1/2/3A 与产品 PR。
+- 生产 migration history 与 `main` 均为 44 个版本，最新为 `20260824164530_phase_3b_writer_inventory_c_collation`；当前没有 pending production migration。Kernel 已安装但仍未激活。
 - 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；Reservation Phase 2/3A 已有实际应用 migration 的 PGlite 集成测试，但仍没有浏览器 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
 - `App.jsx`、`AdminSchedule.jsx`、`i18n.js` 和 `styles.css` 已成为大型集中模块，后续改动的回归面较大。
@@ -39,9 +39,14 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #134 / Draft PR #135：Reservation Phase 3B.1 inactive transaction kernel
+### PR #138：Phase 3B.1 生产验证记录（docs-only）
 
-- 用户已确认只开始 Phase 3B.1 authoring；当前分支可以起草 append-only migration、隔离验证和 review PR，但不授权 PR merge、生产自动部署/catch-up、Phase 3B.2 writer activation、read/UI cutover、Stripe 部署或 legacy decommission。
+- 这是从最新 `main` 建立的 docs-only PR，用于固化 #135 的授权边界、生产 migration 44 状态、上线后 diagnostics、writer/security boundary 和 advisors。
+- 不包含 migration、RPC、RLS、前端或生产写入；不会自动启用 #137。用户本次确认只授权合并这份文档记录，不授权 #137。
+
+### Issue #134 / PR #135：Reservation Phase 3B.1 inactive transaction kernel（生产已安装，未激活）
+
+- 用户在 2026-08-25 fresh preflight 后明确确认只合并 #135。PR 于 06:24:23 UTC 合并，Supabase GitHub integration 于 06:25:04 UTC 成功将 migrations 43–44 应用生产。这一授权不包含 #137 activation、read/UI cutover、Stripe 或 legacy decommission。
 - 本地第 43 个 migration 草案新增 append-only merge/split/reverse lineage、当前 effective allocation membership、private idempotency journal、Payment/refund 与 schedule/details/cancel primitives，以及 17 direct writers + 3 wrappers + 2 undeployed Stripe paths 的 fail-closed inventory；第 44 个 append-only follow-up 把 inventory signature 固定为 `C` collation，消除 hosted Supabase 中 catalog signature 与 ICU 默认排序不同造成的误报。
 - merge/split 保留 `bookings.reservation_id` 作为不可变物理 Reservation 来源；`booking.session_id` 继续承担该 origin 内的 legacy 排期投影，当前商业归属由 versioned membership 解析。Party lineage 支持 one-to-many 和 many-to-one，reverse 追加新 transition、不删除历史，并把后续 Session 修改带回 restored scope。
 - 为支持不同 origin 合并后的一人付清，payment allocation 的 booking FK 草案改为单列 `booking_id`；private payment primitive 仍验证 effective Reservation、currency、payer、余额和完整 scope。一次付清、AA 与退款共用 append-only Payment/allocation ledger。
@@ -49,12 +54,22 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - hosted staging 证明 raw function fingerprint 会受 collation、换行和纯格式化差异影响，不能跨环境直接比较：此前 `a28b...` 来自 ICU/default ordering，生产按 `C` ordering 为 `ac236...`，staging replay 则有本地 raw 值。Phase 3B gate 继续严格比较 17 direct / 3 wrapper 的 canonical signature 集合、函数安全配置和 grants；raw fingerprint 只用于同一数据库内的 fresh drift review。
 - 当前新增的 Phase 3B.1 isolated tests 已覆盖 inactive install、幂等接入、schedule/details/cancel 与 rollback、不同客户 merge + 显式 primary、Party lineage、一人/AA/退款、已付款 split、merge/split reverse、permission denial、writer drift fail-closed 和 read-only diagnostic。
 - 最终 bundled Node `v24.19.0` / pnpm `11.19.0` 本地验证为 46 tests 通过、0 fail、1 个 real-PostgreSQL concurrency test 因本机无服务明确 skip；lint、build 通过，build 只有既有 >500 kB chunk warning。真实并发仍由 PostgreSQL CI 门禁执行。
-- Draft PR #135 的首轮 `reservation-db-tests` 已在固定 Node 22 / pnpm 11.16.0 与 PostgreSQL 16 service 上通过：22/22 tests、0 fail、0 skip，lint 与 build 同时通过。三个真实连接证明相同 idempotency Payment 只落一笔、两笔重叠 AA 不超额、全额 refund race 只有一个 winner 且失败事务不遗留 `started` journal。证据为 [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283)。production-like Supabase branch apply、fresh production preflight 与 advisors 仍是 merge/activation 门禁；当前没有向生产 push migration。
+- PR #135 merge 前的首轮 `reservation-db-tests` 已在固定 Node 22 / pnpm 11.16.0 与 PostgreSQL 16 service 上通过：22/22 tests、0 fail、0 skip，lint 与 build 同时通过。三个真实连接证明相同 idempotency Payment 只落一笔、两笔重叠 AA 不超额、全额 refund race 只有一个 winner 且失败事务不遗留 `started` journal。证据为 [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283)。这些证据随后与 hosted staging、fresh production preflight 一起满足 #135 的 merge 门禁；#137 activation 仍需重新执行独立门禁。
 - 2026-08-24 15:57 UTC fresh production preflight：PR base 与 `origin/main` 同为 `598556a`，分支 0 behind / 2 ahead 且 mergeable clean；远端仍为 42 migrations、最新 Phase 3A，Phase 2/3A diagnostics 均通过。192/192 bookings owned，123 Reservations、135 Sessions、131 Parties、23 Payments、26 allocations/CAD 1,642.00，shadow mismatch/catch-up 为 0，审计仍为 1,739；Realtime 仍只发布 `court_slots`，现有 payment booking FK 仍为 validated composite baseline。Advisors 保持 47 security（2 INFO / 45 WARN）与 40 performance INFO。
 - 用户建立并明确授权初始化独立 `badminton_stage` 后，已从首个 migration 前的 Git schema 恢复历史基线，原样重放 migrations 1–38、使用 192 条/131 group 的纯合成 fixture 专门化 Phase 2 的四个数据指纹，再原样应用 Phase 3A/3B.1 与第 44 个 collation follow-up；staging migration history 已精确对齐仓库 44 个 version/name。
 - Hosted PostgreSQL 17.6 上 Phase 2、Phase 3A、Phase 3B.1 diagnostics 全部通过：123 Reservations、135 Sessions、192 Court allocations、131 Parties、23 Payments、26 allocations/CAD 1,642.00、0 shadow mismatch；3B kernel 保持 0 operation / 0 membership / 0 transition，17 direct / 3 wrapper inventory、0 client mutation、0 dual-write trigger、0 新 Realtime 表。27 张 public 表全部 RLS，6 张 3B 表全部 FORCE RLS，client DML/private helper EXECUTE 均为 0。
-- staging advisors 为 49 security（生产既有 47 + 项目自带 `rls_auto_enable()` 的 2 条已记录 WARN）和 74 performance INFO。4 条 composite-FK 提示均已有等价覆盖索引或唯一 `booking_id` 主键，不新增重复索引；其余 70 条是 fresh synthetic stage 的 `unused_index`。Production-like hosted apply 门禁已完成；follow-up [Actions run 32753722730](https://github.com/tujiaqi2002/badminton/actions/runs/32753722730) 在 PostgreSQL 16.15 上为 22/22、0 fail、0 skip，真实 same-key/AA/refund races、lint、build 均通过。PR merge/生产自动部署仍未授权。
+- staging advisors 为 49 security（生产既有 47 + 项目自带 `rls_auto_enable()` 的 2 条已记录 WARN）和 74 performance INFO。4 条 composite-FK 提示均已有等价覆盖索引或唯一 `booking_id` 主键，不新增重复索引；其余 70 条是 fresh synthetic stage 的 `unused_index`。Production-like hosted apply 门禁已完成；follow-up [Actions run 32753722730](https://github.com/tujiaqi2002/badminton/actions/runs/32753722730) 在 PostgreSQL 16.15 上为 22/22、0 fail、0 skip，真实 same-key/AA/refund races、lint、build 均通过。这是 #135 merge 前的证据；当前未授权的是 #137 activation。
 - 详细中英文设计见 [`docs/reservation-migration/phase-3b-inactive-transaction-kernel.md`](./docs/reservation-migration/phase-3b-inactive-transaction-kernel.md)，只读验证脚本为 [`supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql`](./supabase/diagnostics/phase_3b_inactive_transaction_kernel.sql)。
+- 上线后 Phase 2、Phase 3A 和 Phase 3B.1 diagnostics 全部通过：123 Reservations、135 Sessions、192/192 owned Court allocations、131 Parties、23 Payments、26 allocations / CAD 1,642.00，shadow mismatch 为 0。Kernel 精确为 `inactive`，operation / membership / transition 均为 0。
+- Writer/security boundary 无漂移：17 direct / 3 wrapper，direct fingerprint `ac236997585da13cc6cc0439b8eafcf0`，wrapper fingerprint `d1eb5d63d36f01f1caad2e4e9e516dbf`；0 client mutation function、0 booking dual-write trigger、0 张 Phase 3B 表进入 Realtime。旧 public writer/read/UI 仍是生产权威路径。
+- 生产 security advisor 保持既有 47（2 INFO / 45 WARN），没有 Phase 3B.1 新 security finding。Performance advisor 为 62 INFO：4 个已知 composite-FK column-order 提示 + 58 `unused_index`；无 WARN/ERROR。这 4 个提示已由尚未授权生产的 #137 performance follow-up 在 staging 清除。
+- GitHub Pages [Actions run 32816825670](https://github.com/tujiaqi2002/badminton/actions/runs/32816825670) 的 build/deploy 全部通过；前端代码与产品行为没有切换。
+
+### Issue #136 / Draft PR #137：Reservation Phase 3B.2 atomic writer activation
+
+- Draft PR #137 仍保持 Draft，其 activation migrations 45–46 只在 `badminton_stage` 验证。Staging 是 46 migrations、192 memberships、17/0/17/3 writer boundary，shadow/session/payment drift 和 incomplete operation 均为 0。
+- Hosted 17-writer matrix、多连接 contention、advisors 和 emergency rollback rehearsal 已通过；Draft PR #137 的固定 PostgreSQL CI 为 26/26、0 fail、0 skip。
+- #135 生产 inactive 验证通过只是 #137 的前置门禁，**不自动授权 #137 merge 或生产 activation**。
 
 ### Issue #128：Reservation migration Phase 3A compatibility foundation
 
@@ -91,6 +106,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ### 最近合并
 
+- PR #135 / Issue #134：Phase 3B.1 inactive transaction kernel，已于 2026-08-25 合并并由 Supabase integration 应用 migrations 43–44；上线后 kernel 仍 inactive/zero-row，旧 writer/read/UI 未切换。
 - PR #133 / Issue #128：Phase 3A production verification 文档与证据，已于 2026-08-24 合并；没有新增 migration 或改变生产行为。
 - PR #132 / Issue #131：Phase 3A venue settings RLS policy consolidation，已于 2026-08-24 合并并由 Supabase integration 自动应用生产；advisor regression 已清除，权限与数据指纹无漂移。
 - PR #130 / Issue #128：Phase 3A shadow timezone least-privilege access，已于 2026-08-24 合并并由 Supabase integration 自动应用生产；随后由 PR #132 完成独立门禁的 advisor policy consolidation。
@@ -190,3 +206,13 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 不在没有第二家真实客户前抽象 marketplace。
 - 不把 AI 功能置于排期正确性、预览环境和测试之前。
 - 不在没有明确授权和未提交工作核对前清理旧 worktree；PR #90 已合并不等于自动授权清理。
+
+## English update: Phase 3B.1 production verification
+
+PR #135 merged at 2026-08-25 06:24:23 UTC after explicit authorization limited to the inactive kernel. The Supabase GitHub integration applied migrations 43–44 successfully, and GitHub Pages [run 32816825670](https://github.com/tujiaqi2002/badminton/actions/runs/32816825670) passed.
+
+Production now has 44 migrations and remains inactive: zero operations, memberships, and transitions; 17 unchanged direct writers and three wrappers; no client mutation function, booking dual-write trigger, or Phase 3B Realtime publication. Phase 2/3A/3B diagnostics pass with 192/192 owned allocations, zero shadow mismatch, 23 Payments, 26 allocation entries, and CAD 1,642.00. Security advisors remain the existing 47 findings. Performance has 62 INFO findings only: four known composite-FK column-order notices and 58 unused indexes.
+
+Draft PR #137 remains staging-only and unauthorized for merge or production activation. Reads, UI, Stripe, and all legacy decommission work remain unchanged and out of scope.
+
+PR #138 records this evidence only. It contains no database or product-behavior change. The user's current authorization is limited to this documentation merge and does not authorize PR #137.

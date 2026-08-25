@@ -1,14 +1,14 @@
 # Reservation Phase 3B.1：未激活事务内核
 
 > Issue：[#134](https://github.com/tujiaqi2002/badminton/issues/134)
-> 状态：Draft PR [#135](https://github.com/tujiaqi2002/badminton/pull/135) 评审中；尚未合并、尚未部署生产、尚未激活。
-> Migrations：`20260824143442_reservation_phase_3b_inactive_transaction_kernel` + `20260824164530_phase_3b_writer_inventory_c_collation`（分支待评审）
+> 状态：PR [#135](https://github.com/tujiaqi2002/badminton/pull/135) 已于 2026-08-25 合并并部署生产；事务内核保持未激活。
+> Migrations：`20260824143442_reservation_phase_3b_inactive_transaction_kernel` + `20260824164530_phase_3b_writer_inventory_c_collation`（生产已应用）
 
 ## 中文
 
 ### 1. 结论与边界
 
-Phase 3B.1 把后续原子双写所需的事务能力放进数据库，但不把任何现有产品入口接到这些能力上。migration 应用后的产品行为保持不变：
+Phase 3B.1 已把后续原子双写所需的事务能力放进生产数据库，但没有把任何现有产品入口接到这些能力上。产品行为保持不变：
 
 - 17 个直接 booking writer 和 3 个 wrapper 的函数定义、权限和调用关系不变；
 - 不运行 Phase 3A catch-up，不创建任何当前 membership 或 transition；
@@ -16,7 +16,7 @@ Phase 3B.1 把后续原子双写所需的事务能力放进数据库，但不把
 - 不新增客户端 mutation RPC、表级 DML 或 Realtime publication；
 - 不部署 Stripe，不删除 legacy RPC、字段或 projection。
 
-因此，3B.1 是一个可审查的 inactive foundation，不是 dual-write activation。Phase 3B.2 激活、合并 migration PR、生产部署都需要后续分别取得明确授权。
+因此，3B.1 是已经安装到生产的 inactive foundation，不是 dual-write activation。Phase 3B.2 激活、PR #137 合并和对应生产部署仍需后续明确授权。
 
 ### 2. 当前有效归属与不可变历史
 
@@ -161,13 +161,27 @@ PGlite 能验证事务原子性、失败回滚、锁顺序实现和顺序重试�
 
 最终本地验证使用 Codex Desktop bundled Node `v24.19.0` 与 pnpm `11.19.0`：46 tests 通过、0 fail；1 个 real-PostgreSQL concurrency test 因本机没有 PostgreSQL 而明确 skip。`pnpm run lint` 与 `pnpm run build` 通过，build 只有既有的主 chunk >500 kB warning。
 
-Draft PR #135 的首轮 [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283) 已在固定 Node 22、pnpm 11.16.0 与 PostgreSQL 16.15 上完整执行，结果为 22/22 tests、0 fail、0 skip；real-PostgreSQL concurrency、lint 与 build 全部通过。并发结果没有出现重复 Payment、AA 超额分配、双退款成功、deadlock 或失败事务遗留的 `started` operation。这个结果关闭了 PR 的真实 session CI 门禁，但不替代 production-like Supabase branch apply、fresh production preflight 或明确的 merge/生产授权。
+PR #135 merge 前的首轮 [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283) 已在固定 Node 22、pnpm 11.16.0 与 PostgreSQL 16.15 上完整执行，结果为 22/22 tests、0 fail、0 skip；real-PostgreSQL concurrency、lint 与 build 全部通过。并发结果没有出现重复 Payment、AA 超额分配、双退款成功、deadlock 或失败事务遗留的 `started` operation。这个结果关闭了 PR 的真实 session CI 门禁，但不替代 production-like Supabase branch apply、fresh production preflight 或明确的 merge/生产授权。
 
 同一时点 production 只读复核仍为 42 个 migrations，最新 `20260824132704_phase_3a_venue_settings_policy_consolidation`；security advisors 47（2 INFO / 45 WARN），performance advisors 40（全部 `unused_index` INFO）。本地第 43 个 migration 没有 push，所以这些是未应用 3B.1 的生产基线，不代表 3B.1 部署后 advisor 结果。
 
 用户随后创建并授权初始化独立 `badminton_stage`（`vcoujmzsgdboidndtzzg`）。它从首个 migration 前的 Git schema 恢复基线，原样重放 migrations 1–38，用 192 条纯合成 booking 和 6 条 synthetic payment audit evidence 生成 staging Phase 2 指纹，再原样应用 Phase 3A、3B.1 和 collation follow-up；history 已精确对齐仓库 44 个 version/name。Phase 2/3A/3B diagnostics 均通过，kernel 保持 0/0/0 inactive，27 张 public 表全部 RLS、6 张 3B 表全部 FORCE RLS、client DML/private helper EXECUTE 均为 0，Realtime 仍只有 `court_slots`。
 
-Staging advisors 为 49 security（生产既有 47 加上项目自带 `public.rls_auto_enable()` 的 2 条已记录 WARN）和 74 performance INFO。4 个 composite-FK advisor 项均已有反向但完整的等值 covering index，或由唯一 `booking_id` 主键覆盖；增加同列不同顺序的重复索引没有查询价值。其余 70 个 unused-index 项来自 fresh synthetic stage 无业务流量。Hosted apply 门禁完成后，[Actions run 32753722730](https://github.com/tujiaqi2002/badminton/actions/runs/32753722730) 又在 PostgreSQL 16.15 上以 22/22、0 fail、0 skip 通过真实 same-key、AA、refund races、lint 与 build；merge/生产自动部署仍需明确授权。
+Staging advisors 为 49 security（生产既有 47 加上项目自带 `public.rls_auto_enable()` 的 2 条已记录 WARN）和 74 performance INFO。4 个 composite-FK advisor 项均已有反向但完整的等值 covering index，或由唯一 `booking_id` 主键覆盖；增加同列不同顺序的重复索引没有查询价值。其余 70 个 unused-index 项来自 fresh synthetic stage 无业务流量。Hosted apply 门禁完成后，[Actions run 32753722730](https://github.com/tujiaqi2002/badminton/actions/runs/32753722730) 又在 PostgreSQL 16.15 上以 22/22、0 fail、0 skip 通过真实 same-key、AA、refund races、lint 与 build；当时仍未授权 merge/生产自动部署。
+
+### 9.1 生产部署验证（2026-08-25）
+
+用户只授权合并 PR #135 和自动安装 inactive kernel，不授权 PR #137 activation。fresh production preflight 通过后，PR #135 于 06:24:23 UTC 合并（merge commit `e777071712ab47dea5739e718ab2a855037fb1c5`）；Supabase integration 于 06:25:04 UTC 成功应用 migrations 43–44，[GitHub Pages run 32816825670](https://github.com/tujiaqi2002/badminton/actions/runs/32816825670) 同时通过。
+
+上线后只读验证确认：
+
+- Phase 2 / Phase 3A diagnostics 继续通过：123 Reservations、135 Sessions、192 Court allocations、131 Parties、23 Payments、26 allocation entries、CAD 1,642.00，192/192 owned 且 0 shadow mismatch；
+- Phase 3B diagnostic 返回 `phase_3b_inactive_transaction_kernel_verified`，kernel 为 0 operation / 0 membership / 0 transition；
+- writer inventory 保持 17 direct / 3 wrappers，direct fingerprint 为 `ac236997585da13cc6cc0439b8eafcf0`，wrapper fingerprint 为 `d1eb5d63d36f01f1caad2e4e9e516dbf`；
+- public Phase 3B mutation、booking dual-write trigger、Phase 3B Realtime publication 均为 0；Realtime 仍只有 `public.court_slots`；
+- security advisors 保持 47（2 INFO / 45 WARN），没有新增等级变化；performance advisors 为 62 个 INFO，其中 4 个是已记录的 composite-FK index 提示、58 个是 unused-index 提示，没有 WARN 或 ERROR。
+
+因此，生产现在精确停在 44 个 migrations 的 inactive 状态。PR #137 仍是 staging-only Draft；没有启用 writer、运行 catch-up、切换 read/UI、部署 Stripe 或退役 legacy。
 
 ### 10. 3B.2 接口契约与退役时间
 
@@ -187,7 +201,7 @@ Staging advisors 为 49 security（生产既有 47 加上项目自带 `public.rl
 
 ### 1. Outcome and boundary
 
-Phase 3B.1 installs the database transaction capabilities required for later atomic dual-write, but connects no current product entry point to them. Applying the migration leaves product behavior unchanged:
+Phase 3B.1 has installed the database transaction capabilities required for later atomic dual-write in production, but connects no current product entry point to them. Product behavior remains unchanged:
 
 - definitions, privileges, and delegation of the 17 direct booking writers and 3 wrappers remain unchanged;
 - no Phase 3A catch-up runs and no current membership or transition row is created;
@@ -195,7 +209,7 @@ Phase 3B.1 installs the database transaction capabilities required for later ato
 - no client mutation RPC, table DML, or Realtime publication is added;
 - Stripe is not deployed and no legacy RPC, field, or projection is removed.
 
-This is an inactive reviewable foundation, not dual-write activation. Phase 3B.2 activation, migration-PR merge, and production deployment each require later explicit authorization.
+This is a production-installed inactive foundation, not dual-write activation. Phase 3B.2 activation, PR #137 merge, and its production deployment still require explicit authorization.
 
 ### 2. Effective ownership and immutable history
 
@@ -306,13 +320,27 @@ PGlite verifies transaction atomicity, rollback, implemented lock order, and seq
 
 Final local verification used the Codex Desktop bundled Node `v24.19.0` and pnpm `11.19.0`: 46 tests passed with zero failures; one real-PostgreSQL concurrency test explicitly skipped because no local PostgreSQL service exists. `pnpm run lint` and `pnpm run build` passed, with only the existing >500 kB main-chunk warning.
 
-Draft PR #135's first [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283) completed on pinned Node 22, pnpm 11.16.0, and PostgreSQL 16.15 with 22/22 tests, zero failures, and zero skips; the real-PostgreSQL concurrency test, lint, and build all passed. The concurrent cases produced no duplicate Payment, AA over-allocation, double-refund winner, deadlock, or committed stale `started` operation. This closes the PR's real-session CI gate, but does not replace a production-like Supabase branch apply, fresh production preflight, or explicit merge/production authorization.
+PR #135's first pre-merge [Actions run 32746853283](https://github.com/tujiaqi2002/badminton/actions/runs/32746853283) completed on pinned Node 22, pnpm 11.16.0, and PostgreSQL 16.15 with 22/22 tests, zero failures, and zero skips; the real-PostgreSQL concurrency test, lint, and build all passed. The concurrent cases produced no duplicate Payment, AA over-allocation, double-refund winner, deadlock, or committed stale `started` operation. This closes the PR's real-session CI gate, but does not replace a production-like Supabase branch apply, fresh production preflight, or explicit merge/production authorization.
 
 The same point-in-time production read-only check still showed 42 migrations, latest `20260824132704_phase_3a_venue_settings_policy_consolidation`; 47 security advisories (2 INFO / 45 WARN); and 40 performance advisories (all `unused_index` INFO). The local 43rd migration was not pushed, so those values are the pre-3B.1 baseline, not post-deployment advisor results.
 
 The user then created and authorized initialization of the independent `badminton_stage` project (`vcoujmzsgdboidndtzzg`). It restored the Git base schema immediately before the first migration, replayed migrations 1–38 unchanged, used 192 wholly synthetic bookings plus six synthetic payment-audit evidence rows to produce staging Phase 2 fingerprints, and then applied Phase 3A, Phase 3B.1, and the collation follow-up unchanged. Its migration history exactly matches the repository's 44 versions/names. Phase 2, Phase 3A, and Phase 3B diagnostics all pass; the kernel remains 0/0/0 inactive; all 27 public tables use RLS; all six Phase 3B tables use FORCE RLS; client DML/private-helper EXECUTE counts are zero; and Realtime still contains only `court_slots`.
 
-Staging has 49 security advisories: the existing production 47 plus two recorded warnings for the project-provided `public.rls_auto_enable()`. All 74 performance findings are INFO. Four composite-FK findings already have either complete reversed-order equality indexes or the unique `booking_id` primary key, so duplicate indexes were not added; the other 70 unused-index findings are expected on a fresh synthetic database with no workload. After the hosted-apply gate completed, [Actions run 32753722730](https://github.com/tujiaqi2002/badminton/actions/runs/32753722730) passed on PostgreSQL 16.15 with 22/22 tests, zero failures, zero skips, the real same-key/AA/refund races, lint, and build. Merge and automatic production deployment still require explicit authorization.
+Staging has 49 security advisories: the existing production 47 plus two recorded warnings for the project-provided `public.rls_auto_enable()`. All 74 performance findings are INFO. Four composite-FK findings already have either complete reversed-order equality indexes or the unique `booking_id` primary key, so duplicate indexes were not added; the other 70 unused-index findings are expected on a fresh synthetic database with no workload. After the hosted-apply gate completed, [Actions run 32753722730](https://github.com/tujiaqi2002/badminton/actions/runs/32753722730) passed on PostgreSQL 16.15 with 22/22 tests, zero failures, zero skips, the real same-key/AA/refund races, lint, and build. Merge and automatic production deployment had not yet been authorized at that point.
+
+### 9.1 Production deployment verification (2026-08-25)
+
+The user authorized only merging PR #135 and automatically installing the inactive kernel, not PR #137 activation. After a fresh production preflight passed, PR #135 merged at 06:24:23 UTC (merge commit `e777071712ab47dea5739e718ab2a855037fb1c5`); Supabase integration successfully applied migrations 43–44 at 06:25:04 UTC, and [GitHub Pages run 32816825670](https://github.com/tujiaqi2002/badminton/actions/runs/32816825670) passed.
+
+Post-deployment read-only verification confirmed:
+
+- Phase 2 and Phase 3A diagnostics still pass: 123 Reservations, 135 Sessions, 192 Court allocations, 131 Parties, 23 Payments, 26 allocation entries, CAD 1,642.00, 192/192 owned, and zero shadow mismatch;
+- the Phase 3B diagnostic returns `phase_3b_inactive_transaction_kernel_verified`, with zero operations, memberships, and transitions;
+- writer inventory remains 17 direct writers and 3 wrappers, with direct fingerprint `ac236997585da13cc6cc0439b8eafcf0` and wrapper fingerprint `d1eb5d63d36f01f1caad2e4e9e516dbf`;
+- public Phase 3B mutations, booking dual-write triggers, and Phase 3B Realtime publications are all zero; Realtime still contains only `public.court_slots`;
+- security advisories remain 47 (2 INFO / 45 WARN) without a severity change; performance advisories are 62 INFO items—4 recorded composite-FK index notices and 58 unused-index notices—with no WARN or ERROR.
+
+Production therefore stops exactly at 44 migrations with the kernel inactive. PR #137 remains a staging-only Draft; no writer activation, catch-up, read/UI cutover, Stripe deployment, or legacy retirement occurred.
 
 ### 10. Phase 3B.2 contract and decommission timing
 

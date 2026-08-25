@@ -1,6 +1,6 @@
 # Tiger Project History
 
-> 从项目起点到 2026-08-24 的阶段性开发历史。本文解释“如何走到现在”，当前状态以 [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) 为准。
+> 从项目起点到 2026-08-25 的阶段性开发历史。本文解释“如何走到现在”，当前状态以 [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) 为准。
 
 ## 0. 起点：从通用预约系统蓝图收敛到真实球馆
 
@@ -246,3 +246,31 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - 最终 bundled Node `v24.19.0` / pnpm `11.19.0` 本地结果为 46 pass、0 fail、1 个无本地 PostgreSQL 时的明确 skip；lint/build 通过。推送 commit `699d11d` 后，[Actions run 32753722730](https://github.com/tujiaqi2002/badminton/actions/runs/32753722730) 在 PostgreSQL 16.15 上重新得到 22/22、0 fail、0 skip，真实 same-key Payment、AA 与 refund race 均通过。合并、生产自动部署、Phase 3B.2 activation、read/UI cutover、Stripe 与 legacy decommission 仍未授权。
 
 阶段结果：production-like hosted Supabase apply 与 follow-up PostgreSQL CI 门禁均已完成，且在真正 merge 前发现并修复了一个 collation portability bug。生产仍是 42 migrations 和 legacy write/read path；下一步只能在 fresh production preflight 后由用户单独确认是否 merge/自动部署。
+
+## 24. 2026-08-25：Phase 3B.1 以未激活状态安装到生产
+
+- 用户明确授权的边界只有合并 PR #135 并由 Supabase integration 自动安装 inactive kernel；不授权 PR #137 activation、read/UI cutover、Stripe 或 legacy decommission。
+- 06:22 UTC fresh production preflight 确认远端仍为 42 个 migrations、PR 0 behind / 5 ahead 且 CI 全绿；Phase 2/3A diagnostics、17 direct writers / 3 wrappers、Realtime 与 47/40 advisor 基线均符合预期。
+- PR #135 于 06:24:23 UTC 合并，merge commit 为 `e777071712ab47dea5739e718ab2a855037fb1c5`；Supabase integration 于 06:25:04 UTC 应用 migrations 43–44，[GitHub Pages run 32816825670](https://github.com/tujiaqi2002/badminton/actions/runs/32816825670) 通过。
+- 上线后 Phase 2 / Phase 3A diagnostics 继续通过：123 Reservations、135 Sessions、192 Court allocations、131 Parties、23 Payments、26 allocation entries、CAD 1,642.00，192/192 owned、0 shadow mismatch。
+- Phase 3B diagnostic 返回 `phase_3b_inactive_transaction_kernel_verified`；operation、membership、transition 均为 0，public mutation、booking dual-write trigger、Phase 3B Realtime publication 也均为 0。writer inventory 仍是 17 direct / 3 wrappers。
+- Security advisor 保持 47（2 INFO / 45 WARN）；performance advisor 为 62 个 INFO，其中 4 个是已记录 composite-FK index 提示、58 个是 unused-index 提示，没有 WARN 或 ERROR。
+- PR #137 继续保持 Draft 和 staging-only。生产没有启用新 writer、运行 catch-up、切换读取或退役任何 legacy 能力。
+
+阶段结果：生产 migration history 已精确推进到 44，Phase 3B.1 的事务能力已安装但完全未激活。下一步若要进入 Phase 3B.2，必须单独 review PR #137、重新执行 fresh production preflight，并获得明确的 merge/生产激活授权。
+
+---
+
+## English record
+
+### 24. 2026-08-25: Phase 3B.1 installed in production while inactive
+
+- The user explicitly authorized only merging PR #135 and allowing the Supabase integration to install the inactive kernel. PR #137 activation, read/UI cutover, Stripe, and legacy decommission were not authorized.
+- The 06:22 UTC fresh production preflight confirmed 42 remote migrations, a 0-behind/5-ahead mergeable PR with green CI, clean Phase 2/3A diagnostics, 17 direct writers and 3 wrappers, unchanged Realtime, and the expected 47/40 advisor baseline.
+- PR #135 merged at 06:24:23 UTC with merge commit `e777071712ab47dea5739e718ab2a855037fb1c5`. Supabase integration applied migrations 43–44 at 06:25:04 UTC, and [GitHub Pages run 32816825670](https://github.com/tujiaqi2002/badminton/actions/runs/32816825670) passed.
+- Post-deployment Phase 2 and Phase 3A diagnostics still pass: 123 Reservations, 135 Sessions, 192 Court allocations, 131 Parties, 23 Payments, 26 allocation entries, CAD 1,642.00, 192/192 owned, and zero shadow mismatch.
+- The Phase 3B diagnostic returns `phase_3b_inactive_transaction_kernel_verified`; operation, membership, and transition counts are zero, as are public mutations, booking dual-write triggers, and Phase 3B Realtime publications. Writer inventory remains 17 direct writers and 3 wrappers.
+- Security advisories remain 47 (2 INFO / 45 WARN). Performance advisories are 62 INFO items: 4 recorded composite-FK index notices and 58 unused-index notices, with no WARN or ERROR.
+- PR #137 remains Draft and staging-only. Production did not activate new writers, run catch-up, switch reads, or retire any legacy capability.
+
+Stage result: production migration history now stops exactly at 44, with Phase 3B.1 transaction capabilities installed but entirely inactive. Entering Phase 3B.2 requires a separate review of PR #137, another fresh production preflight, and explicit authorization to merge and activate it in production.
