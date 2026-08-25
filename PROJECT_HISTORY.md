@@ -451,3 +451,17 @@ Post-merge Pages [run 32838082873](https://github.com/tujiaqi2002/badminton/acti
 Post-deployment production and staging remained at 48 migrations, with no database push or permission change. Legacy bookings remain the sole rendered source. The deployment did not enable shadow observation, change loading/toasts/mutations/customer reads, switch schedule/order/detail defaults, alter Realtime or Stripe, or decommission any legacy field/RPC.
 
 Stage result: Phase 4A.2's reversible, default-off frontend foundation is production-deployed and inert. Enabling controlled production shadow observation is the next independent gate; visible read/UI cutover and legacy decommission remain later, separately authorized phases.
+
+### 32. 2026-08-25: Phase 4A.3 production shadow observation completed and rolled back
+
+After reviewing the Phase 4A.2 production-verification record, the user explicitly authorized the next bounded step. The declared scope was controlled production manager shadow observation only. Default or visible read/UI adoption, mutations, Phase 4B/4C, Stripe, Realtime changes, and legacy decommission remained excluded.
+
+PR [#146](https://github.com/tujiaqi2002/badminton/pull/146) merged at 10:51:36 UTC as `a205e4a25e2d71d16c13b1e3dc0e4a02b7a31225`. Default-off Pages [run 32839332729](https://github.com/tujiaqi2002/badminton/actions/runs/32839332729) succeeded. The Actions variable was absent, the live site referenced `index-ssrRc0gW.js`, and the bundle contained no shadow event or shadow RPC code.
+
+The variable was temporarily set to exact true, and Pages [run 32839524612](https://github.com/tujiaqi2002/badminton/actions/runs/32839524612) deployed the same `main` commit successfully as `index-Dt7sI6uM.js`. An existing authenticated manager session exercised the current schedule range, previous week, return to current, and next week. Browser diagnostics emitted four `info`-level `reservation_read_shadow_v1` events. Supabase API logs confirmed four POST/HTTP 200 calls to each canonical read-only RPC. Evidence collection retained only fixed events, levels, RPC names, status codes, timestamps, and aggregate diagnostics; no customer PII, note, identifier, or database sample was recorded.
+
+The post-observation Phase 4A diagnostic remained verified: 48 migrations, 192 bookings/memberships, 192 canonical allocations, 123 Reservations, the activated 17/0/17/3 writer boundary, seven FORCE RLS tables, `public.court_slots`-only Realtime, and zero Phase 3B shadow/session/payment/incomplete-operation or Phase 4A read mismatch.
+
+The temporary variable was then deleted. Rollback Pages [run 32839948133](https://github.com/tujiaqi2002/badminton/actions/runs/32839948133) succeeded, the live site again referenced `index-ssrRc0gW.js`, and the shadow event/RPC code was absent. No database rollback was required because the observation performed no database write. Legacy booking rows remained the sole rendered UI source throughout.
+
+Stage result: the bounded production shadow path and its rollback are verified. Phase 4B default schedule adoption is the next separately drafted and explicitly approved gate; order/detail adoption and every legacy decommission action remain later phases.

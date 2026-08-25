@@ -103,8 +103,9 @@ Phase 4B/4C 开始前需要：
 - PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) 最终 merge-head [CI run 32837678041](https://github.com/tujiaqi2002/badminton/actions/runs/32837678041)：Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL 16，Reservation 33/33、adapter 14/14、0 skip，lint/build 全绿。Supabase Preview 因无 migration 正常跳过。
 - 用户授权后，PR #145 于 2026-08-25 10:36:34 UTC 合并为 `ea3e6a80afcec64736a54b2bba65f0936f7e9ab8`；Pages [run 32838082873](https://github.com/tujiaqi2002/badminton/actions/runs/32838082873) build/deploy 成功。线上页面返回 200，并引用该 run 产出的 `index-ssrRc0gW.js`。
 - GitHub Actions 未设置 `VITE_RESERVATION_READ_SHADOW`，workflow fallback 为 `false`。线上 bundle 中 `reservation_read_shadow_v1` 和 `VITE_RESERVATION_READ_SHADOW` 字面量均为 0，证明 shadow 路径已被生产构建裁剪。Production 与 `badminton_stage` 仍各为 48 migrations。
+- 后续 Phase 4A.3 在单独授权下短时开启生产 shadow：Pages [run 32839524612](https://github.com/tujiaqi2002/badminton/actions/runs/32839524612) 成功，四个馆长排期范围全部产生 `info` 级别 clean event，两个 canonical 只读 RPC 各 4 次 POST 均为 HTTP 200。观察后 diagnostic 仍 clean，变量已删除，并由 Pages [run 32839948133](https://github.com/tujiaqi2002/badminton/actions/runs/32839948133) 恢复默认关闭 bundle。完整证据见 [`phase-4a3-production-shadow-observation.md`](./phase-4a3-production-shadow-observation.md)。
 
-Phase 4A.2 的默认关闭基础已部署。以上证据不授权生产开启 shadow、默认 read/UI cutover 或 legacy decommission。
+Phase 4A.2 的默认关闭基础已部署，Phase 4A.3 已验证短时生产 shadow 和回退。以上证据不授权默认 read/UI cutover 或 legacy decommission。
 
 ---
 
@@ -174,5 +175,6 @@ Before Phase 4B or 4C can cut over a default read path, controlled manager/stagi
 - PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) final merge-head [CI run 32837678041](https://github.com/tujiaqi2002/badminton/actions/runs/32837678041) passed 33/33 Reservation PostgreSQL tests and 14/14 adapter tests with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL 16; lint/build were green. Supabase Preview correctly skipped because there is no migration.
 - After explicit authorization, PR #145 merged at 2026-08-25 10:36:34 UTC as `ea3e6a80afcec64736a54b2bba65f0936f7e9ab8`. Pages [run 32838082873](https://github.com/tujiaqi2002/badminton/actions/runs/32838082873) built and deployed successfully; the live page returns 200 and references the exact `index-ssrRc0gW.js` produced by the run.
 - The GitHub Actions variable is unset, so the workflow fallback remains false. The live bundle contains zero `reservation_read_shadow_v1` and `VITE_RESERVATION_READ_SHADOW` literals, proving the shadow path was compiled away. Production and `badminton_stage` remain at 48 migrations.
+- A later separately authorized Phase 4A.3 observation temporarily enabled production shadow. Pages [run 32839524612](https://github.com/tujiaqi2002/badminton/actions/runs/32839524612) succeeded; four manager-schedule ranges emitted `info`-level clean events; and both canonical read-only RPCs completed four POST/HTTP 200 calls. The diagnostic remained clean, the variable was deleted, and Pages [run 32839948133](https://github.com/tujiaqi2002/badminton/actions/runs/32839948133) restored the default-off bundle. Full evidence is in [`phase-4a3-production-shadow-observation.md`](./phase-4a3-production-shadow-observation.md).
 
-The default-off Phase 4A.2 foundation is deployed. This evidence does not authorize enabling production shadow observation, a default read/UI cutover, or legacy decommission.
+The default-off Phase 4A.2 foundation is deployed, and Phase 4A.3 has verified a bounded production shadow observation and rollback. This evidence does not authorize a default read/UI cutover or legacy decommission.
