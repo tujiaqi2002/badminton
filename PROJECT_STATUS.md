@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/phase-4a1-production-verification`。
+> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/reservation-phase-4a2-shadow-adapter`。
 
 ## 1. 一句话结论
 
@@ -38,6 +38,17 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 | 多商户 SaaS、AI 助理、市场平台 | 未开始 / 非当前范围 | 来自早期长期蓝图，不应在单馆核心稳定前启动 |
 
 ## 4. 当前进行中工作
+
+### Issue #142：Reservation Phase 4A.2 frontend adapter / shadow fetch（当前分支；默认 UI 不切换）
+
+- 用户在 Phase 4A.1 完成后明确确认继续 Phase 4A.2；实现分支为 `codex/reservation-phase-4a2-shadow-adapter`，基于最新 `origin/main` / `9a296de` 创建。没有新增或修改 Supabase migration。
+- 新增显式 version 1 的 frontend canonical DTO/normalizer，覆盖 allocation schedule、Reservation summary/search/detail 与 PII-free shadow status；legacy booking schedule row 可转换到同一个 allocation DTO。Legacy 无法证明的 effective ownership 保持 `null`，不会从姓名、电话、group/link 或时间猜测。
+- 新增默认关闭的 `VITE_RESERVATION_READ_SHADOW`。只有已验证的馆长排期路径且值精确为 `true` 时，旧排期读取成功后才 shadow-fetch canonical allocations 与数据库 shadow status；旧 booking rows 仍是页面唯一渲染来源，loading/toast/mutation/客户读取均不受 shadow 结果影响。
+- 实时 client comparison 只覆盖两边同粒度的 Court allocations；旧 booking search 与 canonical Reservation search 粒度不同，不做会产生假告警的逐行比较。Order/detail 默认切换仍属于 Phase 4C。
+- Shadow schedule 使用 venue timezone、`(starts_at, allocation_id)` keyset pagination、重复/缺失 cursor 与 page-limit fail-closed 保护；新读取会取消上一轮未完成请求。日志只输出固定事件、count/code/totals，错误只输出安全 code，不记录姓名、邮箱、电话、备注、ID 或数据库 sample details。
+- 本地 bundled Node `v24.19.0` / pnpm `11.19.0` 已通过 14/14 adapter/fixture/privacy/pagination tests；既有 Reservation suite 为 33 tests / 32 pass / 1 个无本地 PostgreSQL 的明确 skip；全量 lint 与 production build 通过，build 只有既有 >500 kB chunk warning。Production/staging 远端 history 复核仍精确为 48 个 migrations，最新均为 Phase 4A.1 read contract。
+- 浏览器在 default-off / demo manager path 完成桌面和 390×844 手机检查：排期、订单统计/筛选、日期切周和手机底栏正常，console 无 error/warn，`reservation_read_shadow_v1` 日志为 0，证明默认关闭不发送 shadow 请求。因为本阶段没有任何可见 UI 改动，不产生伪造的 Before/After 差异图；实际 desktop/mobile 页面已人工比对。
+- 完整中英文设计与回退说明见 [`docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md`](./docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md)。当前没有生产 DB push、默认 read/UI cutover、Stripe、Realtime 或 legacy decommission。
 
 ### Issue #142 / PR #143：Reservation Phase 4A.1 manager read contract（已合并并完成生产验证；UI 未切换）
 
@@ -236,6 +247,10 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 不在没有明确授权和未提交工作核对前清理旧 worktree；PR #90 已合并不等于自动授权清理。
 
 ## English update: Phase 4A.1 production read contract verified
+
+Phase 4A.2 is now being authored on `codex/reservation-phase-4a2-shadow-adapter` after explicit user confirmation. It adds versioned canonical frontend normalizers for schedule, Reservation search/detail, and PII-free status, plus a legacy allocation adapter and an exact-`true`, default-off manager shadow flag. Legacy bookings remain the only rendered UI source. Live comparison is schedule-only because legacy and canonical schedule rows share Court-allocation cardinality; the intentionally different booking-row versus Reservation-row order searches are not forced into a misleading comparison.
+
+Shadow reads use venue-timezone boundaries and compound keyset pagination, abort obsolete requests, fail closed on unknown schema/cursor states, and log only counts, codes, and totals. They never control loading, toasts, mutations, customer reads, or rendering. The branch adds no migration or permission change. Bundled Node `v24.19.0` / pnpm `11.19.0` passes 14/14 adapter/privacy/pagination fixtures; the existing Reservation suite reports 32 pass / one expected no-local-PostgreSQL skip across 33 tests; lint and production build pass. Default-off desktop/mobile browser checks show no console errors, no shadow event, and no visible regression. Production and staging remain exactly aligned at 48 migrations. Full bilingual scope and rollback details are in [`docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md`](./docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md).
 
 After a fresh read-only gate, the user explicitly authorized merging PR #143 and allowing the protected Supabase integration to install migration 48. PR #143 merged at 2026-08-25 09:41:17 UTC as `3db78f8d8c2b2eec58e137a57ff2f2ec5bbab61c`; the integration applied `20260825091608_reservation_phase_4a_manager_read_contract` at 09:41:55 UTC. Production and staging now both have 48 migrations. Phase 4A.2 frontend adoption, default read/UI cutover, Stripe, and legacy decommission remain excluded.
 

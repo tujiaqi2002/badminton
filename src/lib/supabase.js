@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { isReservationReadShadowEnabled } from './reservationReadShadow.js'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -19,3 +20,6 @@ export const supabase = isSupabaseConfigured
 
 export const stripeEnabled = import.meta.env.VITE_STRIPE_ENABLED === 'true'
 export const googleAuthEnabled = import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true'
+export const reservationReadShadowEnabled = isReservationReadShadowEnabled(
+  import.meta.env.VITE_RESERVATION_READ_SHADOW,
+)
