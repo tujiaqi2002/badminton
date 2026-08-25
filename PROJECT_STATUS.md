@@ -39,10 +39,10 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Draft PR #138：Phase 3B.1 生产验证记录
+### PR #138：Phase 3B.1 生产验证记录（docs-only）
 
 - 这是从最新 `main` 建立的 docs-only PR，用于固化 #135 的授权边界、生产 migration 44 状态、上线后 diagnostics、writer/security boundary 和 advisors。
-- 不包含 migration、RPC、RLS、前端或生产写入；不会自动启用 #137。合并仍需用户单独确认。
+- 不包含 migration、RPC、RLS、前端或生产写入；不会自动启用 #137。用户本次确认只授权合并这份文档记录，不授权 #137。
 
 ### Issue #134 / PR #135：Reservation Phase 3B.1 inactive transaction kernel（生产已安装，未激活）
 
@@ -215,4 +215,4 @@ Production now has 44 migrations and remains inactive: zero operations, membersh
 
 Draft PR #137 remains staging-only and unauthorized for merge or production activation. Reads, UI, Stripe, and all legacy decommission work remain unchanged and out of scope.
 
-Draft PR #138 records this evidence only. It contains no database or product-behavior change and still requires separate authorization before merge.
+PR #138 records this evidence only. It contains no database or product-behavior change. The user's current authorization is limited to this documentation merge and does not authorize PR #137.
