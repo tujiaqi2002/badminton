@@ -1,7 +1,7 @@
 # Reservation Phase 4B.1：canonical 排期与容量读取
 
 > Issue：[#148](https://github.com/tujiaqi2002/badminton/issues/148)
-> 状态：实现与独立 staging 验证完成；生产仍默认使用 legacy 排期来源。未修改数据库、生产配置或 legacy 资产。
+> 状态：实现与独立 staging 验证完成；PR #149 已合并并以 default-legacy Pages build 部署。生产仍默认使用 legacy 排期来源，未修改数据库、production selector 或 legacy 资产。
 
 ## 1. 本阶段解决的问题
 
@@ -69,7 +69,7 @@ Vite 仅保留既有的 >500 kB chunk warning。
 - 没有改变付款、计价、Stripe、通知或普通客户登录；
 - 没有删除 legacy booking read、adapter、字段、RPC 或 rollback path。
 
-下一步先停在 Draft PR 评审。Phase 4B.2 selected detail/action adoption、Phase 4B.1 的生产默认切换、PR merge/Pages deployment，以及任何 Phase 5 decommission 都必须分别取得明确授权。
+PR #149 后续已在独立授权下合并并以 default-legacy Pages build 部署，发布证据见 [`phase-4b1-default-legacy-production-verification.md`](./phase-4b1-default-legacy-production-verification.md)。下一步停在生产 canonical 默认切换门禁前。Phase 4B.2 selected detail/action adoption、production canonical cutover，以及任何 Phase 5 decommission 都必须分别取得明确授权。
 
 ---
 
@@ -77,7 +77,7 @@ Vite 仅保留既有的 >500 kB chunk warning。
 
 ## Reservation Phase 4B.1: canonical schedule and capacity reads
 
-Issue [#148](https://github.com/tujiaqi2002/badminton/issues/148) Phase 4B.1 is implemented and verified against isolated staging. Production still defaults to the legacy schedule source. This phase changed no database object, production configuration, or legacy asset.
+Issue [#148](https://github.com/tujiaqi2002/badminton/issues/148) Phase 4B.1 is implemented and verified against isolated staging. PR #149 has since merged and deployed in a default-legacy Pages build. Production still defaults to the legacy schedule source. No database object, production selector, or legacy asset changed.
 
 ### Purpose and switch boundary
 
@@ -115,4 +115,4 @@ From the start of this canonical browser run, Supabase API logs contain ten succ
 
 Bundled Node `v24.19.0` and pnpm `11.19.0` produced 81 passes, one explicit no-local-PostgreSQL skip, and zero failures across 82 tests. Lint and both production/canonical-staging builds passed. The default production artifact remains legacy and contains neither the staging project reference nor the canonical schedule RPC; the staging artifact contains the expected staging reference and RPC. The hosted read-only diagnostic remains clean at 48 migrations ending in `20260825091608`, 192 bookings/memberships and canonical allocations, 123 Reservations, zero Phase 3B/4A mismatch, the 17/0/17/3 writer boundary, seven FORCE RLS tables, and `public.court_slots`-only Realtime. The only build notice is the existing >500 kB Vite chunk warning.
 
-This phase performed no migration, database push, RLS/grant/RPC or data change; no production Supabase/Pages/read-source switch; no order/detail/customer or action-scope adoption; no pricing/payment/Stripe/customer-login change; and no legacy removal. Work stops at Draft PR review. Phase 4B.2 selected detail/action adoption, production default cutover and deployment, and every Phase 5 decommission action each require separate explicit authorization.
+This phase performed no migration, database push, RLS/grant/RPC or data change; no production Supabase or canonical read-source switch; no order/detail/customer or action-scope adoption; no pricing/payment/Stripe/customer-login change; and no legacy removal. PR #149 later merged and deployed as a default-legacy Pages build; see [`phase-4b1-default-legacy-production-verification.md`](./phase-4b1-default-legacy-production-verification.md). Work now stops before production canonical default adoption. Phase 4B.2 selected detail/action adoption, production canonical cutover, and every Phase 5 decommission action each require separate explicit authorization.

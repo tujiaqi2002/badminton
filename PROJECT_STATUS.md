@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/reservation-phase-4b1-canonical-schedule`。
+> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/reservation-phase-4b1-production-verification`。
 
 ## 1. 一句话结论
 
@@ -17,6 +17,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - `main` 已包含 PR #143 的 Phase 4A.1 manager read contract；生产 Supabase 已由受保护分支 integration 原子应用 migration 48。
 - 生产与 staging migration history 均为 48 个版本，最新为 `20260825091608_reservation_phase_4a_manager_read_contract`；Phase 3B.2 writer 与 Phase 4A.1 read API 已生效，但默认 read/UI、Stripe 与 legacy decommission 均未切换。
 - Phase 4A.3 受控生产 shadow observation 已完成：四个馆长排期窗口全部 clean，两个 canonical 只读 RPC 各 4 次 POST / HTTP 200；观察后已删除临时 feature variable 并重新部署默认关闭版本。
+- `main` 已包含 PR #149 的 Phase 4B.0/4B.1 frontend foundation；Pages 已从 merge commit `560ecdc` 成功部署，但生产构建仍缺省使用 legacy schedule source，canonical RPC 被编译裁剪。
 - 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；Reservation Phase 2/3A/3B/4A 已有 migration-chain 与真实 PostgreSQL 并发测试，但仍没有浏览器 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
 - `App.jsx`、`AdminSchedule.jsx`、`i18n.js` 和 `styles.css` 已成为大型集中模块，后续改动的回归面较大。
@@ -40,15 +41,16 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #148：Reservation Phase 4B.1 canonical schedule/capacity（staging 已验证；等待 Draft PR 评审）
+### Issue #148：Reservation Phase 4B.1 canonical schedule/capacity（已合并并以 default-legacy 部署）
 
-- 用户已确认 Phase 4B.1，当前分支已让 AdminSchedule/AdminCapacity 在显式 canonical staging build 中读取 Phase 4A allocation RPC；生产缺省仍为 legacy。PR merge、生产切换/部署、Phase 4B.2 detail/action 和 legacy decommission 均未授权。
+- 用户已确认 Phase 4B.1，并随后授权 PR #149 Ready、merge 与 default-legacy Pages 部署。AdminSchedule/AdminCapacity 可在显式 canonical staging build 中读取 Phase 4A allocation RPC；生产 canonical 默认切换、Phase 4B.2 detail/action 和 legacy decommission 仍未授权。
 - 已建立 `.env.staging.local` ignored config 与无凭据 `.env.staging.example`。本地 password entry 同时要求 staging flag、staging environment、Supabase project-ref 精确匹配和 loopback hostname；任一不满足都 fail closed 到现有 magic-link 登录。
 - exact `canonical` 才启用新 source；缺失/未知值回到 legacy。统一 version 1 schedule view model 分离 physical allocation、effective Reservation/Session 与 legacy source trace；缺失/重复 identity fail closed，不从客户资料或时间猜测归属。
 - canonical 请求使用 venue timezone、复合 keyset pagination、AbortController 和 request identity。读取失败时排期/容量显示持久错误并隐藏网格，不静默回落或伪装为全空；order search 仍独立使用 legacy `admin_search_bookings`。
 - 中英文桌面和 390×844 手机验证均正确显示 9 月 7 日 Court 1/Court 2 两条 allocation 与剩余 3 片容量。API 日志记录 10 次 canonical schedule RPC / HTTP 200，本轮直接 `/rest/v1/bookings` 排期读取为 0。
 - hosted diagnostic 仍为 48 migrations、192 allocations/memberships、123 Reservations、全部 Phase 3B/4A mismatch 为 0；17/0/17/3 writer、7 张 FORCE RLS 与 `court_slots`-only Realtime 未漂移。
 - bundled Node `v24.19.0` / pnpm `11.19.0` 下 82 tests 为 81 pass、1 个明确的 no-local-PostgreSQL skip、0 fail；lint 与 production/canonical-staging build 均通过。完整中英文设计与证据见 [`docs/reservation-migration/phase-4b1-canonical-schedule.md`](./docs/reservation-migration/phase-4b1-canonical-schedule.md)。
+- PR [#149](https://github.com/tujiaqi2002/badminton/pull/149) 于 13:13:04 UTC 合并为 `560ecdc2d738b6bc42d03421e781ba73adac249c`；Pages [run 32852015723](https://github.com/tujiaqi2002/badminton/actions/runs/32852015723) build/deploy 成功。线上 `index-B_GCKKvu.js` 中 canonical allocation RPC、staging project ref 和 source flag 均为 0；实际页面正常且 console error/warn 为 0。上线后生产 diagnostic 仍 clean。完整发布证据见 [`docs/reservation-migration/phase-4b1-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4b1-default-legacy-production-verification.md)。
 
 ### Issue #142：Reservation Phase 4A.3 production shadow observation（已完成并恢复默认关闭）
 
