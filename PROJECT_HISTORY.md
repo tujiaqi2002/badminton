@@ -302,6 +302,18 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 
 阶段结果：零价恢复已经在独立 staging 和 pinned CI 完成并建立 Draft PR #140，生产继续安全停在 44 migrations。PR merge 和再次触发 production migrations 45–47 仍需后续独立授权；read/UI、Stripe 与 legacy decommission 未进入本阶段。
 
+## 28. 2026-08-25：Phase 3B.2 零价恢复完成生产 activation
+
+- 用户在 review、最终 CI 和 fresh production read-only preflight 后，明确授权把 PR #140 转为 Ready、合并，并由受保护 Supabase integration 重试 production migrations 45–47；授权不包含 read/UI、Stripe、legacy decommission 或其他生产写入。
+- 合并前生产仍精确为 44 migrations / inactive 3B.1，Phase 2/3A/3B.1 diagnostics、123/135/192/131/23/26 / CAD 1,642.00、17 direct + 3 wrappers、0 operation/membership/transition 与 0 Edge Functions 全部 clean。Staging 为 47 migrations / 192 memberships / 0 drift，recovery assertion 仍为 owner-only。
+- PR #140 于 08:23:38 UTC 合并，merge commit `1499cf4da939e6d0e00b7eec9bb2380c65c3b32e`。Supabase workflow `779d59c6940842e29b5219151ae2620f` 于 08:25:06–08:25:07 UTC 顺序应用 migrations 45、46、47；没有错误或中间停留。合并后的 [GitHub Pages run 32826377671](https://github.com/tujiaqi2002/badminton/actions/runs/32826377671) build/deploy 成功。
+- 上线后 migration history 为 47，最新 `20260825074102`，fingerprint `10799dd49909e684c3eb035fa05fbf91`。Phase 2/3A/3B.2 diagnostics 全部通过：123 Reservations、135 Sessions、192 bookings / 192 memberships、131 Parties、23 Payments、26 allocations / CAD 1,642.00，shadow/session/payment/incomplete-operation mismatch 均为 0。
+- 唯一零价 booking 原样保留为 `pay_at_venue`，0 Payment、0 allocation、0 refund；没有修改客户事实或伪造 CAD 0 receipt。Recovery assertion definition fingerprint 与 staging 一致，为 private security-invoker、空 `search_path`、ACL 只有 postgres owner，client EXECUTE 全为 false。
+- Writer boundary 已变为 17 public entries / 0 public direct legacy / 17 private legacy delegates / 3 wrappers；7 张 Phase 3B public tables 全部 RLS + FORCE RLS，client direct DML/private helper EXECUTE 为 0，explicit-primary RPC 为 manager-gated，Realtime 仅 `public.court_slots`，Edge Functions 为 0。
+- Production advisors 为 48 security（2 INFO / 46 WARN）与 67 performance INFO；performance 全部是 `unused_index`，`unindexed_foreign_keys` 为 0。新 security finding 是预期的 authenticated manager SECURITY DEFINER 入口，已现场确认 anon 无 EXECUTE、空 `search_path` 且先调用 `private.require_manager()`。
+
+阶段结果：Phase 3B.2 数据库写入 activation 已完成并通过生产验收。读取和界面继续使用 legacy presentation，现有 public RPC contract 保持兼容；Phase 4 read/UI、Stripe 和 Phase 5 legacy decommission 仍需独立 Issue、观察窗口与明确授权。
+
 ---
 
 ## English record
@@ -355,3 +367,19 @@ Bundled Node `v24.19.0` / pnpm `11.19.0` passed 27 of 28 tests with zero failure
 The 07:43–07:44 UTC production read-only preflight again confirmed 44 migrations, clean Phase 2/3A/3B.1 diagnostics, the 123/135/192/131/23/26 / CAD 1,642.00 reconciliation, a 0/0/0 kernel, and 17 direct writers plus three wrappers. Activation, Session-assignment, explicit-primary, and private-legacy objects are absent; zero Edge Functions are deployed, and advisors remain 47 security / 62 performance INFO.
 
 Stage result: zero-price recovery is complete on the isolated stage and pinned CI, and Draft PR #140 is open, while production remains safely at 44 migrations. Merge and another production attempt for migrations 45–47 remain separately gated. Read/UI, Stripe, and legacy decommission are outside this phase.
+
+### 28. 2026-08-25: Phase 3B.2 zero-price recovery activated in production
+
+After reviewing the final CI and a fresh read-only production preflight, the user explicitly authorized making PR #140 ready, merging it, and allowing the protected Supabase integration to retry production migrations 45–47. Read/UI, Stripe, legacy decommission, and every other production write remained excluded.
+
+The pre-merge production baseline was still exactly 44 migrations with inactive Phase 3B.1, clean Phase 2/3A/3B.1 diagnostics, the 123/135/192/131/23/26 / CAD 1,642.00 reconciliation, 17 direct writers plus three wrappers, zero kernel rows, and zero Edge Functions. Staging was clean at 47 migrations with 192 memberships and an owner-only recovery assertion.
+
+PR #140 merged at 08:23:38 UTC as `1499cf4da939e6d0e00b7eec9bb2380c65c3b32e`. Supabase workflow `779d59c6940842e29b5219151ae2620f` applied migrations 45, 46, and 47 in order at 08:25:06–08:25:07 UTC, with no error or intermediate stop. Post-merge [GitHub Pages run 32826377671](https://github.com/tujiaqi2002/badminton/actions/runs/32826377671) built and deployed successfully.
+
+Post-deployment production has 47 migrations, latest `20260825074102`, with history fingerprint `10799dd49909e684c3eb035fa05fbf91`. Phase 2, Phase 3A, and Phase 3B.2 diagnostics all pass: 123 Reservations, 135 Sessions, 192 bookings / 192 memberships, 131 Parties, 23 Payments, 26 allocations / CAD 1,642.00, and zero shadow, Session, payment, or incomplete-operation mismatch.
+
+The sole zero-price booking remains `pay_at_venue` with zero Payment, allocation, and refund; no customer fact was changed and no CAD 0 receipt was fabricated. The recovery assertion matches staging and remains private, security invoker, empty-search-path, owner-only, and inaccessible to client roles.
+
+The writer boundary is now 17 public entries, zero public direct legacy writers, 17 private legacy delegates, and three wrappers. Seven Phase 3B public tables use RLS plus FORCE RLS; client direct DML and private-helper EXECUTE are zero. The explicit-primary RPC is manager-gated, Realtime still publishes only `public.court_slots`, and no Edge Functions are deployed. Advisors report 48 security findings (2 INFO / 46 WARN) and 67 performance INFO findings, all unused indexes and zero unindexed foreign keys.
+
+Stage result: the Phase 3B.2 database write activation is complete and production-verified. Reads and UI remain on the legacy presentation model with compatible public RPC contracts. Phase 4 read/UI, Stripe, and Phase 5 legacy decommission still require separate issues, observation gates, and explicit authorization.
