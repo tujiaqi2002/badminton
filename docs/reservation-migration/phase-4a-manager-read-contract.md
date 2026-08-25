@@ -117,11 +117,15 @@ Staging 冷调用观测约为：schedule 39 ms、search 41 ms、detail 52–85 m
 
 Migration 后 advisor 没有发现 Phase 4A 新安全问题或未索引 FK：security 仍为 50 条既有 staging findings；performance 为 59 条 `unused_index` INFO，`unindexed_foreign_keys=0`。Fresh staging 的 unused index 统计只能用来观察，不能单独作为删索引依据。
 
+Draft PR #143 首轮 [Actions run 32832318539](https://github.com/tujiaqi2002/badminton/actions/runs/32832318539) 在仓库固定 Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL `16.15` 下通过 33/33、0 skip；真实三连接 Payment retry、AA 与 refund race、lint/build 全绿。本地 bundled Node `v24.19.0` / pnpm `11.19.0` 为 32/33 pass、0 fail、1 个无本地 PostgreSQL 的明确 skip，lint/build 通过。
+
 首次 staging apply 在任何 DDL 前因 Phase 3B baseline status 文本不匹配而原子停止，remote history 和对象均未改变。Preflight 改为验证 Phase 3B assertion 的真实结构后，正式 apply 成功；本地 migration 文件随后只重命名为 Supabase 实际记录的 `20260825091608`，内容未在成功应用后回改。
 
 ## 7. 发布与回退
 
 当前生产仍为 47 个 migration，不存在 Phase 4A view/RPC，Phase 3B.2 diagnostic clean。合并含本 migration 的 PR 会触发 Supabase protected-branch integration，因此合并等同于授权生产安装读取契约；合并前必须重新执行 production read-only preflight 并取得明确授权。
+
+2026-08-25 09:32 UTC fresh preflight 仍确认 47 migrations、0 Phase 4A views/RPCs/index、192/192 membership 与所有 Phase 3B mismatch=0、Realtime 只有 `public.court_slots`；production advisors 保持 48 security（2 INFO / 46 WARN）和 67 performance INFO（全部 `unused_index`）。该预检没有应用 migration 48，也不替代未来 merge 时的明确授权。
 
 安全发布顺序：
 
@@ -193,11 +197,15 @@ Observed cold hosted calls were approximately 39 ms for schedule, 41 ms for sear
 
 No Phase 4A security or unindexed-FK advisor finding was introduced. Staging remained at 50 existing security findings; performance reported 59 `unused_index` INFO findings and zero unindexed foreign keys. Fresh synthetic unused-index data is observational and is not sufficient evidence to remove an index.
 
+Draft PR #143's first [Actions run 32832318539](https://github.com/tujiaqi2002/badminton/actions/runs/32832318539) passed 33/33 with zero skips under pinned Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL `16.15`, including real multi-connection Payment retry, AA, and refund races plus lint/build. Bundled local Node `v24.19.0` / pnpm `11.19.0` passed 32 of 33 with zero failures and one explicit no-local-PostgreSQL skip; lint/build passed.
+
 The first staging attempt stopped atomically before DDL because the preflight expected the wrong Phase 3B status text. No remote object or history row was created. After validating the real Phase 3B assertion shape, the apply succeeded. The local file was then renamed only to the actual Supabase-recorded version `20260825091608`; its contents were not rewritten after successful application.
 
 ## 7. Release and rollback
 
 Production still has exactly 47 migrations, no Phase 4A view/RPC, and a clean Phase 3B.2 status. Merging a PR with this migration triggers the protected Supabase integration, so merge is also authorization to install the read contract in production. A fresh production read-only preflight and explicit authorization are required first.
+
+The 2026-08-25 09:32 UTC fresh preflight still confirmed 47 migrations, zero Phase 4A views/RPCs/indexes, 192/192 membership with every Phase 3B mismatch at zero, and `public.court_slots` as the only Realtime table. Production advisors remain at 48 security findings (2 INFO / 46 WARN) and 67 performance INFO findings, all unused indexes. The preflight did not apply migration 48 and does not replace explicit merge authorization.
 
 The safe sequence is: install this additive contract without switching UI; observe migration/security/diagnostic/role/query-plan evidence; implement Phase 4A.2 behind a legacy adapter or feature flag; then consider customer reads and Phase 5 legacy decommission only after a production observation and rollback window.
 

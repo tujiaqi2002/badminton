@@ -39,7 +39,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #142：Reservation Phase 4A.1 manager read contract（staging 已验证；生产与 UI 未切换）
+### Issue #142 / Draft PR #143：Reservation Phase 4A.1 manager read contract（staging 已验证；生产与 UI 未切换）
 
 - 用户已明确确认 Phase 4A.1 authoring 与独立 staging 验证；授权不包含 PR merge、生产 migration、read/UI cutover、Stripe 或 legacy decommission。
 - Append-only migration `20260825091608_reservation_phase_4a_manager_read_contract` 已在 `badminton_stage` 应用，staging history 为 48。它新增两个 `security_invoker` v1 view、四个 manager-only `SECURITY INVOKER` RPC、PII-free mismatch view、owner-only assertion 和一个排期窗口索引；不写业务数据、不增加 client DML 或 Realtime publication。
@@ -48,6 +48,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - Hosted diagnostic 为 `phase_4a_manager_read_contract_verified`：192 bookings / memberships、192 allocation rows、123 Reservation summaries，Phase 3B shadow/session/payment/incomplete-operation 与 Phase 4A mismatch 均为 0；writer boundary、7 张 FORCE RLS 表和 `court_slots`-only Realtime 均未改变。
 - 真实角色验证确认馆长四个 RPC 成功、authenticated 非馆长拒绝、anon permission denied。Query plans 使用新 schedule index 与既有 effective-membership index；advisor 没有 Phase 4A 新 security 或 unindexed-FK finding。
 - 生产已只读确认仍为 47 migrations、Phase 4A 对象为 0、Phase 3B.2 clean。完整中英文设计与证据见 [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md)。
+- Draft PR #143 首轮 [Actions run 32832318539](https://github.com/tujiaqi2002/badminton/actions/runs/32832318539) 在 Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL `16.15` 下为 33/33、0 skip；真实三连接 Payment retry、AA 和 refund race、lint/build 全绿。09:32 UTC fresh production read-only preflight 再次确认 47 migrations、0 Phase 4A view/RPC/index、Phase 3B.2 clean、Realtime 仅 `court_slots`；advisors 保持 48 security（2 INFO / 46 WARN）和 67 performance INFO（全部 `unused_index`）。PR 继续保持 Draft，尚未授权 merge/生产应用。
 
 ### Issue #139 / PR #140：Phase 3B.2 zero-price activation recovery（已合并并完成生产验证）
 
@@ -241,6 +242,8 @@ Issue #142 Phase 4A.1 is implemented and verified only on the isolated `badminto
 The additive contract introduces two security-invoker v1 views and four manager-only security-invoker RPCs for schedule, Reservation search, one-call detail, and PII-free shadow status. Current effective membership determines ownership, explicit Party roles determine the primary contact, and append-only allocation/payment facts determine money state, including `no_charge` for zero-price Reservations. Legacy group/link IDs remain source trace fields only.
 
 Schedule and search use compound keyset pagination, while schedule, search, and detail each require one database round trip and avoid application-level N+1. Hosted role checks passed for a manager and denied authenticated non-managers and anonymous callers. The diagnostic reconciled 192 allocations, 192 memberships, and 123 current Reservation summaries with zero Phase 3B or Phase 4A mismatch. No client DML or Realtime publication changed, and advisors found no Phase 4A security or unindexed-FK issue. Full bilingual evidence is in [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md).
+
+Draft PR #143's first [Actions run 32832318539](https://github.com/tujiaqi2002/badminton/actions/runs/32832318539) passed 33/33 with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL `16.15`, including real multi-connection Payment retry, AA, and refund races plus lint/build. A fresh 09:32 UTC production read-only preflight reconfirmed 47 migrations, zero Phase 4A views/RPCs/indexes, clean Phase 3B.2, and `court_slots`-only Realtime. Advisors remain at 48 security findings and 67 performance INFO findings, all unused indexes. The PR stays Draft and merge/production installation remain unauthorized.
 
 After a fresh read-only preflight, the user explicitly authorized merging PR #140 and allowing the protected Supabase integration to apply production migrations 45–47. PR #140 merged at 2026-08-25 08:23:38 UTC as `1499cf4da939e6d0e00b7eec9bb2380c65c3b32e`. The integration applied all three migrations in order at 08:25:06–08:25:07 UTC, advancing production exactly from 44 to 47 versions.
 

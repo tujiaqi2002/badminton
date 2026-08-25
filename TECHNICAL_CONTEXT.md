@@ -286,6 +286,8 @@ Staging history 现为 48，diagnostic 返回 `phase_4a_manager_read_contract_ve
 
 生产已 read-only 核对仍精确为 47 migrations，Phase 4A view/RPC 为 0，Phase 3B.2 clean。由于 protected-branch integration 会在 `main` merge 后自动部署 pending migration，Phase 4A.1 PR merge 与生产安装必须视为同一个授权动作；merge 前需要 fresh production preflight 和明确确认。
 
+Draft PR #143 首轮 [Actions run 32832318539](https://github.com/tujiaqi2002/badminton/actions/runs/32832318539) 在 Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL `16.15` 下为 33/33、0 skip；真实三连接 Payment retry、AA 与 refund race、lint/build 全绿。2026-08-25 09:32 UTC fresh production read-only preflight 再次返回 47 migrations、0 Phase 4A views / RPCs / index、Phase 3B.2 192/192 与所有 mismatch=0、Realtime 仅 `public.court_slots`。Production advisors 保持 48 security（2 INFO / 46 WARN）和 67 performance INFO（全部 `unused_index`）；没有应用 migration 48。
+
 ## 8. 线上迁移状态
 
 2026-08-25 Phase 4A.1 staging 验证后，生产仍精确为 47 个版本：
@@ -527,6 +529,8 @@ Issue #142 Phase 4A.1 is installed and verified only on isolated `badminton_stag
 Schedule, search, and detail each use one database round trip and avoid application-level N+1. Staging query plans used the new schedule-window index and the existing effective-membership index. The hosted diagnostic reconciled 192 allocations and memberships with 123 current Reservation summaries and zero mismatch; a real manager passed, an authenticated non-manager was denied, and anonymous execution was denied. No Phase 4A security or unindexed-FK advisor finding was introduced. Full bilingual evidence and the release/rollback gate are in [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md).
 
 Because the protected-branch integration deploys pending migrations after a `main` merge, merging the Phase 4A.1 PR is also authorization to install migration 48 in production. A fresh production read-only preflight and explicit authorization are required first. Frontend adoption, Stripe, and legacy decommission remain separate and unauthorized.
+
+Draft PR #143's first [Actions run 32832318539](https://github.com/tujiaqi2002/badminton/actions/runs/32832318539) passed 33/33 with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL `16.15`, including real multi-connection Payment retry, AA, and refund races plus lint/build. The 09:32 UTC fresh production read-only preflight reconfirmed 47 migrations, zero Phase 4A views/RPCs/indexes, a clean 192/192 Phase 3B.2 state with all mismatches zero, and `public.court_slots` as the sole Realtime table. Production advisors remain at 48 security findings and 67 performance INFO findings, all unused indexes. Migration 48 was not applied.
 
 PR #135 merged at 2026-08-25 06:24:23 UTC, and the Supabase GitHub integration applied migrations 43–44 at 06:25:04 UTC. At that point production had 44 migrations and the Phase 3B.1 kernel was strictly inactive. Post-deployment Phase 2, Phase 3A, and Phase 3B.1 diagnostics passed with 192/192 owned allocations, zero shadow mismatch, and zero kernel operations, memberships, or transitions.
 

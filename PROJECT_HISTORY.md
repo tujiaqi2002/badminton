@@ -323,6 +323,7 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - 首次 stage apply 在任何 DDL 前因 preflight 期待错误的 Phase 3B status 文本而原子停止，没有留下 history/object。门禁改为核对真实 assertion shape 后正式应用成功，本地 migration 只按 Supabase 实际记录重命名为 `20260825091608`，成功应用后未回改内容。
 - Staging 现为 48 migrations。Hosted diagnostic 返回 192 allocations / memberships、123 current Reservations 与 0 mismatch；Phase 3B writer、RLS、Realtime 门禁继续 clean。真实 manager 成功，authenticated non-manager 和 anon 均被拒绝；query plans 使用预期索引，advisors 没有 Phase 4A 新 security 或 unindexed-FK finding。
 - Production 只读检查确认仍为 47 migrations、无 Phase 4A objects、Phase 3B.2 clean。由于 `main` merge 会自动触发 pending migration，后续 Draft PR merge 与 production apply 必须重新完成 preflight 并取得独立明确授权。
+- Draft PR #143 首轮 CI [run 32832318539](https://github.com/tujiaqi2002/badminton/actions/runs/32832318539) 在固定 Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL `16.15` 下为 33/33、0 skip，真实并发、lint/build 全绿。09:32 UTC fresh production read-only preflight 仍为 47 migrations、0 Phase 4A objects、Phase 3B.2 clean、advisors 48 security / 67 performance INFO；没有生产写入。
 
 阶段结果：统一 Reservation 的馆长读取边界已经在独立 staging 成立，但 live UI 与生产数据库完全未切换。下一步先完成 PR/CI review，再决定是否授权生产安装；前端 adoption 属于后续 Phase 4A.2。
 
@@ -411,3 +412,5 @@ The first staging attempt stopped atomically before DDL because the preflight ex
 Staging now has 48 migrations. The hosted diagnostic reconciled 192 allocations and memberships with 123 current Reservations and zero mismatch while all Phase 3B writer, RLS, and Realtime gates stayed clean. A real manager passed; an authenticated non-manager and anonymous actor were denied. Query plans used the intended indexes, and no Phase 4A security or unindexed-FK advisor finding appeared.
 
 Production read-only verification still shows exactly 47 migrations, no Phase 4A object, and a clean Phase 3B.2 state. Because a `main` merge automatically deploys pending migrations, the future Draft PR merge and production application require a new preflight and separate explicit authorization. The live UI and production database remain unchanged; frontend adoption belongs to Phase 4A.2.
+
+Draft PR #143's first [Actions run 32832318539](https://github.com/tujiaqi2002/badminton/actions/runs/32832318539) passed 33/33 with zero skips under pinned Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL `16.15`; real concurrency, lint, and build were green. A fresh 09:32 UTC production read-only preflight still showed 47 migrations, zero Phase 4A objects, clean Phase 3B.2, and the unchanged 48-security / 67-performance-INFO advisor baseline. No production write occurred.
