@@ -350,7 +350,19 @@ PR #149 于 13:13:04 UTC 合并为 `560ecdc2d738b6bc42d03421e781ba73adac249c`。
 
 上线后 Phase 4A 只读 diagnostic 仍为 48 migrations、192 bookings/memberships、192 canonical allocations、123 Reservations、全部 mismatch 0、17/0/17/3 writer boundary、7 FORCE RLS 和 `public.court_slots`-only Realtime。本次没有 pending migration、DB push、permission、writer、数据或 publication 变化。
 
-阶段结果：Phase 4B.1 frontend foundation 已进入生产代码并保持关闭，线上用户仍由 legacy schedule source 服务。production canonical 默认切换、Phase 4B.2 detail/actions 与 Phase 5 decommission 继续是三个独立门禁。
+当时阶段结果：Phase 4B.1 frontend foundation 已进入生产代码并保持关闭，线上用户仍由 legacy schedule source 服务。production canonical、Phase 4B.2 detail/actions 与 Phase 5 decommission 当时仍是三个独立门禁；canonical 后续在第 36 阶段另行授权完成。
+
+## 36. 2026-08-25：Phase 4B.1 production canonical 排期切换完成
+
+用户在上一条明确 production cutover 门禁后要求继续，授权范围只包括有回退路径的馆长 schedule/capacity canonical source。Phase 4B.2 订单/详情/action、数据库变化、支付计价、Realtime、客户 Auth 与 decommission 全部排除。Fresh production 只读 diagnostic 与真实 non-manager/anon 门禁通过。
+
+检查发现原 `deploy.yml` 没有注入 schedule selector，因此 repo variable 本身无法切换或回退。PR #151 增加唯一 variable input 与 `legacy` fallback regression test，并把 workflow/test changes 纳入 Reservation CI。最终 CI 在 PostgreSQL 16 下全绿；PR 于 14:22:23 UTC 合并为 `6157f7a23daeb5d5c9c14d2d8310b41d24b7fd6d`。
+
+variable 缺失的 Pages [run 32859078691](https://github.com/tujiaqi2002/badminton/actions/runs/32859078691) 先证明线上仍加载 `index-B_GCKKvu.js`，canonical RPC 0、staging ref 0、production ref 1。随后把 variable 设为 exact canonical；[run 32859184175](https://github.com/tujiaqi2002/badminton/actions/runs/32859184175) 部署同一 main commit 为 `index-CvTu7GmI.js`，canonical RPC 1、staging ref 0、production ref 1。
+
+真实馆长会话加载 2026-08-17、08-24、08-31 三个排期窗口，分别得到 8、2、0 个 allocation cards，始终 5 court lanes、无 read error；容量 08-24/08-31 两周均为 7 天 × 14 rows，剩余 4–5 courts。浏览器 error/warn 为 0。切换后 API logs 记录 8 POST + 1 OPTIONS，全部 200。post-cutover diagnostic 继续为 48 migrations、192/192、123、0 mismatch、17/0/17/3、7 FORCE RLS 与 `court_slots`-only Realtime。
+
+阶段结果：production AdminSchedule/AdminCapacity 现保持 canonical。order/detail/actions 与所有 writer 仍保持既有 contract；回退只需设 legacy/删除 variable 后重跑 workflow，不需要 DB rollback。Phase 4B.2 与 Phase 5 decommission 继续是独立门禁。
 
 ## English record
 
@@ -517,3 +529,15 @@ PR #149 merged at 13:13:04 UTC as `560ecdc2d738b6bc42d03421e781ba73adac249c`. Pa
 The post-deployment Phase 4A read-only diagnostic remained clean at 48 migrations, 192 bookings/memberships, 192 canonical allocations, 123 Reservations, zero mismatch, the 17/0/17/3 writer boundary, seven FORCE RLS tables, and `public.court_slots`-only Realtime. No pending migration, database push, permission, writer, data, or publication changed.
 
 Stage result: the Phase 4B.1 frontend foundation is present in production code but inactive, and live users remain on the legacy schedule source. Production canonical default adoption, Phase 4B.2 detail/actions, and Phase 5 decommission remain three independent gates.
+
+### 36. 2026-08-25: Phase 4B.1 production canonical schedule cutover completed
+
+After the immediately preceding gate explicitly named the production cutover, the user authorized only a reversible canonical source for manager schedule/capacity. Phase 4B.2 order/detail/actions, database changes, payment/pricing, Realtime, customer Auth, and decommission were excluded. The fresh production read-only diagnostic and real non-manager/anon gates passed.
+
+The original `deploy.yml` did not inject the schedule selector, so a repository variable alone could neither switch nor roll back the source. PR #151 added one variable input with a pinned `legacy` fallback and included workflow/test changes in Reservation CI. Final PostgreSQL 16 CI was green, and the PR merged at 14:22:23 UTC as `6157f7a23daeb5d5c9c14d2d8310b41d24b7fd6d`.
+
+With the variable absent, Pages run 32859078691 first proved that production still loaded `index-B_GCKKvu.js` with zero canonical RPCs, zero staging refs, and one production ref. The variable was then set to exact canonical. Pages run 32859184175 deployed the same main commit as `index-CvTu7GmI.js`, with one canonical RPC occurrence, zero staging refs, and one production ref.
+
+An authenticated manager loaded schedule dates August 17, August 24, and August 31 with 8, 2, and 0 allocation cards, five Court lanes, and no read error. Capacity loaded seven days by fourteen rows for the August 24 and August 31 weeks with four to five Courts available. Browser error/warn logs remained zero. Post-cutover API logs contained eight POST calls and one OPTIONS request, all HTTP 200. The final diagnostic remained clean at 48 migrations, 192/192, 123, zero mismatch, 17/0/17/3, seven FORCE RLS tables, and `court_slots`-only Realtime.
+
+Stage result: production AdminSchedule/AdminCapacity now remain canonical. Order/detail/actions and every writer keep their existing contracts. Rollback is setting/deleting the variable and rebuilding, with no DB rollback. Phase 4B.2 and Phase 5 decommission remain independent gates.

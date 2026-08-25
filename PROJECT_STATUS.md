@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/reservation-phase-4b1-production-verification`。
+> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/reservation-phase-4b1-production-cutover-verification`。
 
 ## 1. 一句话结论
 
@@ -17,7 +17,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - `main` 已包含 PR #143 的 Phase 4A.1 manager read contract；生产 Supabase 已由受保护分支 integration 原子应用 migration 48。
 - 生产与 staging migration history 均为 48 个版本，最新为 `20260825091608_reservation_phase_4a_manager_read_contract`；Phase 3B.2 writer 与 Phase 4A.1 read API 已生效，但默认 read/UI、Stripe 与 legacy decommission 均未切换。
 - Phase 4A.3 受控生产 shadow observation 已完成：四个馆长排期窗口全部 clean，两个 canonical 只读 RPC 各 4 次 POST / HTTP 200；观察后已删除临时 feature variable 并重新部署默认关闭版本。
-- `main` 已包含 PR #149 的 Phase 4B.0/4B.1 frontend foundation；Pages 已从 merge commit `560ecdc` 成功部署，但生产构建仍缺省使用 legacy schedule source，canonical RPC 被编译裁剪。
+- `main` 已包含 PR #149 的 Phase 4B.0/4B.1 frontend foundation与 PR #151 的 fail-closed Pages selector。生产馆长 schedule/capacity 已切到 canonical allocation RPC；order/detail/actions 与所有 writer 仍保持既有 contract。
 - 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；Reservation Phase 2/3A/3B/4A 已有 migration-chain 与真实 PostgreSQL 并发测试，但仍没有浏览器 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
 - `App.jsx`、`AdminSchedule.jsx`、`i18n.js` 和 `styles.css` 已成为大型集中模块，后续改动的回归面较大。
@@ -41,9 +41,9 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #148：Reservation Phase 4B.1 canonical schedule/capacity（已合并并以 default-legacy 部署）
+### Issue #148：Reservation Phase 4B.1 canonical schedule/capacity（production canonical 已启用并验证）
 
-- 用户已确认 Phase 4B.1，并随后授权 PR #149 Ready、merge 与 default-legacy Pages 部署。AdminSchedule/AdminCapacity 可在显式 canonical staging build 中读取 Phase 4A allocation RPC；生产 canonical 默认切换、Phase 4B.2 detail/action 和 legacy decommission 仍未授权。
+- 用户在 default-legacy verification 后明确授权有回退路径的 production canonical schedule/capacity cutover；授权不包含 Phase 4B.2 detail/action、DB 变化或 legacy decommission。
 - 已建立 `.env.staging.local` ignored config 与无凭据 `.env.staging.example`。本地 password entry 同时要求 staging flag、staging environment、Supabase project-ref 精确匹配和 loopback hostname；任一不满足都 fail closed 到现有 magic-link 登录。
 - exact `canonical` 才启用新 source；缺失/未知值回到 legacy。统一 version 1 schedule view model 分离 physical allocation、effective Reservation/Session 与 legacy source trace；缺失/重复 identity fail closed，不从客户资料或时间猜测归属。
 - canonical 请求使用 venue timezone、复合 keyset pagination、AbortController 和 request identity。读取失败时排期/容量显示持久错误并隐藏网格，不静默回落或伪装为全空；order search 仍独立使用 legacy `admin_search_bookings`。
@@ -51,6 +51,8 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - hosted diagnostic 仍为 48 migrations、192 allocations/memberships、123 Reservations、全部 Phase 3B/4A mismatch 为 0；17/0/17/3 writer、7 张 FORCE RLS 与 `court_slots`-only Realtime 未漂移。
 - bundled Node `v24.19.0` / pnpm `11.19.0` 下 82 tests 为 81 pass、1 个明确的 no-local-PostgreSQL skip、0 fail；lint 与 production/canonical-staging build 均通过。完整中英文设计与证据见 [`docs/reservation-migration/phase-4b1-canonical-schedule.md`](./docs/reservation-migration/phase-4b1-canonical-schedule.md)。
 - PR [#149](https://github.com/tujiaqi2002/badminton/pull/149) 于 13:13:04 UTC 合并为 `560ecdc2d738b6bc42d03421e781ba73adac249c`；Pages [run 32852015723](https://github.com/tujiaqi2002/badminton/actions/runs/32852015723) build/deploy 成功。线上 `index-B_GCKKvu.js` 中 canonical allocation RPC、staging project ref 和 source flag 均为 0；实际页面正常且 console error/warn 为 0。上线后生产 diagnostic 仍 clean。完整发布证据见 [`docs/reservation-migration/phase-4b1-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4b1-default-legacy-production-verification.md)。
+- PR [#151](https://github.com/tujiaqi2002/badminton/pull/151) 增加唯一 Pages selector 与 `legacy` fallback regression test，于 14:22:23 UTC 合并为 `6157f7a`。variable 缺失时 [run 32859078691](https://github.com/tujiaqi2002/badminton/actions/runs/32859078691) 仍部署 legacy artifact；随后 exact `canonical` 的 [run 32859184175](https://github.com/tujiaqi2002/badminton/actions/runs/32859184175) 成功部署 `index-CvTu7GmI.js`，包含 1 个 canonical RPC、0 staging ref、1 production ref。
+- 真实馆长会话验证三个排期窗口与两个容量周，无读取错误，console error/warn 为 0。切换后 API logs 为 8 次 canonical POST + 1 次 OPTIONS，全部 200；post-cutover diagnostic 仍为 48 migrations、192/192、123、0 mismatch、17/0/17/3、7 FORCE RLS 与 `court_slots`-only Realtime。当前 variable 保持 canonical；回退为设 legacy/删除后重跑 workflow，不需要 DB rollback。完整中英文证据见 [`docs/reservation-migration/phase-4b1-production-cutover.md`](./docs/reservation-migration/phase-4b1-production-cutover.md)。
 
 ### Issue #142：Reservation Phase 4A.3 production shadow observation（已完成并恢复默认关闭）
 
@@ -270,13 +272,21 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 不把 AI 功能置于排期正确性、预览环境和测试之前。
 - 不在没有明确授权和未提交工作核对前清理旧 worktree；PR #90 已合并不等于自动授权清理。
 
+## English update: Phase 4B.1 production canonical schedule/capacity active
+
+After the default-legacy deployment was verified, the user authorized a reversible production canonical cutover limited to manager schedule/capacity. PR [#151](https://github.com/tujiaqi2002/badminton/pull/151) added one Pages selector with a pinned `legacy` fallback and passed PostgreSQL 16 CI. It merged at 14:22:23 UTC as `6157f7a23daeb5d5c9c14d2d8310b41d24b7fd6d`.
+
+Pages [run 32859078691](https://github.com/tujiaqi2002/badminton/actions/runs/32859078691) first deployed with the variable absent and proved that the live artifact remained legacy. The exact `canonical` variable then produced `index-CvTu7GmI.js` in [run 32859184175](https://github.com/tujiaqi2002/badminton/actions/runs/32859184175), with one canonical RPC occurrence, zero staging refs, and one production ref. An authenticated manager loaded three schedule ranges and two capacity weeks without read errors; browser error/warn logs stayed zero. API logs showed eight successful canonical POST calls plus one successful OPTIONS request. The post-cutover diagnostic remained clean at 48 migrations, 192/192 memberships/allocations, 123 Reservations, zero mismatch, 17/0/17/3 writers, seven FORCE RLS tables, and `court_slots`-only Realtime.
+
+Production now keeps canonical for AdminSchedule/AdminCapacity. Order/detail/actions and all writers retain their existing contracts. Rollback is setting/deleting the variable and rebuilding; no DB rollback is needed. Phase 4B.2 and decommission remain separate gates. Full bilingual evidence is in [`docs/reservation-migration/phase-4b1-production-cutover.md`](./docs/reservation-migration/phase-4b1-production-cutover.md).
+
 ## English update: Phase 4A.3 production shadow observation completed
 
 After explicit approval of a bounded production observation, PR [#146](https://github.com/tujiaqi2002/badminton/pull/146) merged as `a205e4a25e2d71d16c13b1e3dc0e4a02b7a31225`. The default-off Pages [run 32839332729](https://github.com/tujiaqi2002/badminton/actions/runs/32839332729) was green and the live `index-ssrRc0gW.js` contained no shadow event or RPC code. The observation excluded mutations, default read/UI adoption, Phase 4B/4C, Stripe, Realtime changes, and legacy decommission.
 
 The temporary exact-true feature build deployed successfully in [run 32839524612](https://github.com/tujiaqi2002/badminton/actions/runs/32839524612). Four manager-schedule windows emitted four `info`-level clean events. Supabase API logs confirmed four POST/HTTP 200 calls to each canonical read-only RPC. The post-observation diagnostic still reported 48 migrations, 192 bookings/memberships, 192 canonical allocations, 123 Reservations, the 17/0/17/3 writer boundary, seven FORCE RLS tables, `public.court_slots`-only Realtime, and zero Phase 3B or Phase 4A mismatch.
 
-The temporary variable was then deleted. Rollback Pages [run 32839948133](https://github.com/tujiaqi2002/badminton/actions/runs/32839948133) succeeded, the live site again references `index-ssrRc0gW.js`, and the shadow event/RPC code is absent. Legacy bookings remained the sole rendered source throughout. Full bilingual evidence is in [`docs/reservation-migration/phase-4a3-production-shadow-observation.md`](./docs/reservation-migration/phase-4a3-production-shadow-observation.md). Phase 4B default schedule adoption remains a separately drafted and approved gate.
+The temporary variable was then deleted. Rollback Pages [run 32839948133](https://github.com/tujiaqi2002/badminton/actions/runs/32839948133) succeeded, the live site again referenced `index-ssrRc0gW.js`, and the shadow event/RPC code was absent. Legacy bookings remained the sole rendered source throughout that observation. Full bilingual evidence is in [`docs/reservation-migration/phase-4a3-production-shadow-observation.md`](./docs/reservation-migration/phase-4a3-production-shadow-observation.md). Phase 4B.1 later completed the separately authorized production schedule/capacity cutover described above.
 
 ## English update: Phase 4A.2 default-off frontend foundation deployed
 
@@ -286,13 +296,13 @@ Shadow reads use venue-timezone boundaries and compound keyset pagination, abort
 
 Final merge-head CI [run 32837678041](https://github.com/tujiaqi2002/badminton/actions/runs/32837678041) passed the 33/33 Reservation PostgreSQL suite and the 14/14 frontend adapter suite with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL 16; lint/build were also green. Supabase Preview correctly skipped because the PR contains no migration. Post-merge Pages [run 32838082873](https://github.com/tujiaqi2002/badminton/actions/runs/32838082873) built and deployed successfully. The live page returns 200 and references the exact `index-ssrRc0gW.js` produced by that run; both the shadow event and flag literals are absent from the live bundle because the Actions variable is unset and the workflow default is false. Production and `badminton_stage` remain at 48 migrations. A later separately authorized Phase 4A.3 observation completed cleanly and restored this default-off baseline.
 
-After a fresh read-only gate, the user explicitly authorized merging PR #143 and allowing the protected Supabase integration to install migration 48. PR #143 merged at 2026-08-25 09:41:17 UTC as `3db78f8d8c2b2eec58e137a57ff2f2ec5bbab61c`; the integration applied `20260825091608_reservation_phase_4a_manager_read_contract` at 09:41:55 UTC. Production and staging now both have 48 migrations. Phase 4A.2 later deployed the default-off frontend foundation, and Phase 4A.3 completed a bounded clean observation before restoring the flag to off. Default read/UI cutover, Stripe, and legacy decommission remain excluded.
+After a fresh read-only gate, the user explicitly authorized merging PR #143 and allowing the protected Supabase integration to install migration 48. PR #143 merged at 2026-08-25 09:41:17 UTC as `3db78f8d8c2b2eec58e137a57ff2f2ec5bbab61c`; the integration applied `20260825091608_reservation_phase_4a_manager_read_contract` at 09:41:55 UTC. Production and staging now both have 48 migrations. Phase 4A.2 later deployed the default-off frontend foundation, Phase 4A.3 completed a bounded clean observation, and Phase 4B.1 later adopted canonical schedule/capacity only. Stripe, Phase 4B.2, and legacy decommission remain excluded.
 
 The additive contract introduces two security-invoker v1 views and four manager-only security-invoker RPCs for schedule, Reservation search, one-call detail, and PII-free shadow status. Current effective membership determines ownership, explicit Party roles determine the primary contact, and append-only allocation/payment facts determine money state, including `no_charge` for zero-price Reservations. Legacy group/link IDs remain source trace fields only.
 
 Schedule and search use compound keyset pagination, while schedule, search, and detail each require one database round trip and avoid application-level N+1. Production role tests passed for a real manager and denied authenticated non-managers and anonymous callers. The production diagnostic reconciled 192 allocations/memberships with 123 current Reservation summaries and zero Phase 3B or Phase 4A mismatch. All views are security invoker, all public functions are invoker with empty `search_path`, and explicit grants remain manager-gated.
 
-The final [Actions run 32832792480](https://github.com/tujiaqi2002/badminton/actions/runs/32832792480) passed 33/33 with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL `16.15`; post-merge [Pages run 32833288305](https://github.com/tujiaqi2002/badminton/actions/runs/32833288305) succeeded. Production plans use the intended schedule and effective-membership indexes. Advisors report the unchanged 48 security findings and 60 performance INFO findings after validation, all unused indexes and zero unindexed foreign keys. The live UI still uses the legacy read path; the new contract is installed but not yet consumed by default. Full bilingual evidence is in [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md).
+The final [Actions run 32832792480](https://github.com/tujiaqi2002/badminton/actions/runs/32832792480) passed 33/33 with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL `16.15`; post-merge [Pages run 32833288305](https://github.com/tujiaqi2002/badminton/actions/runs/32833288305) succeeded. Production plans use the intended schedule and effective-membership indexes. Advisors report the unchanged 48 security findings and 60 performance INFO findings after validation, all unused indexes and zero unindexed foreign keys. Phase 4B.1 now consumes the schedule contract for AdminSchedule/AdminCapacity; order/detail/actions are not yet adopted. Full bilingual evidence is in [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md).
 
 After a fresh read-only preflight, the user explicitly authorized merging PR #140 and allowing the protected Supabase integration to apply production migrations 45–47. PR #140 merged at 2026-08-25 08:23:38 UTC as `1499cf4da939e6d0e00b7eec9bb2380c65c3b32e`. The integration applied all three migrations in order at 08:25:06–08:25:07 UTC, advancing production exactly from 44 to 47 versions.
 
@@ -302,4 +312,4 @@ The production writer boundary is now 17 public entries, zero public direct lega
 
 The explicit-primary merge RPC is manager-gated, denies anonymous EXECUTE, and requires `private.require_manager()` before mutation. Production advisors report 48 security findings (2 INFO / 46 WARN) and 67 performance INFO findings, all unused indexes and zero unindexed foreign keys. Recovery CI [run 32824013095](https://github.com/tujiaqi2002/badminton/actions/runs/32824013095) passed 28/28 with no skips, and post-merge [GitHub Pages run 32826377671](https://github.com/tujiaqi2002/badminton/actions/runs/32826377671) built and deployed successfully.
 
-This phase activates the database write boundary only. Reads and UI still use the legacy presentation model and existing public contracts; Stripe and every legacy decommission action remain outside the authorized scope.
+That phase activated the database write boundary only. Phase 4B.1 later switched manager schedule/capacity reads while preserving existing order/detail/action contracts. Stripe and every legacy decommission action remain outside the authorized scope.
