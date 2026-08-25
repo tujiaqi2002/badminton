@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/reservation-phase-4a1-read-contract`。
+> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/phase-4a1-production-verification`。
 
 ## 1. 一句话结论
 
@@ -14,9 +14,9 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 生产前端：`https://tujiaqi2002.github.io/badminton/`，由 GitHub Actions 从 `main` 发布。
 - 后端：Supabase project `ldbtrouofmqmnkyxiewk`，PostgreSQL + Auth + Realtime + RPC/RLS。
 - 独立数据库 staging：Supabase project `badminton_stage` / `vcoujmzsgdboidndtzzg`，已应用 Issue #142 的第 48 个 Phase 4A.1 manager read-contract migration，只含确定性合成数据，不复制生产客户或 Auth 数据。
-- `main` 已包含 PR #140 的零价恢复；生产 Supabase 已由受保护分支 integration 原子应用 migrations 45–47。
-- 生产 migration history 为 47 个版本，最新为 `20260825074102_phase_3b_zero_price_activation_assertion`；Phase 3B.2 writer activation 已生效，但 read/UI、Stripe 与 legacy decommission 均未切换。
-- 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；Reservation Phase 2/3A 已有实际应用 migration 的 PGlite 集成测试，但仍没有浏览器 E2E test script。
+- `main` 已包含 PR #143 的 Phase 4A.1 manager read contract；生产 Supabase 已由受保护分支 integration 原子应用 migration 48。
+- 生产与 staging migration history 均为 48 个版本，最新为 `20260825091608_reservation_phase_4a_manager_read_contract`；Phase 3B.2 writer 与 Phase 4A.1 read API 已生效，但默认 read/UI、Stripe 与 legacy decommission 均未切换。
+- 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；Reservation Phase 2/3A/3B/4A 已有 migration-chain 与真实 PostgreSQL 并发测试，但仍没有浏览器 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
 - `App.jsx`、`AdminSchedule.jsx`、`i18n.js` 和 `styles.css` 已成为大型集中模块，后续改动的回归面较大。
 
@@ -39,16 +39,16 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #142 / Draft PR #143：Reservation Phase 4A.1 manager read contract（staging 已验证；生产与 UI 未切换）
+### Issue #142 / PR #143：Reservation Phase 4A.1 manager read contract（已合并并完成生产验证；UI 未切换）
 
-- 用户已明确确认 Phase 4A.1 authoring 与独立 staging 验证；授权不包含 PR merge、生产 migration、read/UI cutover、Stripe 或 legacy decommission。
-- Append-only migration `20260825091608_reservation_phase_4a_manager_read_contract` 已在 `badminton_stage` 应用，staging history 为 48。它新增两个 `security_invoker` v1 view、四个 manager-only `SECURITY INVOKER` RPC、PII-free mismatch view、owner-only assertion 和一个排期窗口索引；不写业务数据、不增加 client DML 或 Realtime publication。
-- 读取语义以 current effective membership 为准：一行 summary 是一笔当前 Reservation，一行 allocation 是一片实际 Court；主要联系人来自显式 role，金额由有效 allocation 与 append-only ledger 推导，零价为 `no_charge`，legacy group/link 只保留来源追溯。
-- 排期和搜索使用复合 keyset pagination；排期、搜索、详情分别为一次数据库往返，不形成 application N+1。详情 payload 不返回 provider reference、idempotency key、付款备注或 Party `auth_user_id`。
-- Hosted diagnostic 为 `phase_4a_manager_read_contract_verified`：192 bookings / memberships、192 allocation rows、123 Reservation summaries，Phase 3B shadow/session/payment/incomplete-operation 与 Phase 4A mismatch 均为 0；writer boundary、7 张 FORCE RLS 表和 `court_slots`-only Realtime 均未改变。
-- 真实角色验证确认馆长四个 RPC 成功、authenticated 非馆长拒绝、anon permission denied。Query plans 使用新 schedule index 与既有 effective-membership index；advisor 没有 Phase 4A 新 security 或 unindexed-FK finding。
-- 生产已只读确认仍为 47 migrations、Phase 4A 对象为 0、Phase 3B.2 clean。完整中英文设计与证据见 [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md)。
-- Draft PR #143 首轮 [Actions run 32832318539](https://github.com/tujiaqi2002/badminton/actions/runs/32832318539) 在 Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL `16.15` 下为 33/33、0 skip；真实三连接 Payment retry、AA 和 refund race、lint/build 全绿。09:32 UTC fresh production read-only preflight 再次确认 47 migrations、0 Phase 4A view/RPC/index、Phase 3B.2 clean、Realtime 仅 `court_slots`；advisors 保持 48 security（2 INFO / 46 WARN）和 67 performance INFO（全部 `unused_index`）。PR 继续保持 Draft，尚未授权 merge/生产应用。
+- 用户在 fresh 只读门禁后明确授权合并 PR #143 与生产 migration 48；授权不包含 Phase 4A.2 前端 adapter、默认 read/UI cutover、Stripe 或 legacy decommission。PR 于 2026-08-25 09:41:17 UTC 合并，merge commit `3db78f8d8c2b2eec58e137a57ff2f2ec5bbab61c`；Supabase integration 于 09:41:55 UTC 应用第 48 个 migration。
+- `20260825091608_reservation_phase_4a_manager_read_contract` 新增两个 `security_invoker` v1 view、四个 manager-only `SECURITY INVOKER` RPC、PII-free mismatch view、owner-only assertion 和排期窗口索引；没有修改业务数据、client DML 或 Realtime publication。
+- 生产 diagnostic 返回 `phase_4a_manager_read_contract_verified`：48 migrations、192 bookings / memberships、192 allocation rows、123 Reservation summaries，Phase 3B shadow/session/payment/incomplete-operation 与 Phase 4A mismatch 均为 0；writer boundary、7 张 FORCE RLS 表和 `court_slots`-only Realtime 均未改变。
+- 真实生产角色验证确认馆长排期/搜索/详情/shadow 成功，authenticated 非馆长返回 `Manager access required`，anon permission denied。三个 view 均为 security-invoker；四个 RPC 均为 invoker、空 `search_path`、authenticated-only entry，private assertion 对所有 client role 无 EXECUTE。
+- 详情一次返回 Parties/roles、Sessions/allocations、payment shares/ledger 与 lineage，并确认不含 provider reference、idempotency key 或 `auth_user_id`。排期与搜索继续使用复合 keyset cursor，不形成 application N+1。
+- 生产 query plan 使用 `reservation_sessions_admin_window_idx`（约 0.134 ms）与 `reservation_allocation_memberships_effective_idx`（约 3.94 ms）。上线后 advisors 为 48 security（2 INFO / 46 WARN）和 60 performance INFO（全部 `unused_index`，0 unindexed FK），没有 Phase 4A 新安全 regression。
+- 最终 [Actions run 32832792480](https://github.com/tujiaqi2002/badminton/actions/runs/32832792480) 在 Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL `16.15` 下为 33/33、0 skip；合并后的 [Pages run 32833288305](https://github.com/tujiaqi2002/badminton/actions/runs/32833288305) build/deploy 成功。完整中英文设计与证据见 [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md)。
+- 当前 UI 仍使用 legacy read path；新 API 是已安装但尚未被默认产品消费的 foundation。下一步 Phase 4A.2 必须另行确认，并保留 legacy adapter/feature flag 与 rollback path。
 
 ### Issue #139 / PR #140：Phase 3B.2 zero-price activation recovery（已合并并完成生产验证）
 
@@ -193,7 +193,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 - 独立数据库 staging 已建立并完成 Phase 3B.1 hosted apply，但还没有自动 PR Preview 前端或每 PR 自动重建流程；UI reviewer 仍不能直接体验每个分支版本。
 - Supabase GitHub integration 会自动部署 `main` 的 pending migrations；2026-08-24 PR #126 合并后约 38 秒即应用生产，越过了原计划的 merge 后 manual dry-run 门禁。未来必须在 merge 前完成 production baseline/dry-run/授权，或先关闭该自动部署集成。
-- Phase 4A.1 migration 目前只在 staging；含该 migration 的 PR 一旦合并到 `main` 就会触发生产安装，因此 Draft PR 通过不等于已授权 merge/deploy。
+- Phase 4A.1 migration 已在生产安装，但默认 UI 尚未消费；后续 Phase 4A.2 必须保留 legacy adapter/feature flag，并把 shadow mismatch、PII-free 日志与 rollback path 作为独立门禁。
 - 支付代码存在但未形成可证明的生产闭环，不能对客户宣称在线支付可用。
 - Reservation 迁移会跨 schema、权限、计价、付款和审计；必须按 #118 的 Phase 0–5 逐步交付，禁止一次性替换 legacy 模型。
 
@@ -235,15 +235,15 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 不把 AI 功能置于排期正确性、预览环境和测试之前。
 - 不在没有明确授权和未提交工作核对前清理旧 worktree；PR #90 已合并不等于自动授权清理。
 
-## English update: Phase 4A.1 staged; Phase 3B production activation verified
+## English update: Phase 4A.1 production read contract verified
 
-Issue #142 Phase 4A.1 is implemented and verified only on the isolated `badminton_stage` project. Staging now has 48 migrations, latest `20260825091608_reservation_phase_4a_manager_read_contract`; production remains at 47 with no Phase 4A objects and a clean Phase 3B.2 status. The authorization covered authoring and staging validation, not PR merge, production migration, read/UI cutover, Stripe, or legacy decommission.
+After a fresh read-only gate, the user explicitly authorized merging PR #143 and allowing the protected Supabase integration to install migration 48. PR #143 merged at 2026-08-25 09:41:17 UTC as `3db78f8d8c2b2eec58e137a57ff2f2ec5bbab61c`; the integration applied `20260825091608_reservation_phase_4a_manager_read_contract` at 09:41:55 UTC. Production and staging now both have 48 migrations. Phase 4A.2 frontend adoption, default read/UI cutover, Stripe, and legacy decommission remain excluded.
 
 The additive contract introduces two security-invoker v1 views and four manager-only security-invoker RPCs for schedule, Reservation search, one-call detail, and PII-free shadow status. Current effective membership determines ownership, explicit Party roles determine the primary contact, and append-only allocation/payment facts determine money state, including `no_charge` for zero-price Reservations. Legacy group/link IDs remain source trace fields only.
 
-Schedule and search use compound keyset pagination, while schedule, search, and detail each require one database round trip and avoid application-level N+1. Hosted role checks passed for a manager and denied authenticated non-managers and anonymous callers. The diagnostic reconciled 192 allocations, 192 memberships, and 123 current Reservation summaries with zero Phase 3B or Phase 4A mismatch. No client DML or Realtime publication changed, and advisors found no Phase 4A security or unindexed-FK issue. Full bilingual evidence is in [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md).
+Schedule and search use compound keyset pagination, while schedule, search, and detail each require one database round trip and avoid application-level N+1. Production role tests passed for a real manager and denied authenticated non-managers and anonymous callers. The production diagnostic reconciled 192 allocations/memberships with 123 current Reservation summaries and zero Phase 3B or Phase 4A mismatch. All views are security invoker, all public functions are invoker with empty `search_path`, and explicit grants remain manager-gated.
 
-Draft PR #143's first [Actions run 32832318539](https://github.com/tujiaqi2002/badminton/actions/runs/32832318539) passed 33/33 with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL `16.15`, including real multi-connection Payment retry, AA, and refund races plus lint/build. A fresh 09:32 UTC production read-only preflight reconfirmed 47 migrations, zero Phase 4A views/RPCs/indexes, clean Phase 3B.2, and `court_slots`-only Realtime. Advisors remain at 48 security findings and 67 performance INFO findings, all unused indexes. The PR stays Draft and merge/production installation remain unauthorized.
+The final [Actions run 32832792480](https://github.com/tujiaqi2002/badminton/actions/runs/32832792480) passed 33/33 with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL `16.15`; post-merge [Pages run 32833288305](https://github.com/tujiaqi2002/badminton/actions/runs/32833288305) succeeded. Production plans use the intended schedule and effective-membership indexes. Advisors report the unchanged 48 security findings and 60 performance INFO findings after validation, all unused indexes and zero unindexed foreign keys. The live UI still uses the legacy read path; the new contract is installed but not yet consumed by default. Full bilingual evidence is in [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md).
 
 After a fresh read-only preflight, the user explicitly authorized merging PR #140 and allowing the protected Supabase integration to apply production migrations 45–47. PR #140 merged at 2026-08-25 08:23:38 UTC as `1499cf4da939e6d0e00b7eec9bb2380c65c3b32e`. The integration applied all three migrations in order at 08:25:06–08:25:07 UTC, advancing production exactly from 44 to 47 versions.
 

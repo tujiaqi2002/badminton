@@ -2,7 +2,7 @@
 
 > Issue：[GitHub #142](https://github.com/tujiaqi2002/badminton/issues/142)
 > Migration：`20260825091608_reservation_phase_4a_manager_read_contract`
-> 当前状态：已应用并验证于独立 `badminton_stage`；生产仍为 47 个 migration，尚未应用；现有 UI 与 legacy read path 未切换。
+> 当前状态：已应用并验证于独立 `badminton_stage` 与生产；两者均为 48 个 migration；现有 UI 与 legacy read path 未切换。
 
 ## 1. 目标与边界
 
@@ -121,15 +121,23 @@ Draft PR #143 首轮 [Actions run 32832318539](https://github.com/tujiaqi2002/ba
 
 首次 staging apply 在任何 DDL 前因 Phase 3B baseline status 文本不匹配而原子停止，remote history 和对象均未改变。Preflight 改为验证 Phase 3B assertion 的真实结构后，正式 apply 成功；本地 migration 文件随后只重命名为 Supabase 实际记录的 `20260825091608`，内容未在成功应用后回改。
 
+### 生产上线证据
+
+用户在 2026-08-25 09:40:51 UTC 最终只读门禁再次通过后，明确授权合并 PR #143 并部署 migration 48；授权不包含 Phase 4A.2、默认 read/UI、Stripe 或 legacy decommission。PR 于 09:41:17 UTC 合并为 `3db78f8d8c2b2eec58e137a57ff2f2ec5bbab61c`，Supabase integration 于 09:41:55 UTC 原子应用本 migration，生产 history 精确推进到 48。[Pages run 32833288305](https://github.com/tujiaqi2002/badminton/actions/runs/32833288305) build/deploy 成功。
+
+生产 diagnostic 返回 `phase_4a_manager_read_contract_verified`：192 allocations / memberships、123 current Reservations、0 Phase 3B/4A mismatch。真实 manager 的 schedule/search/detail/shadow 全部成功；authenticated non-manager 返回 `Manager access required`，anon 返回 permission denied。三个 view 均为 security-invoker，四个 RPC 均为 invoker + empty `search_path` + authenticated-only entry，private assertion 对所有 client role 无 EXECUTE。Detail 包含 Party、Session/allocation、payment 与 lineage arrays，并确认不含 provider reference、idempotency 或 `auth_user_id`。
+
+生产 forced plan 使用新 `reservation_sessions_admin_window_idx`，25-row window execution 约 0.134 ms；detail membership 使用 `reservation_allocation_memberships_effective_idx`，execution 约 3.935 ms。上线后 advisors 为 48 security（2 INFO / 46 WARN）与 60 performance INFO（全部 `unused_index`，0 unindexed FK），没有 Phase 4A 新安全 regression。
+
 ## 7. 发布与回退
 
-当前生产仍为 47 个 migration，不存在 Phase 4A view/RPC，Phase 3B.2 diagnostic clean。合并含本 migration 的 PR 会触发 Supabase protected-branch integration，因此合并等同于授权生产安装读取契约；合并前必须重新执行 production read-only preflight 并取得明确授权。
+合并前生产为 47 个 migration，不存在 Phase 4A view/RPC，Phase 3B.2 diagnostic clean。含本 migration 的 PR 合并会触发 Supabase protected-branch integration，因此合并被视为同时授权生产安装；本次已在 fresh production preflight 和用户明确授权后完成。
 
-2026-08-25 09:32 UTC fresh preflight 仍确认 47 migrations、0 Phase 4A views/RPCs/index、192/192 membership 与所有 Phase 3B mismatch=0、Realtime 只有 `public.court_slots`；production advisors 保持 48 security（2 INFO / 46 WARN）和 67 performance INFO（全部 `unused_index`）。该预检没有应用 migration 48，也不替代未来 merge 时的明确授权。
+当前生产与 staging 均为 48 migrations，Phase 4A diagnostic clean，Realtime 仍只有 `public.court_slots`。当前 UI 不依赖这些新对象；Phase 4A.2 必须通过独立门禁后才允许受控 shadow/adoption。
 
 安全发布顺序：
 
-1. 先安装本 additive read contract；不切 UI。
+1. 先安装本 additive read contract；不切 UI。（已完成）
 2. 观察 migration、RLS/grants、diagnostic、真实角色和 query plan。
 3. 另开 Phase 4A.2 接入前端 adapter，并保留 legacy adapter / feature flag。
 4. 生产观察和 rollback window 结束后，才评估后续 customer read 与 Phase 5 legacy decommission。
@@ -142,7 +150,7 @@ Draft PR #143 首轮 [Actions run 32832318539](https://github.com/tujiaqi2002/ba
 
 > Issue: [GitHub #142](https://github.com/tujiaqi2002/badminton/issues/142)
 > Migration: `20260825091608_reservation_phase_4a_manager_read_contract`
-> Current status: applied and verified only on isolated `badminton_stage`; production remains at 47 migrations; the existing UI and legacy read path have not switched.
+> Current status: applied and verified on isolated `badminton_stage` and production; both have 48 migrations; the existing UI and legacy read path have not switched.
 
 ## 1. Goal and scope
 
@@ -201,11 +209,19 @@ Draft PR #143's first [Actions run 32832318539](https://github.com/tujiaqi2002/b
 
 The first staging attempt stopped atomically before DDL because the preflight expected the wrong Phase 3B status text. No remote object or history row was created. After validating the real Phase 3B assertion shape, the apply succeeded. The local file was then renamed only to the actual Supabase-recorded version `20260825091608`; its contents were not rewritten after successful application.
 
+### Production deployment evidence
+
+After the final 2026-08-25 09:40:51 UTC read-only gate passed, the user explicitly authorized merging PR #143 and deploying migration 48; Phase 4A.2, default read/UI, Stripe, and legacy decommission remained excluded. PR #143 merged at 09:41:17 UTC as `3db78f8d8c2b2eec58e137a57ff2f2ec5bbab61c`, and the Supabase integration atomically applied this migration at 09:41:55 UTC, advancing production exactly to 48 migrations. [Pages run 32833288305](https://github.com/tujiaqi2002/badminton/actions/runs/32833288305) succeeded.
+
+Production returned `phase_4a_manager_read_contract_verified`: 192 allocations/memberships, 123 current Reservations, and zero Phase 3B or Phase 4A mismatch. Schedule, search, detail, and shadow calls succeeded for a real manager; an authenticated non-manager received `Manager access required`, and anonymous execution was denied. All three views are security invoker, all four RPCs are invoker with empty `search_path` and authenticated-only entry, and the private assertion is inaccessible to client roles. Detail contains Party, Session/allocation, payment, and lineage arrays without provider references, idempotency data, or `auth_user_id`.
+
+Production forced plans used the new `reservation_sessions_admin_window_idx` at approximately 0.134 ms for a 25-row window and the existing `reservation_allocation_memberships_effective_idx` at approximately 3.935 ms for detail membership lookup. Post-deployment advisors report 48 security findings (2 INFO / 46 WARN) and 60 performance INFO findings, all unused indexes with zero unindexed foreign keys and no new Phase 4A security regression.
+
 ## 7. Release and rollback
 
-Production still has exactly 47 migrations, no Phase 4A view/RPC, and a clean Phase 3B.2 status. Merging a PR with this migration triggers the protected Supabase integration, so merge is also authorization to install the read contract in production. A fresh production read-only preflight and explicit authorization are required first.
+Before merge, production had exactly 47 migrations, no Phase 4A view/RPC, and a clean Phase 3B.2 status. Because merging the PR triggered the protected Supabase integration, merge and production installation were treated as one authorization action. This deployment completed only after a fresh production read-only preflight and explicit authorization.
 
-The 2026-08-25 09:32 UTC fresh preflight still confirmed 47 migrations, zero Phase 4A views/RPCs/indexes, 192/192 membership with every Phase 3B mismatch at zero, and `public.court_slots` as the only Realtime table. Production advisors remain at 48 security findings (2 INFO / 46 WARN) and 67 performance INFO findings, all unused indexes. The preflight did not apply migration 48 and does not replace explicit merge authorization.
+Production and staging now both have 48 migrations with a clean Phase 4A diagnostic, while `public.court_slots` remains the only Realtime business table. The current UI does not depend on the new objects; Phase 4A.2 requires a separate gate before controlled shadow/adoption.
 
 The safe sequence is: install this additive contract without switching UI; observe migration/security/diagnostic/role/query-plan evidence; implement Phase 4A.2 behind a legacy adapter or feature flag; then consider customer reads and Phase 5 legacy decommission only after a production observation and rollback window.
 

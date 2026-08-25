@@ -156,7 +156,7 @@ Phase 3B.2 / Issue #136 / PR #137 首次自动生产 activation 因零价边界�
 - 移动与资料修改以 Session 为主要作用域；取消可按 allocation/session/reservation 明确选 scope；merge/split/reverse 只改变当前关系归属，不覆盖已有排期、价格、付款或审计历史。
 - Phase 3B.2 只切换数据库写入实现，没有切换读取或界面；客户和馆长目前不会看到新 Reservation/Session read path 或新付款界面。当前 group/link 展示与 public RPC contract 继续有效，但写操作已由 Phase 3B transaction kernel 同步 aggregate 与 legacy projection。等 Phase 4 完成 read/UI cutover 并经过生产观察、rollback window 后，才能在独立 Phase 5 高风险 Issue 中评估旧字段和 RPC 下线。
 
-Phase 4A.1 / Issue #142 已把目标馆长读取契约应用并验证于独立 `badminton_stage`，尚未应用生产或切换 UI。新读取把“同时创建的多场地”和“后来关联的多笔预订”统一显示为同一类 Reservation：排期仍以一片 Court allocation 为渲染单位，但共享 effective Reservation / Session ID；订单列表以一笔 current Reservation 为单位；详情一次返回联系人 roles、Sessions、allocations、付款计划、Payment/ledger、来源与关系历史。付款状态只从有效 allocation 与追加式 ledger 推导，零价显示为 `no_charge`；legacy group/link ID 只做来源追溯。完整中英文契约见 [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md)。
+Phase 4A.1 / Issue #142 / PR #143 已把目标馆长读取契约应用并验证于生产与独立 `badminton_stage`，但尚未切换任何 UI。新读取把“同时创建的多场地”和“后来关联的多笔预订”统一显示为同一类 Reservation：排期仍以一片 Court allocation 为渲染单位，但共享 effective Reservation / Session ID；订单列表以一笔 current Reservation 为单位；详情一次返回联系人 roles、Sessions、allocations、付款计划、Payment/ledger、来源与关系历史。付款状态只从有效 allocation 与追加式 ledger 推导，零价显示为 `no_charge`；legacy group/link ID 只做来源追溯。生产 diagnostic、真实角色权限与索引计划均已通过。完整中英文契约见 [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md)。
 
 Phase 4A.1 不改变现有馆长或客户界面，也不新增客户登录。后续 Phase 4A.2 前端接入必须保留 legacy adapter/feature flag 和回退路径；只有生产观察、rollback window 与单独 Phase 5 授权完成后，才能 decommission 旧字段/RPC。
 
@@ -432,9 +432,9 @@ Phase 4A.1 不改变现有馆长或客户界面，也不新增客户登录。后
 3. 涉及 schema、Auth、RPC、权限或部署时更新 [`TECHNICAL_CONTEXT.md`](./TECHNICAL_CONTEXT.md)。
 4. 不根据旧截图或旧聊天推断当前生产行为。
 
-## English update: Phase 4A.1 staged read contract and Phase 3B production boundary
+## English update: Phase 4A.1 production read contract and Phase 3B boundary
 
-Issue #142 Phase 4A.1 has installed and verified the target manager read contract only on isolated `badminton_stage`; production and the UI have not switched. The contract presents multi-court allocations created together and bookings linked later as the same Reservation concept. Schedule still renders one physical Court allocation per row but shares effective Reservation/Session IDs, Reservation search returns one current aggregate per row, and detail returns Party roles, Sessions, allocations, payment shares, Payment/ledger facts, source facts, and relationship history in one call.
+Issue #142 / PR #143 Phase 4A.1 has installed and verified the target manager read contract in production and isolated `badminton_stage`; no UI has switched. The contract presents multi-court allocations created together and bookings linked later as the same Reservation concept. Schedule still renders one physical Court allocation per row but shares effective Reservation/Session IDs, Reservation search returns one current aggregate per row, and detail returns Party roles, Sessions, allocations, payment shares, Payment/ledger facts, source facts, and relationship history in one call. Production diagnostics, real-role permission checks, and index plans passed.
 
 Money state is derived only from effective allocation prices and the append-only ledger, with zero-price Reservations reported as `no_charge`. Legacy group/link IDs are source trace fields rather than ownership. Phase 4A.1 changes no live manager/customer UI and opens no customer login. A later Phase 4A.2 frontend adoption must keep a legacy adapter or feature flag and rollback path; legacy fields and RPCs remain until a separately authorized Phase 5 decommission after production observation. The full bilingual contract is in [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md).
 
