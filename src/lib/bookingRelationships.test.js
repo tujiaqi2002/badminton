@@ -59,4 +59,17 @@ test('link target rejects the same group, inactive rows and an existing relation
   assert.equal(canLinkBookings(source, booking({ booking_link_id: source.booking_link_id })), false)
 })
 
+test('canonical effective Reservation prevents relinking even when legacy traces differ', () => {
+  const effectiveReservationId = crypto.randomUUID()
+  const source = booking({
+    effective_reservation_id: effectiveReservationId,
+    effective_session_id: crypto.randomUUID(),
+  })
+  const target = booking({
+    effective_reservation_id: effectiveReservationId,
+    effective_session_id: crypto.randomUUID(),
+  })
+  assert.equal(canLinkBookings(source, target), false)
+})
+
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  AlertTriangle,
   CalendarRange,
   CalendarClock,
   ChevronLeft,
@@ -25,6 +26,7 @@ export default function AdminBookings({
   bookings,
   events,
   loading,
+  scheduleReadError,
   orderBookings,
   orderSummary,
   orderFilters,
@@ -143,7 +145,12 @@ export default function AdminBookings({
 
   return (
     <main className="admin-bookings-page" aria-busy={loading || loadingOrders || scheduleBusy}>
-      <AdminSchedule
+      {scheduleReadError ? (
+        <section className="admin-schedule-read-error" role="alert">
+          <AlertTriangle size={22} />
+          <div><strong>{t('admin.schedule.readErrorTitle')}</strong><p>{t('admin.schedule.readErrorText')}</p></div>
+        </section>
+      ) : <AdminSchedule
         bookings={bookings}
         events={events}
         initialDate={scheduleDate}
@@ -177,7 +184,7 @@ export default function AdminBookings({
             onRangeChange({ start: weekStart, end: toDateKey(addDays(new Date(`${weekStart}T12:00:00`), 6)) })
           }
         }}
-      />
+      />}
 
       <section className="admin-summary" aria-label={t('admin.summaryAria')}>
         <article><span>{t('admin.results')}</span><strong>{resultCount}</strong><small>{t('admin.bookingUnit')}</small></article>

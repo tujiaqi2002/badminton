@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/reservation-phase-4a3-shadow-observation-record`。
+> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/reservation-phase-4b1-canonical-schedule`。
 
 ## 1. 一句话结论
 
@@ -39,6 +39,16 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 | 多商户 SaaS、AI 助理、市场平台 | 未开始 / 非当前范围 | 来自早期长期蓝图，不应在单馆核心稳定前启动 |
 
 ## 4. 当前进行中工作
+
+### Issue #148：Reservation Phase 4B.1 canonical schedule/capacity（staging 已验证；等待 Draft PR 评审）
+
+- 用户已确认 Phase 4B.1，当前分支已让 AdminSchedule/AdminCapacity 在显式 canonical staging build 中读取 Phase 4A allocation RPC；生产缺省仍为 legacy。PR merge、生产切换/部署、Phase 4B.2 detail/action 和 legacy decommission 均未授权。
+- 已建立 `.env.staging.local` ignored config 与无凭据 `.env.staging.example`。本地 password entry 同时要求 staging flag、staging environment、Supabase project-ref 精确匹配和 loopback hostname；任一不满足都 fail closed 到现有 magic-link 登录。
+- exact `canonical` 才启用新 source；缺失/未知值回到 legacy。统一 version 1 schedule view model 分离 physical allocation、effective Reservation/Session 与 legacy source trace；缺失/重复 identity fail closed，不从客户资料或时间猜测归属。
+- canonical 请求使用 venue timezone、复合 keyset pagination、AbortController 和 request identity。读取失败时排期/容量显示持久错误并隐藏网格，不静默回落或伪装为全空；order search 仍独立使用 legacy `admin_search_bookings`。
+- 中英文桌面和 390×844 手机验证均正确显示 9 月 7 日 Court 1/Court 2 两条 allocation 与剩余 3 片容量。API 日志记录 10 次 canonical schedule RPC / HTTP 200，本轮直接 `/rest/v1/bookings` 排期读取为 0。
+- hosted diagnostic 仍为 48 migrations、192 allocations/memberships、123 Reservations、全部 Phase 3B/4A mismatch 为 0；17/0/17/3 writer、7 张 FORCE RLS 与 `court_slots`-only Realtime 未漂移。
+- bundled Node `v24.19.0` / pnpm `11.19.0` 下 82 tests 为 81 pass、1 个明确的 no-local-PostgreSQL skip、0 fail；lint 与 production/canonical-staging build 均通过。完整中英文设计与证据见 [`docs/reservation-migration/phase-4b1-canonical-schedule.md`](./docs/reservation-migration/phase-4b1-canonical-schedule.md)。
 
 ### Issue #142：Reservation Phase 4A.3 production shadow observation（已完成并恢复默认关闭）
 

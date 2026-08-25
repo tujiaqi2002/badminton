@@ -13,7 +13,8 @@ import { addDays, addMinutes, bookingDurations, COURTS, customerSlotsFromConfigu
 import { buildBookingRelationship, bookingGroupKey } from './lib/bookingRelationships'
 import { useI18n } from './lib/i18n'
 import { runReservationScheduleShadow } from './lib/reservationReadShadow'
-import { googleAuthEnabled, isSupabaseConfigured, reservationReadShadowEnabled, stripeEnabled, supabase } from './lib/supabase'
+import { fetchCanonicalAdminScheduleWindow, RESERVATION_SCHEDULE_READ_SOURCE_CANONICAL, RESERVATION_SCHEDULE_READ_SOURCE_LEGACY } from './lib/reservationScheduleRead'
+import { googleAuthEnabled, isSupabaseConfigured, reservationReadShadowEnabled, reservationScheduleReadSource, stagingPasswordAuthEnabled, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
 
 const getAuthRedirectUrl = () => authRedirectUrl({
@@ -128,6 +129,7 @@ export default function App() {
   const [loadingSchedule, setLoadingSchedule] = useState(false)
   const [loadingBookings, setLoadingBookings] = useState(false)
   const [loadingAdminBookings, setLoadingAdminBookings] = useState(false)
+  const [adminScheduleReadError, setAdminScheduleReadError] = useState(null)
   const [loadingAdminOrders, setLoadingAdminOrders] = useState(false)
   const [adminCancellingId, setAdminCancellingId] = useState(null)
   const [adminScheduleBusy, setAdminScheduleBusy] = useState(false)
@@ -139,6 +141,8 @@ export default function App() {
   const adminDemoHistory = useRef([])
   const adminOrderRequestRef = useRef(0)
   const adminScheduleShadowAbortRef = useRef(null)
+  const adminScheduleReadAbortRef = useRef(null)
+  const adminScheduleRequestRef = useRef(0)
   const adminAccessRequestRef = useRef(0)
   const authUserIdRef = useRef(null)
   const adminLandingUserRef = useRef(null)
@@ -264,52 +268,92 @@ export default function App() {
   }, [])
 
   const fetchAdminBookings = useCallback(async () => {
+    const requestId = adminScheduleRequestRef.current + 1
+    adminScheduleRequestRef.current = requestId
+    adminScheduleReadAbortRef.current?.abort()
+    adminScheduleReadAbortRef.current = null
     if (!user || !isAdmin) {
+      setLoadingAdminBookings(false)
+      setAdminScheduleReadError(null)
       setAdminBookings([])
       setAdminVenueEvents([])
       return
     }
     if (!isSupabaseConfigured) return
     setLoadingAdminBookings(true)
+    setAdminScheduleReadError(null)
     const monitorStart = mondayOfWeek(adminRange.start)
     const monitorEnd = toDateKey(addDays(new Date(`${monitorStart}T12:00:00`), 6))
     const queryStart = monitorStart < adminRange.start ? monitorStart : adminRange.start
     const queryEnd = monitorEnd > adminRange.end ? monitorEnd : adminRange.end
     const endExclusive = toDateKey(addDays(new Date(`${queryEnd}T12:00:00`), 1))
     const pageSize = 1000
-    const data = []
+    let data = []
     let error = null
+    let controller = null
 
-    for (let from = 0; ; from += pageSize) {
-      const result = await supabase
-        .from('bookings')
-        .select('id, reservation_id, session_id, booking_group_id, booking_link_id, recurrence_series_id, recurrence_week, user_id, court_id, customer_name, customer_email, customer_phone, customer_notes, start_at, end_at, status, payment_status, payment_method, total_amount, currency, system_calculated_amount, price_source, price_override_amount, party_size, created_at, updated_at')
-        .gte('start_at', `${queryStart}T00:00:00`)
-        .lt('start_at', `${endExclusive}T00:00:00`)
-        .order('start_at', { ascending: true })
-        .order('id', { ascending: true })
-        .range(from, from + pageSize - 1)
-      if (result.error) {
-        error = result.error
-        break
-      }
-      data.push(...(result.data || []))
-      if ((result.data?.length || 0) < pageSize) break
-    }
-
-    const eventResult = await supabase.rpc('admin_get_venue_schedule_events', {
+    const eventPromise = supabase.rpc('admin_get_venue_schedule_events', {
       p_start_date: queryStart,
       p_end_date: queryEnd,
     })
+
+    if (reservationScheduleReadSource === RESERVATION_SCHEDULE_READ_SOURCE_CANONICAL) {
+      controller = new AbortController()
+      adminScheduleReadAbortRef.current = controller
+      try {
+        data = await fetchCanonicalAdminScheduleWindow({
+          client: supabase,
+          startDate: queryStart,
+          endDate: queryEnd,
+          timeZone: venueOperationsConfiguration?.settings?.timezone || 'America/Toronto',
+          signal: controller.signal,
+          pageSize,
+        })
+      } catch (canonicalError) {
+        error = canonicalError
+      }
+    } else {
+      for (let from = 0; ; from += pageSize) {
+        const result = await supabase
+          .from('bookings')
+          .select('id, reservation_id, session_id, booking_group_id, booking_link_id, recurrence_series_id, recurrence_week, user_id, court_id, customer_name, customer_email, customer_phone, customer_notes, start_at, end_at, status, payment_status, payment_method, total_amount, currency, system_calculated_amount, price_source, price_override_amount, party_size, created_at, updated_at')
+          .gte('start_at', `${queryStart}T00:00:00`)
+          .lt('start_at', `${endExclusive}T00:00:00`)
+          .order('start_at', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, from + pageSize - 1)
+        if (result.error) {
+          error = result.error
+          break
+        }
+        data.push(...(result.data || []))
+        if ((result.data?.length || 0) < pageSize) break
+      }
+    }
+
+    const eventResult = await eventPromise
+    if (requestId !== adminScheduleRequestRef.current || controller?.signal.aborted) return
+    if (adminScheduleReadAbortRef.current === controller) adminScheduleReadAbortRef.current = null
     setLoadingAdminBookings(false)
-    if (error) notify(t('errors.adminBookings'), 'error')
-    else setAdminBookings(data)
+    if (error) {
+      setAdminBookings([])
+      setAdminScheduleReadError({
+        source: reservationScheduleReadSource,
+        code: String(error?.code || 'reservation_schedule_read_failed'),
+      })
+      notify(t(reservationScheduleReadSource === RESERVATION_SCHEDULE_READ_SOURCE_CANONICAL
+        ? 'errors.adminCanonicalSchedule'
+        : 'errors.adminBookings'), 'error')
+    } else {
+      setAdminScheduleReadError(null)
+      setAdminBookings(data)
+    }
     if (eventResult.error) {
       setAdminVenueEvents([])
       notify(t('errors.schedule'), 'error')
     } else setAdminVenueEvents(eventResult.data || [])
 
-    if (reservationReadShadowEnabled && !error) {
+    if (reservationScheduleReadSource === RESERVATION_SCHEDULE_READ_SOURCE_LEGACY && reservationReadShadowEnabled && !error) {
       adminScheduleShadowAbortRef.current?.abort()
       const controller = new AbortController()
       adminScheduleShadowAbortRef.current = controller
@@ -496,11 +540,18 @@ export default function App() {
     if (!isSupabaseConfigured || !user || !isAdmin) return undefined
     const channel = supabase
       .channel('public-court-schedule')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'court_slots' }, fetchSchedule)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'court_slots' }, () => {
+        void fetchSchedule()
+        if (view === 'admin' || view === 'capacity') void fetchAdminBookings()
+      })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [fetchSchedule, isAdmin, user])
-  useEffect(() => () => adminScheduleShadowAbortRef.current?.abort(), [])
+  }, [fetchAdminBookings, fetchSchedule, isAdmin, user, view])
+  useEffect(() => () => {
+    adminScheduleRequestRef.current += 1
+    adminScheduleReadAbortRef.current?.abort()
+    adminScheduleShadowAbortRef.current?.abort()
+  }, [])
 
   const openSelection = (slot) => {
     if (isPastSlot(slot.dateKey, slot.time)) {
@@ -1215,6 +1266,19 @@ export default function App() {
     return true
   }
 
+  const loginWithPassword = async (email, password) => {
+    if (!isSupabaseConfigured || !stagingPasswordAuthEnabled) return false
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    })
+    if (error) {
+      notify(t('errors.stagingAuth'), 'error')
+      return false
+    }
+    return true
+  }
+
   const enterDemo = () => {
     setUser({ id: 'demo-user', email: 'demo@tiger.local' })
     setAdminAccessStatus(ADMIN_ACCESS_STATUS.AUTHORIZED)
@@ -1266,7 +1330,7 @@ export default function App() {
         ) : accessError ? (
           <div className="private-access-denied private-access-error"><ShieldAlert size={30} /><h1>{t('auth.accessErrorTitle')}</h1><p>{t('auth.accessErrorText')}</p><div className="private-access-actions"><button className="primary-button" onClick={fetchAdminAccess}>{t('auth.retryAccess')}</button><button className="outline-button" onClick={signOut}>{t('account.signOut')}</button></div></div>
         ) : (
-          <AuthModal onClose={() => {}} onEmail={loginByEmail} onGoogle={loginWithGoogle} onDemo={enterDemo} demoMode={!isSupabaseConfigured} googleEnabled={googleAuthEnabled} locked />
+          <AuthModal onClose={() => {}} onEmail={loginByEmail} onPassword={loginWithPassword} onGoogle={loginWithGoogle} onDemo={enterDemo} demoMode={!isSupabaseConfigured} googleEnabled={googleAuthEnabled} passwordEnabled={stagingPasswordAuthEnabled} locked />
         )}
         {toast && <div className={`toast ${toast.tone}`} role="status">{toast.message}</div>}
       </div>
@@ -1325,6 +1389,7 @@ export default function App() {
           bookings={adminBookings}
           events={adminVenueEvents}
           loading={loadingAdminBookings}
+          scheduleReadError={adminScheduleReadError}
           orderBookings={adminOrderBookings}
           orderSummary={adminOrderSummary}
           orderFilters={adminOrderFilters}
@@ -1368,6 +1433,8 @@ export default function App() {
       ) : view === 'capacity' && isAdmin ? (
         <AdminCapacity
           bookings={adminBookings}
+          loading={loadingAdminBookings}
+          scheduleReadError={adminScheduleReadError}
           startDate={adminRange.start}
           onRangeChange={setAdminRange}
           configuration={venueOperationsConfiguration}
@@ -1399,7 +1466,7 @@ export default function App() {
       </nav>
 
       <BookingDrawer selection={selection} onClose={() => setSelection(null)} onConfirm={confirmBooking} busy={busy} stripeEnabled={stripeEnabled} invalid={selectionInvalid} configuration={bookingConfiguration} />
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onEmail={loginByEmail} onGoogle={loginWithGoogle} onDemo={enterDemo} demoMode={!isSupabaseConfigured} googleEnabled={googleAuthEnabled} />}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onEmail={loginByEmail} onPassword={loginWithPassword} onGoogle={loginWithGoogle} onDemo={enterDemo} demoMode={!isSupabaseConfigured} googleEnabled={googleAuthEnabled} passwordEnabled={stagingPasswordAuthEnabled} />}
       {toast && <div className={`toast ${toast.tone}`} role="status">{toast.message}</div>}
     </div>
   )

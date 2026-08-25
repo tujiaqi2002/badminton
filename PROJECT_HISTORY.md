@@ -332,6 +332,16 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 
 ---
 
+## 34. 2026-08-25：Phase 4B.1 canonical 排期在独立 staging 验证完成
+
+用户在评审 Issue #148 的明确范围后确认 Phase 4B.1。新分支加入 fail-closed schedule source：只有 exact `canonical` 启用新读取，生产 example/default 继续 legacy，staging example 才选择 canonical。前端将 Phase 4A Court allocation DTO 映射为一个 version 1 schedule view model，明确保留 physical allocation、effective Reservation/Session 与 legacy source trace，缺失或重复 identity 直接停止渲染。
+
+AdminSchedule 与 AdminCapacity 现在可共用 canonical rows；venue-timezone keyset pagination、取消旧请求与 request identity 防止范围竞争。读取失败显示持续中英文错误并隐藏 grid，不静默 fallback 或误报全空。订单搜索、选中详情和 action adoption 没有混入本阶段。
+
+真实 synthetic manager 在 `badminton_stage` 完成中英文桌面与 390×844 手机验证：9 月 7 日 Court 1/Court 2 两条 allocation 正确显示，容量剩余 3 片，无页面 overflow。API 日志记录 10 次 canonical RPC / HTTP 200，本轮直接 legacy bookings schedule GET 为 0。验证结束后账号已退出。
+
+只读 diagnostic 继续为 48 migrations、192/192 memberships/allocations、123 Reservations、0 mismatch、17/0/17/3 writers、7 FORCE RLS 和 `court_slots`-only Realtime。Bundled Node v24.19.0 / pnpm 11.19.0 下 82 tests 为 81 pass、1 skip、0 fail，lint 与 production/staging builds 通过。没有 migration、DB push、生产配置或 legacy 删除；工作停在 Draft PR 评审前，Phase 4B.2、生产切换/部署与 decommission 各自另行授权。
+
 ## English record
 
 ### 24. 2026-08-24: Phase 3B.2 atomic staging activation
@@ -465,3 +475,25 @@ The post-observation Phase 4A diagnostic remained verified: 48 migrations, 192 b
 The temporary variable was then deleted. Rollback Pages [run 32839948133](https://github.com/tujiaqi2002/badminton/actions/runs/32839948133) succeeded, the live site again referenced `index-ssrRc0gW.js`, and the shadow event/RPC code was absent. No database rollback was required because the observation performed no database write. Legacy booking rows remained the sole rendered UI source throughout.
 
 Stage result: the bounded production shadow path and its rollback are verified. Phase 4B default schedule adoption is the next separately drafted and explicitly approved gate; order/detail adoption and every legacy decommission action remain later phases.
+
+### 33. 2026-08-25: Phase 4B.0 staging frontend and Auth gate completed
+
+After explicit approval of Issue #148 Phase 4B.0, the branch added an ignored `.env.staging.local` path, a credential-free staging example, and a fail-closed local password entry. The entry requires an exact staging flag and environment, an exact Supabase project-ref match, and a loopback hostname. Production builds and non-local hosts therefore retain the existing magic-link behavior.
+
+The deterministic fixture's non-login Auth/staff placeholder remains unchanged. Two supported, auto-confirmed disposable password identities were created through Supabase Dashboard/Auth Admin; only the real synthetic manager was added to `staff_members(role='admin')`. Credentials remained local. The real manager read canonical schedule/detail data, the real non-manager received `Manager access required`, and anonymous execution was denied at the function ACL.
+
+Browser regression covered Chinese and English manager schedule/capacity pages, two September 7 multi-court allocations, the matching three-court remaining capacity, a 390×844 mobile viewport without horizontal overflow, and the non-manager access-denied page. Console errors and warnings remained zero. The final staging diagnostic stayed clean at 48 migrations, 192 bookings/memberships and canonical allocations, 123 Reservations, zero Phase 3B/4A mismatch, the 17/0/17/3 writer boundary, seven FORCE RLS tables, and `public.court_slots`-only Realtime.
+
+Bundled Node `v24.19.0` and pnpm `11.19.0` produced 74 passes, one explicit no-local-PostgreSQL skip, and zero failures across 75 tests; lint and both production/staging builds passed. The production artifact contained no staging project reference. No migration, production configuration, canonical render-source cutover, payment/pricing behavior, or legacy decommission changed.
+
+Stage result: Phase 4B.0 is complete with reproducible Auth, permission, browser, mobile, and database evidence. Work stops before Phase 4B.1 canonical schedule adoption, which requires a new review and explicit authorization.
+
+### 34. 2026-08-25: Phase 4B.1 canonical schedule verified in isolated staging
+
+After reviewing the bounded scope in Issue #148, the user explicitly approved Phase 4B.1. The new branch adds a fail-closed schedule source: only exact `canonical` enables canonical reads, the production example/default stays legacy, and only the staging example opts into canonical. A version 1 schedule view model maps the Phase 4A Court allocation DTO while keeping physical allocation, effective Reservation/Session, and legacy source-trace identities separate. Missing or duplicate required identities stop rendering.
+
+AdminSchedule and AdminCapacity can now share canonical rows. Venue-timezone keyset pagination, aborting obsolete calls, and a monotonic request identity prevent range races. A read failure leaves a bilingual error visible and hides the grid instead of silently falling back or reporting full availability. Order search, selected detail, and action adoption were not pulled into this phase.
+
+A real synthetic manager in `badminton_stage` completed Chinese/English desktop and 390×844 mobile validation. Two Court 1/Court 2 allocations appeared on September 7, capacity showed three remaining Courts, and the page had no overflow. API logs recorded ten successful canonical RPC calls and zero direct legacy bookings schedule GETs during this run. The account signed out after verification.
+
+The read-only diagnostic remains clean at 48 migrations, 192/192 memberships/allocations, 123 Reservations, zero mismatch, the 17/0/17/3 writer boundary, seven FORCE RLS tables, and `court_slots`-only Realtime. Bundled Node v24.19.0 / pnpm 11.19.0 produced 81 passes, one skip, and zero failures across 82 tests; lint and both production/staging builds passed. No migration, database push, production configuration, or legacy removal occurred. Work stops before Draft PR review; Phase 4B.2, production cutover/deployment, and decommission each require separate authorization.

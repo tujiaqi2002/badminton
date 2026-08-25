@@ -338,6 +338,9 @@ a { color: inherit; text-decoration: none; }
 
 .modal-backdrop { z-index: 160; display: grid; place-items: center; padding: 20px; }
 .auth-modal { width: min(430px, 100%); position: relative; background: var(--paper-light); padding: 45px 42px 36px; box-shadow: var(--shadow); animation: modalIn .25s ease; }
+.auth-language-toggle { position: absolute; top: 16px; right: 18px; border: 0; background: transparent; color: var(--ink-soft); font-size: 0.625rem; font-weight: 800; letter-spacing: .08em; cursor: pointer; }
+.auth-language-toggle.with-close { right: 54px; }
+.auth-language-toggle:hover { color: var(--ink); }
 .auth-seal { width: 47px; height: 47px; margin-bottom: 24px; border-radius: 50%; background: var(--red); color: white; display: grid; place-items: center; font: 1.375rem/1 "Songti SC", serif; }
 .auth-modal form { margin-top: 25px; }
 .auth-modal label { display: block; margin-bottom: 8px; font-size: 0.625rem; font-weight: 700; }
@@ -345,6 +348,9 @@ a { color: inherit; text-decoration: none; }
 .input-with-icon:focus-within { border-color: var(--ink); }
 .input-with-icon input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; }
 .auth-modal form .primary-button { width: 100%; margin-top: 10px; }
+.auth-modal .auth-password-label { margin-top: 12px; }
+.auth-staging-badge { display: inline-flex; margin: 0 0 12px; padding: 5px 8px; border: 1px solid rgba(146,84,20,.28); color: #7b4818; background: rgba(173,108,38,.08); font-size: 0.5625rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.staging-auth-note { display: block; margin-top: 7px; color: var(--ink-soft); font-size: 0.625rem; line-height: 1.5; }
 .auth-divider { height: 34px; display: flex; align-items: center; color: var(--ink-soft); font-size: 0.5625rem; }
 .auth-divider::before, .auth-divider::after { content: ""; height: 1px; background: var(--line); flex: 1; }
 .auth-divider span { padding: 0 10px; }
@@ -433,6 +439,10 @@ a { color: inherit; text-decoration: none; }
 .empty-ink { color: rgba(34,36,33,.08); font: 8.75rem/1 "Songti SC", serif; margin-bottom: -52px; }
 
 .admin-bookings-page { width: 100%; max-width: 2240px; min-height: calc(100vh - 150px); margin: 0 auto; padding: 10px clamp(28px,2vw,48px) 120px; }
+.admin-schedule-read-error { min-height: 150px; margin: 0 0 34px; padding: 28px; display: flex; align-items: center; justify-content: center; gap: 14px; border: 1px solid rgba(165,49,39,.28); background: rgba(165,49,39,.07); color: var(--red-dark); text-align: left; }
+.admin-schedule-read-error div { max-width: 680px; }
+.admin-schedule-read-error strong { display: block; font: 1.25rem/1.2 "Songti SC",serif; }
+.admin-schedule-read-error p { margin: 7px 0 0; color: var(--ink-soft); font-size: .625rem; line-height: 1.65; }
 .admin-capacity-page { padding-top: 42px; }
 .admin-capacity-page .capacity-monitor { margin-top: 0; }
 .admin-summary { margin: 16px 0 18px; display: grid; grid-template-columns: repeat(4, 1fr); border-block: 1px solid var(--line); }

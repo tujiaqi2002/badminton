@@ -3,7 +3,9 @@ export const BOOKING_MOVE_SCOPE_SINGLE = 'single'
 
 const ACTIVE_BOOKING_STATUSES = new Set(['held', 'confirmed'])
 
-export const bookingGroupKey = (booking) => booking?.booking_group_id || booking?.id || null
+export const bookingGroupKey = (booking) => (
+  booking?.effective_session_id || booking?.booking_group_id || booking?.id || null
+)
 
 export const activeBookingGroup = (bookings, booking) => {
   const groupKey = bookingGroupKey(booking)

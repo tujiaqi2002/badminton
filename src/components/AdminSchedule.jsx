@@ -1252,6 +1252,8 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                   ? Number(relationship.group_count || 0)
                   : hasBusinessLink ? new Set(dayBookings.filter((item) => item.booking_link_id === booking.booking_link_id).map((item) => item.booking_group_id || item.id)).size : 0
                 const hasMultiCourtGroup = groupSize > 1
+                const paymentStatus = booking.payment_status || 'unpaid'
+                const paymentSettled = paymentStatus === 'paid' || paymentStatus === 'no_charge'
                 const indicatorCount = Number(hasBusinessLink || hasMultiCourtGroup) + Number(Boolean(booking.recurrence_series_id))
                 const isRelationshipSource = linkMode?.id === booking.id || linkDrag?.booking.id === booking.id
                 const isRelationshipTarget = Boolean((linkMode && canLinkBookings(linkMode, booking)) || linkDropId === booking.id)
@@ -1309,8 +1311,8 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                       <strong>{booking.customer_name}</strong>
                       <span>{timeFromDateTime(booking.start_at)}–{resizeAffectsCurrentBooking ? timeFromMinutes(startMinutes + minutes) : endTimeFromDateTime(booking.start_at, booking.end_at)}</span>
                       <span className="admin-booking-tags">
-                        <small className={`admin-booking-payment ${booking.payment_status === 'paid' ? 'paid' : 'unpaid'}`}>{t(booking.payment_status === 'paid' ? 'admin.schedule.paymentPaid' : 'admin.schedule.paymentUnpaid')}</small>
-                        {booking.customer_notes?.trim() && <small className="admin-booking-note" title={booking.customer_notes}><MessageSquareText size={8} /> {t('admin.schedule.hasNote')}</small>}
+                        <small className={`admin-booking-payment ${paymentSettled ? 'paid' : 'unpaid'}`}>{t(`payment.${paymentStatus}`)}</small>
+                        {(booking.customer_notes?.trim() || booking.has_notes) && <small className="admin-booking-note" title={booking.customer_notes || t('admin.schedule.hasNote')}><MessageSquareText size={8} /> {t('admin.schedule.hasNote')}</small>}
                       </span>
                     </div>
                     {indicatorCount > 0 && <span className="admin-booking-indicators">

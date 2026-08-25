@@ -10,6 +10,8 @@ on:
       - 'src/lib/reservationReadModel.js'
       - 'src/lib/reservationReadModel.test.js'
       - 'src/lib/reservationReadShadow.js'
+      - 'src/lib/reservationScheduleRead.js'
+      - 'src/lib/reservationScheduleRead.test.js'
       - 'src/lib/supabase.js'
       - 'supabase/**'
       - 'docs/reservation-migration/**'
