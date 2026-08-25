@@ -95,6 +95,15 @@ Phase 4B/4C 开始前需要：
 3. 对任何 mismatch 先停止 cutover 并调查，不能静默 fallback 后掩盖漂移；
 4. schedule 与 order/detail 的默认 read/UI 切换分别取得独立确认。
 
+## 8. 验证证据
+
+- 本地 Codex bundled Node `v24.19.0` / pnpm `11.19.0`：adapter tests 14/14；Reservation suite 33 tests 中 32 pass、1 个无本地 PostgreSQL 的明确 skip；lint/build 通过。
+- Default-off demo manager browser：desktop 与 390×844 mobile 排期、订单筛选和切周正常；console 0 error/warn，0 `reservation_read_shadow_v1` event。
+- Production 与 `badminton_stage` migration history 只读复核均为 48，最新 `20260825091608_reservation_phase_4a_manager_read_contract`；本阶段没有 DB push。
+- Draft PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) 的固定 [CI run 32837328760](https://github.com/tujiaqi2002/badminton/actions/runs/32837328760)：Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL 16，Reservation 33/33、adapter 14/14、0 skip，lint/build 全绿。Supabase Preview 因无 migration 正常跳过。
+
+PR 仍保持 Draft；以上证据不授权 merge、生产开启 shadow、默认 read/UI cutover 或 legacy decommission。
+
 ---
 
 # English version
@@ -154,3 +163,12 @@ Clean and mismatch results emit the fixed `reservation_read_shadow_v1` event wit
 Rollback is setting `VITE_RESERVATION_READ_SHADOW=false` and rebuilding; that is already the deployment default. Disabled code sends no new RPC. Because legacy data remains the only UI source, no database rollback is required and mutations, Realtime, and customer reads are unaffected.
 
 Before Phase 4B or 4C can cut over a default read path, controlled manager/staging observation must remain clean. Any mismatch stops the cutover for investigation rather than being hidden by an automatic fallback. Schedule and order/detail default read/UI cutovers each require their own explicit approval.
+
+## Validation evidence
+
+- Local Codex bundled Node `v24.19.0` / pnpm `11.19.0`: 14/14 adapter tests; 32 passes and one explicit no-local-PostgreSQL skip across the 33-test Reservation suite; lint/build passed.
+- Default-off demo manager browser: desktop and 390×844 mobile schedule, order filters, and week navigation passed with zero console errors/warnings and zero `reservation_read_shadow_v1` events.
+- Read-only migration-history checks show production and `badminton_stage` remain aligned at 48, latest `20260825091608_reservation_phase_4a_manager_read_contract`; Phase 4A.2 performed no DB push.
+- Draft PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) pinned [CI run 32837328760](https://github.com/tujiaqi2002/badminton/actions/runs/32837328760) passed 33/33 Reservation PostgreSQL tests and 14/14 adapter tests with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL 16; lint/build were green. Supabase Preview correctly skipped because there is no migration.
+
+The PR remains Draft. This evidence does not authorize merge, enabling production shadow observation, a default read/UI cutover, or legacy decommission.

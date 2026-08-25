@@ -289,7 +289,7 @@ Staging 与生产 history 现均为 48，diagnostic 返回 `phase_4a_manager_rea
 
 最终 [Actions run 32832792480](https://github.com/tujiaqi2002/badminton/actions/runs/32832792480) 在 Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL `16.15` 下为 33/33、0 skip，真实三连接 Payment retry、AA 与 refund race、lint/build 全绿。用户随后授权 merge/生产应用；PR #143 于 09:41:17 UTC 合并为 `3db78f8d8c2b2eec58e137a57ff2f2ec5bbab61c`，integration 于 09:41:55 UTC 应用 migration 48，[Pages run 32833288305](https://github.com/tujiaqi2002/badminton/actions/runs/32833288305) build/deploy 成功。完整中英文契约和回退边界见 [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md)。
 
-### Phase 4A.2 frontend adapter 与 controlled shadow read（Issue #142；当前分支）
+### Phase 4A.2 frontend adapter 与 controlled shadow read（Issue #142 / Draft PR #145）
 
 `src/lib/reservationReadModel.js` 定义 client DTO version 1，并分别 normalise legacy allocation rows、canonical schedule response、Reservation summary/search/detail 与 shadow status。Server `schema_version` 必须精确为 1，未知 version fail closed。Detail 使用显式 whitelist，未声明的 provider reference、idempotency、raw payload、payment note 或 Auth identifier 不会因服务端未来扩展而自动进入 DTO。
 
@@ -300,6 +300,8 @@ Staging 与生产 history 现均为 48，diagnostic 返回 `phase_4a_manager_rea
 Legacy search 是 Court-allocation row，canonical search 是 effective Reservation row，因此本阶段不做伪等价逐行比较。Canonical search/detail adapter 与 fixtures 已建立，默认 UI cutover 仍留给 Phase 4B/4C。实现没有 migration、grant/RLS、Realtime、mutation 或 customer-read 变化。设计与 rollback 见 [`docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md`](./docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md)。
 
 本地 bundled Node `v24.19.0` / pnpm `11.19.0` 验证为 adapter suite 14/14；Reservation migration suite 33 tests 中 32 pass、真实 PostgreSQL concurrency 因未配置本地 URL 明确 skip；lint/build 通过。Default-off demo manager browser 在桌面与 390×844 手机布局完成排期、筛选、切周回归，console 无 error/warn 且无 shadow event。真实 PostgreSQL concurrency 与 feature-on manager RPC path 继续由 PR CI 和受控 manager/staging observation 门禁证明，不能用 demo browser 代替。
+
+Draft PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) 首轮固定 CI [run 32837328760](https://github.com/tujiaqi2002/badminton/actions/runs/32837328760) 在 Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL 16 下完成：Reservation migration/concurrency 33/33、adapter 14/14、0 skip，lint/build 全绿。Supabase Preview 因无 migration 正常跳过。PR 仍为 Draft；merge 与 feature-on production observation 尚未授权。
 
 ## 8. 线上迁移状态
 
@@ -540,6 +542,8 @@ Phase 4A.2 is being delivered on `codex/reservation-phase-4a2-shadow-adapter` as
 `reservationReadShadow.js` compares only stable allocation facts: presence, court, venue-local time, status, amount/currency, origin Reservation, projection Session, and legacy source traces. It converts canonical `timestamptz` values and request boundaries with the venue timezone, follows `(starts_at, allocation_id)` cursors, rejects missing/repeated cursors and excessive pages, and filters canonical overlap results to the current legacy start-window semantics before comparison. Legacy booking-row search and canonical Reservation-row search intentionally have different cardinality and are not forced into a false row equivalence.
 
 Only exact `VITE_RESERVATION_READ_SHADOW=true` enables the verified manager schedule call site; example and Pages builds default to false. Legacy rows update React state first, while shadow work never controls loading, toasts, rendering, mutations, or customer reads. Obsolete requests are aborted. Logs emit only the fixed event plus counts, codes, and totals; PII, notes, IDs, samples, and server error messages are excluded. Full bilingual design and rollback behavior are documented in [`docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md`](./docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md).
+
+Draft PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) has a green pinned CI [run 32837328760](https://github.com/tujiaqi2002/badminton/actions/runs/32837328760): 33/33 Reservation PostgreSQL tests and 14/14 adapter tests with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL 16, plus green lint/build. Supabase Preview correctly skipped because there is no migration. Merge and feature-on production observation remain unapproved.
 
 Issue #142 / PR #143 Phase 4A.1 is installed and verified in production and isolated `badminton_stage`; both now have 48 migrations, latest `20260825091608_reservation_phase_4a_manager_read_contract`. The migration performs a strict 47-version and Phase 3B boundary preflight before creating additive read objects. It mutates no business data, grants no client DML, adds no Realtime publication, and switches no UI.
 
