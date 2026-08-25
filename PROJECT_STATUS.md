@@ -39,6 +39,11 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
+### Draft PR #138：Phase 3B.1 生产验证记录
+
+- 这是从最新 `main` 建立的 docs-only PR，用于固化 #135 的授权边界、生产 migration 44 状态、上线后 diagnostics、writer/security boundary 和 advisors。
+- 不包含 migration、RPC、RLS、前端或生产写入；不会自动启用 #137。合并仍需用户单独确认。
+
 ### Issue #134 / PR #135：Reservation Phase 3B.1 inactive transaction kernel（生产已安装，未激活）
 
 - 用户在 2026-08-25 fresh preflight 后明确确认只合并 #135。PR 于 06:24:23 UTC 合并，Supabase GitHub integration 于 06:25:04 UTC 成功将 migrations 43–44 应用生产。这一授权不包含 #137 activation、read/UI cutover、Stripe 或 legacy decommission。
@@ -209,3 +214,5 @@ PR #135 merged at 2026-08-25 06:24:23 UTC after explicit authorization limited t
 Production now has 44 migrations and remains inactive: zero operations, memberships, and transitions; 17 unchanged direct writers and three wrappers; no client mutation function, booking dual-write trigger, or Phase 3B Realtime publication. Phase 2/3A/3B diagnostics pass with 192/192 owned allocations, zero shadow mismatch, 23 Payments, 26 allocation entries, and CAD 1,642.00. Security advisors remain the existing 47 findings. Performance has 62 INFO findings only: four known composite-FK column-order notices and 58 unused indexes.
 
 Draft PR #137 remains staging-only and unauthorized for merge or production activation. Reads, UI, Stripe, and all legacy decommission work remain unchanged and out of scope.
+
+Draft PR #138 records this evidence only. It contains no database or product-behavior change and still requires separate authorization before merge.
