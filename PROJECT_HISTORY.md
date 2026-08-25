@@ -423,3 +423,19 @@ The user then responded to the explicit merge-#143-and-deploy-migration-48 gate 
 Post-deployment production returned `phase_4a_manager_read_contract_verified`: 48 migrations, 192 allocations/memberships, 123 current Reservations, and zero Phase 3B or Phase 4A mismatch. A real manager used all four RPCs, while an authenticated non-manager and anonymous actor were denied. View/function security metadata, grants, empty search paths, and private-assertion ACL matched the contract; detail omitted provider, idempotency, and Auth identifiers.
 
 Production plans used the new schedule index and existing effective-membership index. Advisors reported 48 security findings and 60 performance INFO findings, all unused indexes with zero unindexed foreign keys and no new security regression. The default UI, legacy read path, Realtime, Stripe, and decommission boundary remain unchanged. Phase 4A.2 frontend adoption requires separate confirmation.
+
+### 30. 2026-08-25: Phase 4A.2 frontend shadow foundation reached Draft PR
+
+After Phase 4A.1 production verification completed, the user explicitly authorized continuing with Phase 4A.2. The work was isolated on `codex/reservation-phase-4a2-shadow-adapter` from the latest merged `main`. No migration, permission, Realtime, mutation, customer read, default UI cutover, Stripe, or legacy decommission was included.
+
+The frontend now has a version 1 canonical read DTO for schedule allocations, Reservation summary/search/detail, and PII-free status, plus a legacy booking-allocation adapter. Unknown server schema versions, invalid amounts, missing/repeated cursors, duplicate allocation identities, and excessive pagination fail closed. Canonical `timestamptz` values and request boundaries use the venue timezone rather than the browser timezone.
+
+The opt-in `VITE_RESERVATION_READ_SHADOW` flag defaults to false and only exact `true` enables it. On the verified manager schedule path, legacy booking rows remain the only rendered source; shadow schedule/status calls never control loading, toasts, mutations, customer reads, or rendering. Obsolete requests are aborted. Live comparison is allocation-only because legacy and canonical schedules share the same cardinality; legacy booking-row order search and canonical Reservation-row search are intentionally not forced into a false equivalence.
+
+Shadow logging emits only a fixed event with counts, allowlisted codes, and totals. It drops PII, notes, IDs, database samples, and server error messages. Detail normalization also whitelists fields so provider references, idempotency keys, raw payloads, payment notes, and Auth identifiers cannot silently enter the client DTO.
+
+Local bundled Node `v24.19.0` / pnpm `11.19.0` passed 14/14 adapter tests, lint, and build. The existing 33-test Reservation suite had 32 passes and one explicit no-local-PostgreSQL skip. Default-off desktop and 390×844 browser checks passed schedule, filter, and week-navigation regression with no console errors/warnings and no shadow event. Production and staging remained aligned at 48 migrations.
+
+Draft PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) was opened at commit `69042ce`. Pinned [CI run 32837328760](https://github.com/tujiaqi2002/badminton/actions/runs/32837328760) passed 33/33 Reservation PostgreSQL tests and 14/14 adapter tests with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL 16; lint/build were green. Supabase Preview correctly skipped because there was no migration.
+
+Stage result: the reversible frontend adapter/shadow foundation is implemented and CI-green, while the PR remains Draft. Merge, enabling production shadow observation, visible schedule/order/detail cutover, and every legacy decommission action require new explicit authorization.

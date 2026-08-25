@@ -34,6 +34,7 @@ jobs:
           VITE_SITE_URL: ${{ vars.VITE_SITE_URL || 'https://tujiaqi2002.github.io/badminton/' }}
           VITE_GOOGLE_AUTH_ENABLED: ${{ vars.VITE_GOOGLE_AUTH_ENABLED || 'false' }}
           VITE_STRIPE_ENABLED: ${{ vars.VITE_STRIPE_ENABLED || 'false' }}
+          VITE_RESERVATION_READ_SHADOW: ${{ vars.VITE_RESERVATION_READ_SHADOW || 'false' }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

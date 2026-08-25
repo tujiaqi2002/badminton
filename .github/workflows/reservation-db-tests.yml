@@ -6,6 +6,11 @@ on:
       - '.github/workflows/reservation-db-tests.yml'
       - 'package.json'
       - 'pnpm-lock.yaml'
+      - 'src/App.jsx'
+      - 'src/lib/reservationReadModel.js'
+      - 'src/lib/reservationReadModel.test.js'
+      - 'src/lib/reservationReadShadow.js'
+      - 'src/lib/supabase.js'
       - 'supabase/**'
       - 'docs/reservation-migration/**'
       - 'PROJECT_STATUS.md'
@@ -63,6 +68,9 @@ jobs:
         env:
           PHASE3B_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/tiger_test
         run: pnpm run test:reservation
+
+      - name: Run Reservation read adapter tests
+        run: pnpm run test:reservation-read
 
       - name: Lint
         run: pnpm run lint

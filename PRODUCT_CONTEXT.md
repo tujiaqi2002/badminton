@@ -160,6 +160,8 @@ Phase 4A.1 / Issue #142 / PR #143 已把目标馆长读取契约应用并验证�
 
 Phase 4A.1 不改变现有馆长或客户界面，也不新增客户登录。后续 Phase 4A.2 前端接入必须保留 legacy adapter/feature flag 和回退路径；只有生产观察、rollback window 与单独 Phase 5 授权完成后，才能 decommission 旧字段/RPC。
 
+Phase 4A.2 已获确认并在独立分支建立默认关闭的馆长 shadow foundation。前端现在有 versioned canonical DTO normalizer 和 legacy allocation adapter；只有 `VITE_RESERVATION_READ_SHADOW=true` 时，馆长排期才在旧 booking rows 正常渲染后额外读取 canonical allocations 与 PII-free database status。影子结果不改变页面、loading、toast、按钮或任何写入。实时比较只覆盖同为一片 Court allocation 一行的排期；旧 booking-row 订单列表与新 Reservation-row 列表不会被强行逐行比较，默认 schedule/order/detail cutover 仍分别属于 Phase 4B/4C。完整中英文边界见 [`docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md`](./docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md)。
+
 订单较多时，“我的预订”默认展示即将开始的订单，并提供 Upcoming/Past/Cancelled tabs、日期/场地/编号等搜索、折叠式高级筛选、已应用筛选 chip 与清除入口。结果按月份分组，筛选和搜索只改变列表可见性，不隐藏单张订单卡片上的既有信息或取消动作。
 
 ## 6. 馆长预订管理
@@ -433,6 +435,8 @@ Phase 4A.1 不改变现有馆长或客户界面，也不新增客户登录。后
 4. 不根据旧截图或旧聊天推断当前生产行为。
 
 ## English update: Phase 4A.1 production read contract and Phase 3B boundary
+
+Phase 4A.2 has been explicitly authorized and is being delivered as a default-off manager shadow foundation. The frontend now has versioned canonical DTO normalizers and a legacy allocation adapter. Only an exact `VITE_RESERVATION_READ_SHADOW=true` causes the verified manager schedule path to fetch canonical allocations and the PII-free database status after the legacy booking rows load; shadow results do not change UI, loading, toasts, buttons, mutations, or customer reads. Live comparison is limited to schedule allocations because both models have the same row cardinality. Legacy booking-row order search and canonical Reservation-row search are not forced into a misleading row comparison, and their visible cutovers remain Phase 4B/4C. Full bilingual scope is in [`docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md`](./docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md).
 
 Issue #142 / PR #143 Phase 4A.1 has installed and verified the target manager read contract in production and isolated `badminton_stage`; no UI has switched. The contract presents multi-court allocations created together and bookings linked later as the same Reservation concept. Schedule still renders one physical Court allocation per row but shares effective Reservation/Session IDs, Reservation search returns one current aggregate per row, and detail returns Party roles, Sessions, allocations, payment shares, Payment/ledger facts, source facts, and relationship history in one call. Production diagnostics, real-role permission checks, and index plans passed.
 

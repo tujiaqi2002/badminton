@@ -12,7 +12,8 @@ import { ADMIN_ACCESS_STATUS, authRedirectUrl, checkAdminAccess, shouldFetchSche
 import { addDays, addMinutes, bookingDurations, COURTS, customerSlotsFromConfiguration, demoSchedule, isPastSlot, mondayOfWeek, openingHoursForDate, overlaps, priceBreakdownFromConfiguration, setVenueTimezone, slotDateTime, toDateKey, venueNow } from './lib/booking'
 import { buildBookingRelationship, bookingGroupKey } from './lib/bookingRelationships'
 import { useI18n } from './lib/i18n'
-import { googleAuthEnabled, isSupabaseConfigured, stripeEnabled, supabase } from './lib/supabase'
+import { runReservationScheduleShadow } from './lib/reservationReadShadow'
+import { googleAuthEnabled, isSupabaseConfigured, reservationReadShadowEnabled, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
 
 const getAuthRedirectUrl = () => authRedirectUrl({
@@ -137,6 +138,7 @@ export default function App() {
   const [adminFocus, setAdminFocus] = useState(null)
   const adminDemoHistory = useRef([])
   const adminOrderRequestRef = useRef(0)
+  const adminScheduleShadowAbortRef = useRef(null)
   const adminAccessRequestRef = useRef(0)
   const authUserIdRef = useRef(null)
   const adminLandingUserRef = useRef(null)
@@ -281,7 +283,7 @@ export default function App() {
     for (let from = 0; ; from += pageSize) {
       const result = await supabase
         .from('bookings')
-        .select('id, booking_group_id, booking_link_id, recurrence_series_id, recurrence_week, user_id, court_id, customer_name, customer_email, customer_phone, customer_notes, start_at, end_at, status, payment_status, payment_method, total_amount, currency, party_size, created_at')
+        .select('id, reservation_id, session_id, booking_group_id, booking_link_id, recurrence_series_id, recurrence_week, user_id, court_id, customer_name, customer_email, customer_phone, customer_notes, start_at, end_at, status, payment_status, payment_method, total_amount, currency, system_calculated_amount, price_source, price_override_amount, party_size, created_at, updated_at')
         .gte('start_at', `${queryStart}T00:00:00`)
         .lt('start_at', `${endExclusive}T00:00:00`)
         .order('start_at', { ascending: true })
@@ -306,7 +308,23 @@ export default function App() {
       setAdminVenueEvents([])
       notify(t('errors.schedule'), 'error')
     } else setAdminVenueEvents(eventResult.data || [])
-  }, [adminRange, isAdmin, user, notify, t])
+
+    if (reservationReadShadowEnabled && !error) {
+      adminScheduleShadowAbortRef.current?.abort()
+      const controller = new AbortController()
+      adminScheduleShadowAbortRef.current = controller
+      void runReservationScheduleShadow({
+        client: supabase,
+        legacyRows: data,
+        startDate: queryStart,
+        endDate: queryEnd,
+        timeZone: venueOperationsConfiguration?.settings?.timezone || 'America/Toronto',
+        signal: controller.signal,
+      }).finally(() => {
+        if (adminScheduleShadowAbortRef.current === controller) adminScheduleShadowAbortRef.current = null
+      })
+    }
+  }, [adminRange, isAdmin, user, notify, t, venueOperationsConfiguration])
 
   const fetchAdminOrderBookings = useCallback(async () => {
     const requestId = adminOrderRequestRef.current + 1
@@ -482,6 +500,7 @@ export default function App() {
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [fetchSchedule, isAdmin, user])
+  useEffect(() => () => adminScheduleShadowAbortRef.current?.abort(), [])
 
   const openSelection = (slot) => {
     if (isPastSlot(slot.dateKey, slot.time)) {

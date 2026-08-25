@@ -40,9 +40,12 @@ VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 VITE_SITE_URL=https://tujiaqi2002.github.io/badminton/
 VITE_GOOGLE_AUTH_ENABLED=false
 VITE_STRIPE_ENABLED=false
+VITE_RESERVATION_READ_SHADOW=false
 ```
 
 浏览器端只能使用 Supabase 的 publishable / anon key，绝不能放入 `service_role` 或 secret key。
+
+`VITE_RESERVATION_READ_SHADOW` 是 Phase 4A.2 的馆长端观察开关，默认必须保持 `false`。只有在受控验证时设为精确的 `true`；它会在旧排期继续渲染的同时调用 canonical manager read RPC，并只输出不含客户资料的 count/code 日志。关闭时不发送这些 shadow RPC。它不是权限开关，数据库仍会独立验证馆长身份。
 
 ## Supabase 上线
 
