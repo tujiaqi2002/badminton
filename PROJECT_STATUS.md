@@ -40,13 +40,14 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #148：Reservation Phase 4B.0 staging frontend gate（进行中）
+### Issue #148：Reservation Phase 4B.0 staging frontend gate（已完成；停在 Phase 4B.1 门禁）
 
-- 用户已确认只开始 Phase 4B.0：测试前端连接 `badminton_stage`、建立 disposable synthetic Auth manager/non-manager，并完成权限与浏览器证据。Phase 4B.1 canonical schedule 实现、PR merge、生产部署和 legacy decommission 均未授权。
+- 用户已确认并完成 Phase 4B.0：测试前端连接 `badminton_stage`、建立 disposable synthetic Auth manager/non-manager，并完成权限与浏览器证据。Phase 4B.1 canonical schedule 实现、PR merge、生产部署和 legacy decommission 均未授权。
 - 已建立 `.env.staging.local` ignored config 与无凭据 `.env.staging.example`。本地 password entry 同时要求 staging flag、staging environment、Supabase project-ref 精确匹配和 loopback hostname；任一不满足都 fail closed 到现有 magic-link 登录。
-- fixture 内现有 synthetic manager 是无 password/confirmation/identity 的数据库占位，不能登录。Hosted stage 仅开启 email provider 且不自动确认；正式 disposable password identities 必须通过 Supabase Auth Admin 创建，当前等待用户在 Dashboard 手动登录，禁止直接写 `auth.users` 绕过 Auth。
-- 数据库 client-role matrix 已通过：manager 读取 canonical schedule/detail 成功，non-manager 返回 `Manager access required`，anon 在 ACL 层 permission denied。RPC 仍为 security-invoker、空 `search_path`、authenticated-only。
-- 中英文 local-staging 登录 UI、未登录语言切换与 fail-closed 单元测试已经完成；登录后的 desktop/mobile schedule 回归与完整 diagnostic 仍待 Auth identity 建立后执行。完整中英文记录见 [`docs/reservation-migration/phase-4b0-staging-frontend-gate.md`](./docs/reservation-migration/phase-4b0-staging-frontend-gate.md)。
+- fixture 内原 synthetic manager 继续是不可登录的确定性占位。另有两个经 Supabase Auth Admin 创建并自动确认的 disposable password identities；只有真实 synthetic manager 加入 `staff_members(role='admin')`，真实 non-manager 没有 staff membership，凭据未进入仓库或证据。
+- 真实 Auth subject 权限矩阵已通过：manager 读取 canonical schedule/detail 成功，non-manager 返回 `Manager access required`，anon 在 ACL 层 permission denied。RPC 仍为 security-invoker、空 `search_path`、authenticated-only。
+- 中英文 local-staging 登录、manager schedule/capacity 与 non-manager 拒绝页均已完成桌面回归；390×844 手机无横向溢出，console error/warn 为 0。最终 hosted diagnostic 仍为 48 migrations、192 allocations/memberships、123 Reservations、全部 Phase 3B/4A mismatch 为 0。
+- bundled Node `v24.19.0` / pnpm `11.19.0` 下 75 tests 为 74 pass、1 个明确的 no-local-PostgreSQL skip、0 fail；lint 与 production/staging build 均通过，production artifact 不含 stage project ref。完整中英文记录与视觉证据见 [`docs/reservation-migration/phase-4b0-staging-frontend-gate.md`](./docs/reservation-migration/phase-4b0-staging-frontend-gate.md)。
 
 ### Issue #142：Reservation Phase 4A.3 production shadow observation（已完成并恢复默认关闭）
 

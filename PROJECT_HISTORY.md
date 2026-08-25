@@ -465,3 +465,15 @@ The post-observation Phase 4A diagnostic remained verified: 48 migrations, 192 b
 The temporary variable was then deleted. Rollback Pages [run 32839948133](https://github.com/tujiaqi2002/badminton/actions/runs/32839948133) succeeded, the live site again referenced `index-ssrRc0gW.js`, and the shadow event/RPC code was absent. No database rollback was required because the observation performed no database write. Legacy booking rows remained the sole rendered UI source throughout.
 
 Stage result: the bounded production shadow path and its rollback are verified. Phase 4B default schedule adoption is the next separately drafted and explicitly approved gate; order/detail adoption and every legacy decommission action remain later phases.
+
+### 33. 2026-08-25: Phase 4B.0 staging frontend and Auth gate completed
+
+After explicit approval of Issue #148 Phase 4B.0, the branch added an ignored `.env.staging.local` path, a credential-free staging example, and a fail-closed local password entry. The entry requires an exact staging flag and environment, an exact Supabase project-ref match, and a loopback hostname. Production builds and non-local hosts therefore retain the existing magic-link behavior.
+
+The deterministic fixture's non-login Auth/staff placeholder remains unchanged. Two supported, auto-confirmed disposable password identities were created through Supabase Dashboard/Auth Admin; only the real synthetic manager was added to `staff_members(role='admin')`. Credentials remained local. The real manager read canonical schedule/detail data, the real non-manager received `Manager access required`, and anonymous execution was denied at the function ACL.
+
+Browser regression covered Chinese and English manager schedule/capacity pages, two September 7 multi-court allocations, the matching three-court remaining capacity, a 390×844 mobile viewport without horizontal overflow, and the non-manager access-denied page. Console errors and warnings remained zero. The final staging diagnostic stayed clean at 48 migrations, 192 bookings/memberships and canonical allocations, 123 Reservations, zero Phase 3B/4A mismatch, the 17/0/17/3 writer boundary, seven FORCE RLS tables, and `public.court_slots`-only Realtime.
+
+Bundled Node `v24.19.0` and pnpm `11.19.0` produced 74 passes, one explicit no-local-PostgreSQL skip, and zero failures across 75 tests; lint and both production/staging builds passed. The production artifact contained no staging project reference. No migration, production configuration, canonical render-source cutover, payment/pricing behavior, or legacy decommission changed.
+
+Stage result: Phase 4B.0 is complete with reproducible Auth, permission, browser, mobile, and database evidence. Work stops before Phase 4B.1 canonical schedule adoption, which requires a new review and explicit authorization.

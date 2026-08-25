@@ -315,11 +315,13 @@ PR #146 的默认关闭记录于 10:51:36 UTC 合并为 `a205e4a25e2d71d16c13b1e
 
 临时变量随后被删除；Pages [run 32839948133](https://github.com/tujiaqi2002/badminton/actions/runs/32839948133) 重新部署默认关闭 build。最终变量缺失、workflow fallback 为 false、线上重新引用 `index-ssrRc0gW.js`，shadow event 与 RPC 字面量均为 0。Legacy rows 全程是唯一 React/UI source。完整中英文证据见 [`docs/reservation-migration/phase-4a3-production-shadow-observation.md`](./docs/reservation-migration/phase-4a3-production-shadow-observation.md)。
 
-### Phase 4B.0 local staging frontend/Auth gate（Issue #148；进行中）
+### Phase 4B.0 local staging frontend/Auth gate（Issue #148；已完成）
 
 本地 staging 配置使用 Vite mode 文件 `.env.staging.local`，由新增 `.env.*.local` ignore rule 排除；仓库只保留 `.env.staging.example`。前端仍沿用 publishable key client，绝不接收 service role。Password 测试入口由 `isStagingPasswordAuthAllowed` fail closed：exact-true flag、exact `staging` environment、Supabase URL project ref 与 expected ref 一致、loopback hostname 四项必须同时成立。Production build 的默认变量均不满足该 gate；生产 Supabase URL、Auth redirects 和 Pages workflow 没有改动。
 
-原 synthetic manager 来自 staging fixture 直接插入的确定性占位 row，没有 password、confirmation 或 `auth.identities`，不能用于浏览器 Auth。Hosted stage 仅开启 email provider，signup enabled、mailer autoconfirm disabled；因此 supported browser gate 需要 Auth Admin 建立 auto-confirmed disposable password manager/non-manager，再只把 manager 加入 `staff_members`。当前代码与 client-role RPC matrix 已完成，Auth Admin 创建和登录后 desktop/mobile regression 仍待已登录 Dashboard session。完整边界与中英文证据见 [`docs/reservation-migration/phase-4b0-staging-frontend-gate.md`](./docs/reservation-migration/phase-4b0-staging-frontend-gate.md)。
+原 synthetic manager 来自 staging fixture 直接插入的确定性占位 row，没有 password、confirmation 或 `auth.identities`，继续只用于确定性数据库诊断。两个额外的 auto-confirmed disposable password identities 已通过 Supabase Dashboard/Auth Admin 的受支持流程建立；只把真实 synthetic manager 加入 `staff_members(role='admin')`，真实 non-manager 保持无 staff membership。账号凭据未进入仓库、日志或截图。
+
+真实 manager Auth subject 成功调用 canonical schedule/detail RPC，真实 non-manager 得到 `Manager access required`，anon 在函数 ACL 层被拒绝；函数继续是 security invoker、空 `search_path`、authenticated-only。浏览器实际验证中英文 manager schedule/capacity、390×844 手机布局与 non-manager 拒绝页，console error/warn 为 0。最终 hosted diagnostic 仍为 48 migrations、192 bookings/memberships、192 canonical allocations、123 Reservations、Phase 3B/4A mismatch 全 0、17/0/17/3 writer boundary、7 张 FORCE RLS 表与 `public.court_slots`-only Realtime。Production artifact 不含 staging ref，生产 Supabase/Pages/read source 全部未改变。完整边界与中英文证据见 [`docs/reservation-migration/phase-4b0-staging-frontend-gate.md`](./docs/reservation-migration/phase-4b0-staging-frontend-gate.md)。Phase 4B.1 canonical schedule cutover 需新的明确确认。
 
 ## 8. 线上迁移状态
 
