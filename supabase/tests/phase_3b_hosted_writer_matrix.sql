@@ -55,7 +55,7 @@ begin
     'venue'::public.payment_method
   );
 
-  -- 2-5. Manager multi/override/weekly/weekly-override creates.
+  -- 2-5. Manager multi/zero-price override/weekly/weekly-override creates.
   perform set_config('request.headers', '{"x-idempotency-key":"hosted-create-admin"}', true);
   perform * from public.admin_create_multi_booking(
     array[
@@ -80,7 +80,7 @@ begin
     2::smallint,
     '5550000001',
     null,
-    31::numeric
+    0::numeric
   );
   perform set_config('request.headers', '{"x-idempotency-key":"hosted-create-weekly"}', true);
   perform * from public.admin_create_weekly_booking(
