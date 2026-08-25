@@ -300,7 +300,7 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - Bundled Node `v24.19.0` / pnpm `11.19.0` 本地得到 27/28 pass、0 fail、1 个无本地 PostgreSQL 的明确 skip，lint/build 通过。新增 SQL truth table 覆盖零价、正价 unpaid/partial/paid、refund、paid-without-ledger 与 over-allocation。
 - 07:43–07:44 UTC fresh production read-only preflight 再次确认 44 migrations、Phase 2/3A/3B.1 diagnostics clean、123/135/192/131/23/26 / CAD 1,642.00、kernel 0/0/0、17 direct + 3 wrappers；activation/Session-assignment/explicit-primary/private-legacy objects 不存在，Edge Functions 为 0，advisors 仍为 47 security / 62 performance INFO。
 
-阶段结果：零价恢复已经在独立 staging 完成，生产继续安全停在 44 migrations。Recovery PR、CI、merge 和再次触发 production migrations 45–47 仍需后续独立门禁；read/UI、Stripe 与 legacy decommission 未进入本阶段。
+阶段结果：零价恢复已经在独立 staging 完成并建立 Draft PR #140，生产继续安全停在 44 migrations。Pinned CI、PR merge 和再次触发 production migrations 45–47 仍需后续独立门禁；read/UI、Stripe 与 legacy decommission 未进入本阶段。
 
 ---
 
@@ -354,4 +354,4 @@ Bundled Node `v24.19.0` / pnpm `11.19.0` passed 27 of 28 tests with zero failure
 
 The 07:43–07:44 UTC production read-only preflight again confirmed 44 migrations, clean Phase 2/3A/3B.1 diagnostics, the 123/135/192/131/23/26 / CAD 1,642.00 reconciliation, a 0/0/0 kernel, and 17 direct writers plus three wrappers. Activation, Session-assignment, explicit-primary, and private-legacy objects are absent; zero Edge Functions are deployed, and advisors remain 47 security / 62 performance INFO.
 
-Stage result: zero-price recovery is complete on the isolated stage, while production remains safely at 44 migrations. The recovery PR, pinned CI, merge, and another production attempt for migrations 45–47 remain separately gated. Read/UI, Stripe, and legacy decommission are outside this phase.
+Stage result: zero-price recovery is complete on the isolated stage and Draft PR #140 is open, while production remains safely at 44 migrations. Pinned CI, merge, and another production attempt for migrations 45–47 remain separately gated. Read/UI, Stripe, and legacy decommission are outside this phase.

@@ -146,7 +146,7 @@ Phase 3A / Issue #128 的未激活兼容基础、`venue_settings.timezone` 单�
 
 Phase 3B.1 / Issue #134 / PR #135 的**未激活事务内核**已于 2026-08-25 安装到生产，但它不改变当前产品行为。生产仍使用现有 group/link/payment/status RPC 和 legacy read path；没有 catch-up、membership、transition、dual-write trigger、新 mutation 入口或新 Realtime publication。内核为后续 merge/split/reverse、Session/Party lineage、一人/AA 付款和 append-only refund 提供 private primitive，但只有后续另行授权的 writer activation 才能调用它们。不同客户 merge 仍必须由馆长显式选择 primary contact，系统不自动推断。完整设计见 [`docs/reservation-migration/phase-3b-inactive-transaction-kernel.md`](./docs/reservation-migration/phase-3b-inactive-transaction-kernel.md)。
 
-Phase 3B.2 / Issue #136 / PR #137 已合并代码，但首次自动生产 activation 因零价边界的 fail-closed assertion 停止并整笔回滚；生产仍是 inactive 3B.1。Issue #139 recovery 已在独立合成 `badminton_stage` 验证，尚未获准合并或再次触发生产部署。目标产品语义保持如下：
+Phase 3B.2 / Issue #136 / PR #137 已合并代码，但首次自动生产 activation 因零价边界的 fail-closed assertion 停止并整笔回滚；生产仍是 inactive 3B.1。Issue #139 / Draft PR #140 recovery 已在独立合成 `badminton_stage` 验证，尚未获准合并或再次触发生产部署。目标产品语义保持如下：
 
 - 一笔 Reservation 可以承载一个或多个旧 booking group；同一个人同时订多场地，与馆长后来关联多笔预订，都用同一类 aggregate/transition 模型表达，而不是两套互不相干的概念。
 - 不同客户可以强制合并，但馆长必须显式选择 primary contact；旧 link 动作只在 primary 唯一无歧义时自动兼容。系统保留所有来源客户和 Party lineage，不合并或删除身份。
@@ -434,7 +434,7 @@ Phase 3B.1 / PR #135 was installed in production on 2026-08-25 as an inactive tr
 
 The private kernel provides primitives for merge/split/reverse lineage, Session and Party lineage, one-payer/AA payments, and append-only refunds, but only a separately authorized writer activation may invoke them. Different-customer merge still requires an explicit manager-selected primary contact.
 
-Phase 3B.2 / PR #137 is merged in source control, but its first automatic production activation stopped at a fail-closed zero-price assertion and the entire transaction rolled back. Production remains on inactive Phase 3B.1. Issue #139 recovery is verified only on the independent synthetic `badminton_stage` database; it is not yet authorized for merge or another production deployment, and it switches no read path or UI.
+Phase 3B.2 / PR #137 is merged in source control, but its first automatic production activation stopped at a fail-closed zero-price assertion and the entire transaction rolled back. Production remains on inactive Phase 3B.1. Issue #139 / Draft PR #140 recovery is verified only on the independent synthetic `badminton_stage` database; it is not yet authorized for merge or another production deployment, and it switches no read path or UI.
 
 The accepted model treats a Reservation created as a multi-court group and a Reservation later assembled from linked booking groups as the same business concept: one commercial Reservation containing one or more Sessions and Court allocations. Different customers may be force-merged only through an explicit primary-contact choice, while all source identities and Party lineage remain preserved. The payment intent may be `single_payer`, `split_equal`, or `split_custom`; unverifiable historical intent remains `legacy_unspecified`.
 

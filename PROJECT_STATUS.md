@@ -39,7 +39,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #139：Phase 3B.2 zero-price activation recovery（staging 已验证，待 Draft PR）
+### Issue #139 / Draft PR #140：Phase 3B.2 zero-price activation recovery（staging 已验证，待 CI）
 
 - PR #137 于 2026-08-25 07:16:55 UTC 合并后，Supabase protected-branch deployment 在 migration 45 最终 assertion 返回 `payment=1` 并以 SQLSTATE `55000` 停止。Activation 位于单一 transaction，生产完整回滚到 44 migrations / inactive 3B.1；没有 partial writer cutover、数据改写或手动重试。
 - PII-free 诊断确认唯一 mismatch 是一条合法零价预约：`total_amount=0`、ledger allocation=0、`payment_status=pay_at_venue`、无 Payment/refund。旧断言把 `0 >= 0` 误判为必须 `paid`；现有 schema、manager price override 和 Phase 3A projection 都明确允许零价且不应伪造 CAD 0 Payment。
@@ -47,7 +47,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 因 staging 已应用旧 migration 45，追加 `20260825074102_phase_3b_zero_price_activation_assertion`：先要求精确 46-version baseline，再以 `pg_get_functiondef` 对旧/新源码形状做唯一匹配；旧形状只替换一次，新形状 no-op，任何第三种形状停止。函数继续是 private、security invoker、stable、空 `search_path`，并撤销所有 client EXECUTE。
 - Staging 正式记录 47 migrations。旧形状替换演练和新形状 no-op 演练均在事务中通过；Phase 2/3A/3B diagnostics、含 CAD 0 manager override 的 17-writer matrix 通过，持久状态回到 192/192、0 shadow/session/payment drift、0 incomplete operation。Recovery assertion ACL 只有 owner，anon/authenticated/service_role EXECUTE 均为 false。
 - Staging advisors 保持 50 security（2 INFO / 48 WARN）和 60 performance INFO（全部 `unused_index`，0 `unindexed_foreign_keys`）。Fresh production read-only preflight 于 07:43–07:44 UTC 通过：44 migrations、123/135/192/131/23/26 / CAD 1,642.00、17 direct + 3 wrappers、kernel 0/0/0；activation/session-assignment/explicit-primary objects 均不存在，Edge Functions 为 0，advisors 仍为 47 security / 62 performance INFO。
-- Bundled Node `v24.19.0` / pnpm `11.19.0` 本地 `test:reservation` 为 27/28 pass、0 fail、1 个无本地 PostgreSQL 的明确 skip，lint/build 通过。恢复 PR merge、再次触发生产 migrations 45–47、read/UI、Stripe 和 legacy decommission 均未授权。
+- Bundled Node `v24.19.0` / pnpm `11.19.0` 本地 `test:reservation` 为 27/28 pass、0 fail、1 个无本地 PostgreSQL 的明确 skip，lint/build 通过。Draft PR #140 已创建；PR merge、再次触发生产 migrations 45–47、read/UI、Stripe 和 legacy decommission 均未授权。
 
 ### Issue #136 / PR #137：Reservation Phase 3B.2 atomic writer activation（已合并；生产部署原子回滚）
 
@@ -235,4 +235,4 @@ Staging now has 47 migrations. Old-shape replacement, corrected-shape no-op, Pha
 
 Bundled Node `v24.19.0` / pnpm `11.19.0` passed 27 of 28 tests with zero failures and one explicit no-local-PostgreSQL skip; lint/build passed. The 07:43–07:44 UTC production read-only preflight again confirmed 44 migrations, clean Phase 2/3A/3B.1 diagnostics, the 123/135/192/131/23/26 / CAD 1,642.00 reconciliation, a 0/0/0 kernel, zero activation objects, zero Edge Functions, and the existing 47 security / 62 performance INFO advisor baseline.
 
-Recovery PR merge and another production attempt for migrations 45–47 remain separately gated. Reads, UI, Stripe, and all legacy decommission actions remain out of scope.
+Draft PR #140 contains the recovery. Its merge and another production attempt for migrations 45–47 remain separately gated. Reads, UI, Stripe, and all legacy decommission actions remain out of scope.
