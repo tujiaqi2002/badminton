@@ -13,7 +13,7 @@ import { addDays, addMinutes, bookingDurations, COURTS, customerSlotsFromConfigu
 import { buildBookingRelationship, bookingGroupKey } from './lib/bookingRelationships'
 import { useI18n } from './lib/i18n'
 import { runReservationScheduleShadow } from './lib/reservationReadShadow'
-import { googleAuthEnabled, isSupabaseConfigured, reservationReadShadowEnabled, stripeEnabled, supabase } from './lib/supabase'
+import { googleAuthEnabled, isSupabaseConfigured, reservationReadShadowEnabled, stagingPasswordAuthEnabled, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
 
 const getAuthRedirectUrl = () => authRedirectUrl({
@@ -1215,6 +1215,19 @@ export default function App() {
     return true
   }
 
+  const loginWithPassword = async (email, password) => {
+    if (!isSupabaseConfigured || !stagingPasswordAuthEnabled) return false
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    })
+    if (error) {
+      notify(t('errors.stagingAuth'), 'error')
+      return false
+    }
+    return true
+  }
+
   const enterDemo = () => {
     setUser({ id: 'demo-user', email: 'demo@tiger.local' })
     setAdminAccessStatus(ADMIN_ACCESS_STATUS.AUTHORIZED)
@@ -1266,7 +1279,7 @@ export default function App() {
         ) : accessError ? (
           <div className="private-access-denied private-access-error"><ShieldAlert size={30} /><h1>{t('auth.accessErrorTitle')}</h1><p>{t('auth.accessErrorText')}</p><div className="private-access-actions"><button className="primary-button" onClick={fetchAdminAccess}>{t('auth.retryAccess')}</button><button className="outline-button" onClick={signOut}>{t('account.signOut')}</button></div></div>
         ) : (
-          <AuthModal onClose={() => {}} onEmail={loginByEmail} onGoogle={loginWithGoogle} onDemo={enterDemo} demoMode={!isSupabaseConfigured} googleEnabled={googleAuthEnabled} locked />
+          <AuthModal onClose={() => {}} onEmail={loginByEmail} onPassword={loginWithPassword} onGoogle={loginWithGoogle} onDemo={enterDemo} demoMode={!isSupabaseConfigured} googleEnabled={googleAuthEnabled} passwordEnabled={stagingPasswordAuthEnabled} locked />
         )}
         {toast && <div className={`toast ${toast.tone}`} role="status">{toast.message}</div>}
       </div>
@@ -1399,7 +1412,7 @@ export default function App() {
       </nav>
 
       <BookingDrawer selection={selection} onClose={() => setSelection(null)} onConfirm={confirmBooking} busy={busy} stripeEnabled={stripeEnabled} invalid={selectionInvalid} configuration={bookingConfiguration} />
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onEmail={loginByEmail} onGoogle={loginWithGoogle} onDemo={enterDemo} demoMode={!isSupabaseConfigured} googleEnabled={googleAuthEnabled} />}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onEmail={loginByEmail} onPassword={loginWithPassword} onGoogle={loginWithGoogle} onDemo={enterDemo} demoMode={!isSupabaseConfigured} googleEnabled={googleAuthEnabled} passwordEnabled={stagingPasswordAuthEnabled} />}
       {toast && <div className={`toast ${toast.tone}`} role="status">{toast.message}</div>}
     </div>
   )

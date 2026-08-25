@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/reservation-phase-4a3-shadow-observation-record`。
+> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/reservation-phase-4b0-staging-frontend`。
 
 ## 1. 一句话结论
 
@@ -39,6 +39,14 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 | 多商户 SaaS、AI 助理、市场平台 | 未开始 / 非当前范围 | 来自早期长期蓝图，不应在单馆核心稳定前启动 |
 
 ## 4. 当前进行中工作
+
+### Issue #148：Reservation Phase 4B.0 staging frontend gate（进行中）
+
+- 用户已确认只开始 Phase 4B.0：测试前端连接 `badminton_stage`、建立 disposable synthetic Auth manager/non-manager，并完成权限与浏览器证据。Phase 4B.1 canonical schedule 实现、PR merge、生产部署和 legacy decommission 均未授权。
+- 已建立 `.env.staging.local` ignored config 与无凭据 `.env.staging.example`。本地 password entry 同时要求 staging flag、staging environment、Supabase project-ref 精确匹配和 loopback hostname；任一不满足都 fail closed 到现有 magic-link 登录。
+- fixture 内现有 synthetic manager 是无 password/confirmation/identity 的数据库占位，不能登录。Hosted stage 仅开启 email provider 且不自动确认；正式 disposable password identities 必须通过 Supabase Auth Admin 创建，当前等待用户在 Dashboard 手动登录，禁止直接写 `auth.users` 绕过 Auth。
+- 数据库 client-role matrix 已通过：manager 读取 canonical schedule/detail 成功，non-manager 返回 `Manager access required`，anon 在 ACL 层 permission denied。RPC 仍为 security-invoker、空 `search_path`、authenticated-only。
+- 中英文 local-staging 登录 UI、未登录语言切换与 fail-closed 单元测试已经完成；登录后的 desktop/mobile schedule 回归与完整 diagnostic 仍待 Auth identity 建立后执行。完整中英文记录见 [`docs/reservation-migration/phase-4b0-staging-frontend-gate.md`](./docs/reservation-migration/phase-4b0-staging-frontend-gate.md)。
 
 ### Issue #142：Reservation Phase 4A.3 production shadow observation（已完成并恢复默认关闭）
 
