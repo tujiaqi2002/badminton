@@ -58,3 +58,12 @@ test('group resize preview changes every active member of the group', () => {
   assert.equal(resizeAppliesToBooking(resizeDrag, bookings[1]), true)
   assert.equal(resizeAppliesToBooking(resizeDrag, bookings[2]), false)
 })
+
+test('canonical effective Session takes precedence over legacy group source', () => {
+  const effectiveSessionId = crypto.randomUUID()
+  const rows = [
+    { id: 'one', effective_session_id: effectiveSessionId, booking_group_id: crypto.randomUUID(), status: 'confirmed' },
+    { id: 'two', effective_session_id: effectiveSessionId, booking_group_id: crypto.randomUUID(), status: 'held' },
+  ]
+  assert.deepEqual(activeBookingGroup(rows, rows[0]).map((booking) => booking.id), ['one', 'two'])
+})

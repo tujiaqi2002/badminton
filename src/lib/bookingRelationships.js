@@ -1,11 +1,18 @@
 const ACTIVE_STATUSES = new Set(['held', 'confirmed'])
 
-export const bookingGroupKey = (booking) => booking?.booking_group_id || booking?.id || null
+export const bookingGroupKey = (booking) => (
+  booking?.effective_session_id || booking?.booking_group_id || booking?.id || null
+)
+
+export const bookingReservationKey = (booking) => (
+  booking?.effective_reservation_id || booking?.booking_link_id || bookingGroupKey(booking)
+)
 
 export const canLinkBookings = (source, target) => {
   if (!source || !target || source.id === target.id) return false
   if (!ACTIVE_STATUSES.has(source.status) || !ACTIVE_STATUSES.has(target.status)) return false
   if (bookingGroupKey(source) === bookingGroupKey(target)) return false
+  if (source.effective_reservation_id && bookingReservationKey(source) === bookingReservationKey(target)) return false
   return !(source.booking_link_id && source.booking_link_id === target.booking_link_id)
 }
 
@@ -13,8 +20,9 @@ export const buildBookingRelationship = (bookings, selected) => {
   const selectedGroupId = bookingGroupKey(selected)
   if (!selectedGroupId) return null
   const active = bookings.filter((booking) => ACTIVE_STATUSES.has(booking.status))
-  const rows = selected.booking_link_id
-    ? active.filter((booking) => booking.booking_link_id === selected.booking_link_id)
+  const selectedReservationId = selected.effective_reservation_id || selected.booking_link_id
+  const rows = selectedReservationId
+    ? active.filter((booking) => bookingReservationKey(booking) === selectedReservationId)
     : active.filter((booking) => bookingGroupKey(booking) === selectedGroupId)
   const groupsById = new Map()
 
@@ -57,7 +65,7 @@ export const buildBookingRelationship = (bookings, selected) => {
     .sort((left, right) => left.starts_at.localeCompare(right.starts_at) || left.booking_group_id.localeCompare(right.booking_group_id))
 
   return {
-    booking_link_id: selected.booking_link_id || null,
+    booking_link_id: selectedReservationId || null,
     selected_group_id: selectedGroupId,
     group_count: groups.length,
     linked_total: Number(groups.reduce((sum, group) => sum + group.subtotal, 0).toFixed(2)),
