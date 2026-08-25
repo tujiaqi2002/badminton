@@ -297,10 +297,10 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - PII-free 只读诊断定位到唯一一条合法零价预约：total 和 allocation 都为 0、`pay_at_venue`、无 Payment/refund。旧 predicate 的 `0 >= 0` 误要求 paid，与 schema/manager override/Phase 3A projection/payment primitive 的既有零价语义冲突；没有修改该预约或伪造零金额 Payment。
 - 创建 Issue #139 并在用户明确确认后开始 recovery。Migration 45 因从未进入生产 history，只修正最终 payment predicate；已应用旧 45 的 staging 通过 append-only migration `20260825074102` 收敛。Migration 47 要求精确 46-version baseline，以 `pg_get_functiondef` 唯一匹配旧/新 source shape，未知形状 fail closed，并保留 private security-invoker/empty-search-path/owner-only EXECUTE 边界。
 - Staging 正式推进到 47 migrations。旧形状替换演练、新形状 no-op 演练、Phase 2/3A/3B diagnostics 和含 CAD 0 manager override 的 17-writer matrix 全部通过；持久数据回到 192/192，shadow/session/payment/incomplete-operation 全为 0。Advisors 保持 50 security 与 60 performance INFO（全部 unused index，0 unindexed FK）。
-- Bundled Node `v24.19.0` / pnpm `11.19.0` 本地得到 27/28 pass、0 fail、1 个无本地 PostgreSQL 的明确 skip，lint/build 通过。新增 SQL truth table 覆盖零价、正价 unpaid/partial/paid、refund、paid-without-ledger 与 over-allocation。
+- Bundled Node `v24.19.0` / pnpm `11.19.0` 本地得到 27/28 pass、0 fail、1 个无本地 PostgreSQL 的明确 skip，lint/build 通过。新增 SQL truth table 覆盖零价、正价 unpaid/partial/paid、refund、paid-without-ledger 与 over-allocation。[Actions run 32823781076](https://github.com/tujiaqi2002/badminton/actions/runs/32823781076) 在 Node 22 / pnpm 11.16.0 / PostgreSQL 16 下为 28/28、0 skip，真实并发、lint/build 全绿。
 - 07:43–07:44 UTC fresh production read-only preflight 再次确认 44 migrations、Phase 2/3A/3B.1 diagnostics clean、123/135/192/131/23/26 / CAD 1,642.00、kernel 0/0/0、17 direct + 3 wrappers；activation/Session-assignment/explicit-primary/private-legacy objects 不存在，Edge Functions 为 0，advisors 仍为 47 security / 62 performance INFO。
 
-阶段结果：零价恢复已经在独立 staging 完成并建立 Draft PR #140，生产继续安全停在 44 migrations。Pinned CI、PR merge 和再次触发 production migrations 45–47 仍需后续独立门禁；read/UI、Stripe 与 legacy decommission 未进入本阶段。
+阶段结果：零价恢复已经在独立 staging 和 pinned CI 完成并建立 Draft PR #140，生产继续安全停在 44 migrations。PR merge 和再次触发 production migrations 45–47 仍需后续独立授权；read/UI、Stripe 与 legacy decommission 未进入本阶段。
 
 ---
 
@@ -350,8 +350,8 @@ Issue #139 was created and recovery started only after explicit confirmation. Mi
 
 Staging advanced to 47 migrations. Old-shape replacement and corrected-shape no-op rehearsals, Phase 2/3A/3B diagnostics, and the 17-writer matrix with a CAD 0 manager override all passed. Persistent state returned to 192/192 with zero shadow, Session, payment, or incomplete-operation drift. Advisors remained at 50 security and 60 performance INFO findings, all unused indexes and zero unindexed foreign keys.
 
-Bundled Node `v24.19.0` / pnpm `11.19.0` passed 27 of 28 tests with zero failures and one explicit no-local-PostgreSQL skip; lint and build passed. The added SQL truth table covers zero-price, positive unpaid/partial/paid, refund, paid-without-ledger, and over-allocation.
+Bundled Node `v24.19.0` / pnpm `11.19.0` passed 27 of 28 tests with zero failures and one explicit no-local-PostgreSQL skip; lint and build passed. The added SQL truth table covers zero-price, positive unpaid/partial/paid, refund, paid-without-ledger, and over-allocation. [Actions run 32823781076](https://github.com/tujiaqi2002/badminton/actions/runs/32823781076) passed 28/28 with zero skips plus real concurrency, lint, and build under Node 22 / pnpm 11.16.0 / PostgreSQL 16.
 
 The 07:43–07:44 UTC production read-only preflight again confirmed 44 migrations, clean Phase 2/3A/3B.1 diagnostics, the 123/135/192/131/23/26 / CAD 1,642.00 reconciliation, a 0/0/0 kernel, and 17 direct writers plus three wrappers. Activation, Session-assignment, explicit-primary, and private-legacy objects are absent; zero Edge Functions are deployed, and advisors remain 47 security / 62 performance INFO.
 
-Stage result: zero-price recovery is complete on the isolated stage and Draft PR #140 is open, while production remains safely at 44 migrations. Pinned CI, merge, and another production attempt for migrations 45–47 remain separately gated. Read/UI, Stripe, and legacy decommission are outside this phase.
+Stage result: zero-price recovery is complete on the isolated stage and pinned CI, and Draft PR #140 is open, while production remains safely at 44 migrations. Merge and another production attempt for migrations 45–47 remain separately gated. Read/UI, Stripe, and legacy decommission are outside this phase.
