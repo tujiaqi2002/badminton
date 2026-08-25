@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/reservation-phase-4a2-shadow-adapter`。
+> 项目：`project-001-badminton`。核对日期：2026-08-25。当前工作分支：`codex/reservation-phase-4a2-production-verification`。
 
 ## 1. 一句话结论
 
@@ -39,17 +39,18 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #142 / PR #145：Reservation Phase 4A.2 frontend adapter / shadow fetch（Draft；默认 UI 不切换）
+### Issue #142 / PR #145：Reservation Phase 4A.2 frontend adapter / shadow fetch（已合并并部署；shadow 仍默认关闭）
 
-- 用户在 Phase 4A.1 完成后明确确认继续 Phase 4A.2；实现分支为 `codex/reservation-phase-4a2-shadow-adapter`，基于最新 `origin/main` / `9a296de` 创建。初始实现 commit 为 `69042ce`，Draft PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) 已创建。没有新增或修改 Supabase migration。
+- 用户在 Phase 4A.1 完成后明确确认继续 Phase 4A.2；实现分支为 `codex/reservation-phase-4a2-shadow-adapter`，基于 `origin/main` / `9a296de` 创建。初始实现 commit 为 `69042ce`。用户随后在 fresh merge gate 后明确授权 Ready + merge + 默认关闭的 Pages 部署；PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) 于 2026-08-25 10:36:34 UTC 合并为 `ea3e6a80afcec64736a54b2bba65f0936f7e9ab8`。没有新增或修改 Supabase migration。
 - 新增显式 version 1 的 frontend canonical DTO/normalizer，覆盖 allocation schedule、Reservation summary/search/detail 与 PII-free shadow status；legacy booking schedule row 可转换到同一个 allocation DTO。Legacy 无法证明的 effective ownership 保持 `null`，不会从姓名、电话、group/link 或时间猜测。
 - 新增默认关闭的 `VITE_RESERVATION_READ_SHADOW`。只有已验证的馆长排期路径且值精确为 `true` 时，旧排期读取成功后才 shadow-fetch canonical allocations 与数据库 shadow status；旧 booking rows 仍是页面唯一渲染来源，loading/toast/mutation/客户读取均不受 shadow 结果影响。
 - 实时 client comparison 只覆盖两边同粒度的 Court allocations；旧 booking search 与 canonical Reservation search 粒度不同，不做会产生假告警的逐行比较。Order/detail 默认切换仍属于 Phase 4C。
 - Shadow schedule 使用 venue timezone、`(starts_at, allocation_id)` keyset pagination、重复/缺失 cursor 与 page-limit fail-closed 保护；新读取会取消上一轮未完成请求。日志只输出固定事件、count/code/totals，错误只输出安全 code，不记录姓名、邮箱、电话、备注、ID 或数据库 sample details。
 - 本地 bundled Node `v24.19.0` / pnpm `11.19.0` 已通过 14/14 adapter/fixture/privacy/pagination tests；既有 Reservation suite 为 33 tests / 32 pass / 1 个无本地 PostgreSQL 的明确 skip；全量 lint 与 production build 通过，build 只有既有 >500 kB chunk warning。Production/staging 远端 history 复核仍精确为 48 个 migrations，最新均为 Phase 4A.1 read contract。
 - 浏览器在 default-off / demo manager path 完成桌面和 390×844 手机检查：排期、订单统计/筛选、日期切周和手机底栏正常，console 无 error/warn，`reservation_read_shadow_v1` 日志为 0，证明默认关闭不发送 shadow 请求。因为本阶段没有任何可见 UI 改动，不产生伪造的 Before/After 差异图；实际 desktop/mobile 页面已人工比对。
-- 首轮固定 CI [run 32837328760](https://github.com/tujiaqi2002/badminton/actions/runs/32837328760) 在 Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL 16 下成功：既有 Reservation migration/concurrency 33/33、frontend adapter 14/14、0 skip，lint/build 全绿；Supabase Preview 因无 migration 正常跳过。PR 保持 Draft，merge/default shadow enable/生产观察仍需用户明确确认。
-- 完整中英文设计与回退说明见 [`docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md`](./docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md)。当前没有生产 DB push、默认 read/UI cutover、Stripe、Realtime 或 legacy decommission。
+- 最终 merge-head CI [run 32837678041](https://github.com/tujiaqi2002/badminton/actions/runs/32837678041) 在 Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL 16 下成功：既有 Reservation migration/concurrency 33/33、frontend adapter 14/14、0 skip，lint/build 全绿；Supabase Preview 因无 migration 正常跳过。
+- 合并后的 Pages [run 32838082873](https://github.com/tujiaqi2002/badminton/actions/runs/32838082873) build/deploy 全绿。线上首页返回 200，并引用该 run 产出的 `index-ssrRc0gW.js`；线上 bundle 中 `reservation_read_shadow_v1` 与 `VITE_RESERVATION_READ_SHADOW` 字面量均为 0，证明缺省 `false` 已在生产构建中裁剪，不会发送 shadow RPC。GitHub Actions 中没有该变量，workflow fallback 仍为 `false`。
+- 完整中英文设计与回退说明见 [`docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md`](./docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md)。合并没有生产 DB push、默认 read/UI cutover、Stripe、Realtime 或 legacy decommission；production 与 `badminton_stage` 均仍为 48 migrations。生产开启 shadow observation 仍需新的明确确认。
 
 ### Issue #142 / PR #143：Reservation Phase 4A.1 manager read contract（已合并并完成生产验证；UI 未切换）
 
@@ -60,7 +61,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 详情一次返回 Parties/roles、Sessions/allocations、payment shares/ledger 与 lineage，并确认不含 provider reference、idempotency key 或 `auth_user_id`。排期与搜索继续使用复合 keyset cursor，不形成 application N+1。
 - 生产 query plan 使用 `reservation_sessions_admin_window_idx`（约 0.134 ms）与 `reservation_allocation_memberships_effective_idx`（约 3.94 ms）。上线后 advisors 为 48 security（2 INFO / 46 WARN）和 60 performance INFO（全部 `unused_index`，0 unindexed FK），没有 Phase 4A 新安全 regression。
 - 最终 [Actions run 32832792480](https://github.com/tujiaqi2002/badminton/actions/runs/32832792480) 在 Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL `16.15` 下为 33/33、0 skip；合并后的 [Pages run 32833288305](https://github.com/tujiaqi2002/badminton/actions/runs/32833288305) build/deploy 成功。完整中英文设计与证据见 [`docs/reservation-migration/phase-4a-manager-read-contract.md`](./docs/reservation-migration/phase-4a-manager-read-contract.md)。
-- 当前 UI 仍使用 legacy read path；新 API 是已安装但尚未被默认产品消费的 foundation。下一步 Phase 4A.2 必须另行确认，并保留 legacy adapter/feature flag 与 rollback path。
+- 当前 UI 仍使用 legacy read path；新 API 是已安装但尚未被默认产品消费的 foundation。Phase 4A.2 已部署 legacy adapter/feature flag 与 rollback path，但开关仍关闭；下一步受控生产 shadow observation 必须另行确认。
 
 ### Issue #139 / PR #140：Phase 3B.2 zero-price activation recovery（已合并并完成生产验证）
 
@@ -205,7 +206,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 - 独立数据库 staging 已建立并完成 Phase 3B.1 hosted apply，但还没有自动 PR Preview 前端或每 PR 自动重建流程；UI reviewer 仍不能直接体验每个分支版本。
 - Supabase GitHub integration 会自动部署 `main` 的 pending migrations；2026-08-24 PR #126 合并后约 38 秒即应用生产，越过了原计划的 merge 后 manual dry-run 门禁。未来必须在 merge 前完成 production baseline/dry-run/授权，或先关闭该自动部署集成。
-- Phase 4A.1 migration 已在生产安装，但默认 UI 尚未消费；后续 Phase 4A.2 必须保留 legacy adapter/feature flag，并把 shadow mismatch、PII-free 日志与 rollback path 作为独立门禁。
+- Phase 4A.1 migration 已在生产安装，Phase 4A.2 的 legacy adapter/feature flag、PII-free shadow 日志与 rollback path 也已默认关闭地部署；默认 UI 尚未消费 canonical read。受控 shadow observation 仍是独立门禁。
 - 支付代码存在但未形成可证明的生产闭环，不能对客户宣称在线支付可用。
 - Reservation 迁移会跨 schema、权限、计价、付款和审计；必须按 #118 的 Phase 0–5 逐步交付，禁止一次性替换 legacy 模型。
 
@@ -247,15 +248,15 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 不把 AI 功能置于排期正确性、预览环境和测试之前。
 - 不在没有明确授权和未提交工作核对前清理旧 worktree；PR #90 已合并不等于自动授权清理。
 
-## English update: Phase 4A.1 production read contract verified
+## English update: Phase 4A.2 default-off frontend foundation deployed
 
-Phase 4A.2 is implemented on `codex/reservation-phase-4a2-shadow-adapter` after explicit user confirmation and is open as Draft PR [#145](https://github.com/tujiaqi2002/badminton/pull/145). It adds versioned canonical frontend normalizers for schedule, Reservation search/detail, and PII-free status, plus a legacy allocation adapter and an exact-`true`, default-off manager shadow flag. Legacy bookings remain the only rendered UI source. Live comparison is schedule-only because legacy and canonical schedule rows share Court-allocation cardinality; the intentionally different booking-row versus Reservation-row order searches are not forced into a misleading comparison.
+Phase 4A.2 was implemented on `codex/reservation-phase-4a2-shadow-adapter` after explicit user confirmation. After a fresh merge gate, the user authorized Ready + merge + the default-off Pages deployment. PR [#145](https://github.com/tujiaqi2002/badminton/pull/145) merged at 2026-08-25 10:36:34 UTC as `ea3e6a80afcec64736a54b2bba65f0936f7e9ab8`. It adds versioned canonical frontend normalizers for schedule, Reservation search/detail, and PII-free status, plus a legacy allocation adapter and an exact-`true`, default-off manager shadow flag. Legacy bookings remain the only rendered UI source. Live comparison is schedule-only because legacy and canonical schedule rows share Court-allocation cardinality; the intentionally different booking-row versus Reservation-row order searches are not forced into a misleading comparison.
 
 Shadow reads use venue-timezone boundaries and compound keyset pagination, abort obsolete requests, fail closed on unknown schema/cursor states, and log only counts, codes, and totals. They never control loading, toasts, mutations, customer reads, or rendering. The branch adds no migration or permission change. Bundled Node `v24.19.0` / pnpm `11.19.0` passes 14/14 adapter/privacy/pagination fixtures; the existing Reservation suite reports 32 pass / one expected no-local-PostgreSQL skip across 33 tests; lint and production build pass. Default-off desktop/mobile browser checks show no console errors, no shadow event, and no visible regression. Production and staging remain exactly aligned at 48 migrations. Full bilingual scope and rollback details are in [`docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md`](./docs/reservation-migration/phase-4a2-frontend-shadow-adapter.md).
 
-Pinned CI [run 32837328760](https://github.com/tujiaqi2002/badminton/actions/runs/32837328760) passed the 33/33 Reservation PostgreSQL suite and the 14/14 frontend adapter suite with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL 16; lint/build were also green. Supabase Preview correctly skipped because the PR contains no migration. PR #145 remains Draft, and merge or enabling production shadow observation is not authorized yet.
+Final merge-head CI [run 32837678041](https://github.com/tujiaqi2002/badminton/actions/runs/32837678041) passed the 33/33 Reservation PostgreSQL suite and the 14/14 frontend adapter suite with zero skips under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL 16; lint/build were also green. Supabase Preview correctly skipped because the PR contains no migration. Post-merge Pages [run 32838082873](https://github.com/tujiaqi2002/badminton/actions/runs/32838082873) built and deployed successfully. The live page returns 200 and references the exact `index-ssrRc0gW.js` produced by that run; both the shadow event and flag literals are absent from the live bundle because the Actions variable is unset and the workflow default is false. Production and `badminton_stage` remain at 48 migrations. Enabling production shadow observation is still unapproved.
 
-After a fresh read-only gate, the user explicitly authorized merging PR #143 and allowing the protected Supabase integration to install migration 48. PR #143 merged at 2026-08-25 09:41:17 UTC as `3db78f8d8c2b2eec58e137a57ff2f2ec5bbab61c`; the integration applied `20260825091608_reservation_phase_4a_manager_read_contract` at 09:41:55 UTC. Production and staging now both have 48 migrations. Phase 4A.2 frontend adoption, default read/UI cutover, Stripe, and legacy decommission remain excluded.
+After a fresh read-only gate, the user explicitly authorized merging PR #143 and allowing the protected Supabase integration to install migration 48. PR #143 merged at 2026-08-25 09:41:17 UTC as `3db78f8d8c2b2eec58e137a57ff2f2ec5bbab61c`; the integration applied `20260825091608_reservation_phase_4a_manager_read_contract` at 09:41:55 UTC. Production and staging now both have 48 migrations. Phase 4A.2 has since deployed only the default-off frontend foundation; feature-on observation, default read/UI cutover, Stripe, and legacy decommission remain excluded.
 
 The additive contract introduces two security-invoker v1 views and four manager-only security-invoker RPCs for schedule, Reservation search, one-call detail, and PII-free shadow status. Current effective membership determines ownership, explicit Party roles determine the primary contact, and append-only allocation/payment facts determine money state, including `no_charge` for zero-price Reservations. Legacy group/link IDs remain source trace fields only.
 
