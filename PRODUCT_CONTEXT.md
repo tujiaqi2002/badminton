@@ -146,12 +146,13 @@ Phase 3A / Issue #128 的未激活兼容基础、`venue_settings.timezone` 单�
 
 Phase 3B.1 / Issue #134 / PR #135 的**未激活事务内核**已于 2026-08-25 安装到生产，但它不改变当前产品行为。生产仍使用现有 group/link/payment/status RPC 和 legacy read path；没有 catch-up、membership、transition、dual-write trigger、新 mutation 入口或新 Realtime publication。内核为后续 merge/split/reverse、Session/Party lineage、一人/AA 付款和 append-only refund 提供 private primitive，但只有后续另行授权的 writer activation 才能调用它们。不同客户 merge 仍必须由馆长显式选择 primary contact，系统不自动推断。完整设计见 [`docs/reservation-migration/phase-3b-inactive-transaction-kernel.md`](./docs/reservation-migration/phase-3b-inactive-transaction-kernel.md)。
 
-Phase 3B.2 / Issue #136 / Draft PR #137 已在独立合成 `badminton_stage` 激活并验证 writer，但**尚未合并或激活生产**。它确定了以下目标产品语义：
+Phase 3B.2 / Issue #136 / PR #137 已合并代码，但首次自动生产 activation 因零价边界的 fail-closed assertion 停止并整笔回滚；生产仍是 inactive 3B.1。Issue #139 / Draft PR #140 recovery 已在独立合成 `badminton_stage` 验证，尚未获准合并或再次触发生产部署。目标产品语义保持如下：
 
 - 一笔 Reservation 可以承载一个或多个旧 booking group；同一个人同时订多场地，与馆长后来关联多笔预订，都用同一类 aggregate/transition 模型表达，而不是两套互不相干的概念。
 - 不同客户可以强制合并，但馆长必须显式选择 primary contact；旧 link 动作只在 primary 唯一无歧义时自动兼容。系统保留所有来源客户和 Party lineage，不合并或删除身份。
 - 合并时付款意向可选 `single_payer`、`split_equal` 或 `split_custom`；历史无证据数据继续保留为内部 `legacy_unspecified`，不猜测当年由谁付款。
 - 付款状态是 append-only ledger 的投影。“标记已付”创建 Payment/allocation；已付改回未付追加 refund，不覆盖原付款。一人、AA、部分付款与多次付款因此可以共存。
+- 零价 allocation 不需要 Payment，ledger allocation 为 0 是一致状态；不得为了显示 `paid` 而伪造 CAD 0 receipt。正价 `paid` 必须与 ledger 精确相等，任何 over-allocation 都必须拒绝。未来 read/UI 可把零价显示为“免费 / No charge”。
 - 移动与资料修改以 Session 为主要作用域；取消可按 allocation/session/reservation 明确选 scope；merge/split/reverse 只改变当前关系归属，不覆盖已有排期、价格、付款或审计历史。
 - Phase 3B.2 没有切换读取或界面；客户和馆长目前不会看到新 Reservation/Session read path 或新付款界面，当前生产的 group/link 展示与 RPC 仍为权威行为。等 Phase 4 完成 read/UI cutover 并经过生产观察、rollback window 后，才能在独立 Phase 5 高风险 Issue 中评估旧字段和 RPC 下线。
 
@@ -433,10 +434,12 @@ Phase 3B.1 / PR #135 was installed in production on 2026-08-25 as an inactive tr
 
 The private kernel provides primitives for merge/split/reverse lineage, Session and Party lineage, one-payer/AA payments, and append-only refunds, but only a separately authorized writer activation may invoke them. Different-customer merge still requires an explicit manager-selected primary contact.
 
-Phase 3B.2 / Draft PR #137 is activated and verified only on the independent synthetic `badminton_stage` database. It is not merged or active in production, and it does not switch any read path or UI.
+Phase 3B.2 / PR #137 is merged in source control, but its first automatic production activation stopped at a fail-closed zero-price assertion and the entire transaction rolled back. Production remains on inactive Phase 3B.1. Issue #139 / Draft PR #140 recovery is verified only on the independent synthetic `badminton_stage` database; it is not yet authorized for merge or another production deployment, and it switches no read path or UI.
 
 The accepted model treats a Reservation created as a multi-court group and a Reservation later assembled from linked booking groups as the same business concept: one commercial Reservation containing one or more Sessions and Court allocations. Different customers may be force-merged only through an explicit primary-contact choice, while all source identities and Party lineage remain preserved. The payment intent may be `single_payer`, `split_equal`, or `split_custom`; unverifiable historical intent remains `legacy_unspecified`.
 
 Payment status is a projection of an append-only ledger. Marking paid records a Payment and allocations; changing paid back to unpaid appends a refund instead of rewriting the original payment. Schedule and detail changes are primarily Session-scoped, cancellation must use an explicit allocation/session/reservation scope, and merge/split/reverse changes current relationship ownership without overwriting schedule, price, payment, or audit history.
+
+A zero-price allocation requires no Payment, and a zero ledger allocation is consistent; the system must not fabricate a CAD 0 receipt merely to mark it paid. Positive paid balances must reconcile exactly, and every over-allocation is rejected. A future read/UI phase may label zero-price items “No charge.”
 
 Production still presents and writes the legacy group/link behavior. Customers and managers therefore see no new Reservation/Session read path or payment UI. Legacy RPCs and fields cannot be retired until a separately authorized Phase 4 read/UI cutover has completed, production has passed its observation and rollback window, and a separate high-risk Phase 5 issue authorizes decommissioning. Stripe also remains a separate future decision.

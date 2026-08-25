@@ -22,9 +22,9 @@ begin
     into v_version_count, v_latest_version, v_version_fingerprint
   from supabase_migrations.schema_migrations;
 
-  if v_version_count <> 46
-     or v_latest_version <> '20260824181500'
-     or v_version_fingerprint <> '2eec90038ab7758e53beadf81da0164d' then
+  if v_version_count <> 47
+     or v_latest_version <> '20260825074102'
+     or v_version_fingerprint <> '10799dd49909e684c3eb035fa05fbf91' then
     raise exception
       'Phase 3B.2 migration history drift: count=% latest=% fingerprint=%',
       v_version_count,

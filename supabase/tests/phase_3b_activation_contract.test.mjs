@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { PGlite } from '@electric-sql/pglite'
 
 const activationPath = new URL(
   '../migrations/20260824172041_reservation_phase_3b_atomic_writer_activation.sql',
@@ -16,6 +17,14 @@ const rollbackPath = new URL(
 )
 const fkIndexPath = new URL(
   '../migrations/20260824181500_phase_3b_activation_fk_indexes.sql',
+  import.meta.url,
+)
+const zeroPriceRecoveryPath = new URL(
+  '../migrations/20260825074102_phase_3b_zero_price_activation_assertion.sql',
+  import.meta.url,
+)
+const hostedWriterMatrixPath = new URL(
+  './phase_3b_hosted_writer_matrix.sql',
   import.meta.url,
 )
 
@@ -82,8 +91,98 @@ test('Phase 3B.2 atomically replaces the exact 17-writer inventory', async () =>
   assert.match(sql, /reservation_phase3b_refund_payment/)
   assert.match(sql, /reservation_phase3b_apply_transition/)
   assert.match(sql, /reservation_phase3b_reverse_transition/)
+  assert.doesNotMatch(
+    sql,
+    /where \(balance\.allocated_amount >= balance\.total_amount\s+and balance\.payment_status <> 'paid'\)/,
+  )
+  assert.match(sql, /where balance\.allocated_amount > balance\.total_amount/)
+  assert.match(
+    sql,
+    /balance\.payment_status = 'paid'\s+and balance\.allocated_amount is distinct from balance\.total_amount/,
+  )
+  assert.match(
+    sql,
+    /balance\.total_amount > 0\s+and balance\.allocated_amount = balance\.total_amount\s+and balance\.payment_status <> 'paid'/,
+  )
   assert.doesNotMatch(sql, /ldbtrouofmqmnkyxiewk/)
   assert.doesNotMatch(sql, /service[_ -]?role[_ -]?(key|secret)/i)
+})
+
+test('Phase 3B.2 payment assertion accepts zero-price bookings and rejects ledger drift', async () => {
+  const sql = await readFile(activationPath, 'utf8')
+  const predicate = sql.match(
+    /\) as balance\s+(where balance\.allocated_amount[\s\S]*?balance\.payment_status <> 'refunded'\));/,
+  )?.[1]
+  assert.ok(predicate, 'payment assertion predicate must be extractable')
+
+  const db = new PGlite()
+  try {
+    const result = await db.query(`
+      select case_name
+      from (values
+        ('valid_zero_unpaid', 'pay_at_venue', 0::numeric, 0::numeric, false),
+        ('valid_zero_paid', 'paid', 0::numeric, 0::numeric, false),
+        ('valid_positive_unpaid', 'pay_at_venue', 40::numeric, 0::numeric, false),
+        ('valid_positive_partial', 'pay_at_venue', 40::numeric, 15::numeric, false),
+        ('valid_positive_paid', 'paid', 40::numeric, 40::numeric, false),
+        ('valid_refunded', 'refunded', 40::numeric, 0::numeric, true),
+        ('invalid_full_unpaid', 'pay_at_venue', 40::numeric, 40::numeric, false),
+        ('invalid_overallocated_paid', 'paid', 40::numeric, 41::numeric, false),
+        ('invalid_paid_without_ledger', 'paid', 40::numeric, 0::numeric, false),
+        ('invalid_partial_paid', 'paid', 40::numeric, 15::numeric, false),
+        ('invalid_refund_status', 'pay_at_venue', 40::numeric, 0::numeric, true)
+      ) as balance(
+        case_name,
+        payment_status,
+        total_amount,
+        allocated_amount,
+        has_refund
+      )
+      ${predicate}
+      order by case_name
+    `)
+
+    assert.deepEqual(result.rows.map((row) => row.case_name), [
+      'invalid_full_unpaid',
+      'invalid_overallocated_paid',
+      'invalid_paid_without_ledger',
+      'invalid_partial_paid',
+      'invalid_refund_status',
+    ])
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 3B.2 zero-price recovery converges old and corrected hosted schemas fail closed', async () => {
+  const sql = await readFile(zeroPriceRecoveryPath, 'utf8')
+  const hostedMatrix = await readFile(hostedWriterMatrixPath, 'utf8')
+
+  assert.match(sql, /^begin;/m)
+  assert.match(sql, /commit;\s*$/)
+  assert.equal(occurrences(sql, /^commit;$/gm), 1)
+  assert.match(sql, /v_version_count <> 46/)
+  assert.match(sql, /v_latest_version <> '20260824181500'/)
+  assert.match(sql, /pg_get_functiondef/)
+  assert.match(sql, /v_old_count = 1 and v_new_count = 0/)
+  assert.match(sql, /v_old_count = 0 and v_new_count = 1/)
+  assert.match(sql, /assertion source drifted/)
+  assert.match(sql, /security shape drifted/)
+  assert.match(
+    sql,
+    /revoke all on function private\.assert_reservation_phase3b_activation\(\)\s+from public, anon, authenticated, service_role/,
+  )
+  assert.match(sql, /select private\.assert_reservation_phase3b_activation\(\)/)
+  assert.doesNotMatch(
+    sql,
+    /\b(update|insert|delete|truncate)\s+(?:table\s+)?(?:public\.)?(?:bookings|payments|payment_allocation_entries)\b/i,
+  )
+  assert.doesNotMatch(sql, /ldbtrouofmqmnkyxiewk/)
+  assert.doesNotMatch(sql, /service[_ -]?role[_ -]?(key|secret)/i)
+
+  assert.match(hostedMatrix, /zero-price override/)
+  assert.match(hostedMatrix, /admin_create_multi_booking_with_price[\s\S]*?0::numeric/)
+  assert.match(hostedMatrix, /private\.assert_reservation_phase3b_activation\(\)/)
 })
 
 test('Phase 3B.2 diagnostics are read-only and PII-free', async () => {
@@ -91,6 +190,9 @@ test('Phase 3B.2 diagnostics are read-only and PII-free', async () => {
 
   assert.match(sql, /begin transaction read only;/i)
   assert.match(sql, /rollback;\s*$/)
+  assert.match(sql, /v_version_count <> 47/)
+  assert.match(sql, /v_latest_version <> '20260825074102'/)
+  assert.match(sql, /10799dd49909e684c3eb035fa05fbf91/)
   assert.match(sql, /assert_reservation_phase3b_activation/)
   assert.doesNotMatch(sql, /\b(insert|update|delete|truncate|alter|drop|create)\b/i)
   assert.doesNotMatch(

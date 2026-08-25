@@ -291,6 +291,17 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 
 阶段结果：#137 的准备与重新验证门禁全部 clean，但仍停留在 Draft。生产继续是 44 migrations 和 inactive 3B.1；只有新的明确授权才能合并 #137 并由 integration 激活 migrations 45–46。
 
+## 27. 2026-08-25：Phase 3B.2 首次生产 activation 回滚并完成零价恢复验证
+
+- 用户在独立 review 后明确授权合并 PR #137。PR 于 07:16:55 UTC 合并到 `main`，但 Supabase protected-branch deployment 在 migration 45 的最终 fail-closed assertion 返回 `payment=1` / SQLSTATE `55000`。整个 activation transaction 回滚；生产继续是 44 migrations、inactive 3B.1、17 direct writers + 3 wrappers、0 operation/membership/transition，且没有 activation objects 或 private legacy delegates。
+- PII-free 只读诊断定位到唯一一条合法零价预约：total 和 allocation 都为 0、`pay_at_venue`、无 Payment/refund。旧 predicate 的 `0 >= 0` 误要求 paid，与 schema/manager override/Phase 3A projection/payment primitive 的既有零价语义冲突；没有修改该预约或伪造零金额 Payment。
+- 创建 Issue #139 并在用户明确确认后开始 recovery。Migration 45 因从未进入生产 history，只修正最终 payment predicate；已应用旧 45 的 staging 通过 append-only migration `20260825074102` 收敛。Migration 47 要求精确 46-version baseline，以 `pg_get_functiondef` 唯一匹配旧/新 source shape，未知形状 fail closed，并保留 private security-invoker/empty-search-path/owner-only EXECUTE 边界。
+- Staging 正式推进到 47 migrations。旧形状替换演练、新形状 no-op 演练、Phase 2/3A/3B diagnostics 和含 CAD 0 manager override 的 17-writer matrix 全部通过；持久数据回到 192/192，shadow/session/payment/incomplete-operation 全为 0。Advisors 保持 50 security 与 60 performance INFO（全部 unused index，0 unindexed FK）。
+- Bundled Node `v24.19.0` / pnpm `11.19.0` 本地得到 27/28 pass、0 fail、1 个无本地 PostgreSQL 的明确 skip，lint/build 通过。新增 SQL truth table 覆盖零价、正价 unpaid/partial/paid、refund、paid-without-ledger 与 over-allocation。[Actions run 32823781076](https://github.com/tujiaqi2002/badminton/actions/runs/32823781076) 在 Node 22 / pnpm 11.16.0 / PostgreSQL 16 下为 28/28、0 skip，真实并发、lint/build 全绿。
+- 07:43–07:44 UTC fresh production read-only preflight 再次确认 44 migrations、Phase 2/3A/3B.1 diagnostics clean、123/135/192/131/23/26 / CAD 1,642.00、kernel 0/0/0、17 direct + 3 wrappers；activation/Session-assignment/explicit-primary/private-legacy objects 不存在，Edge Functions 为 0，advisors 仍为 47 security / 62 performance INFO。
+
+阶段结果：零价恢复已经在独立 staging 和 pinned CI 完成并建立 Draft PR #140，生产继续安全停在 44 migrations。PR merge 和再次触发 production migrations 45–47 仍需后续独立授权；read/UI、Stripe 与 legacy decommission 未进入本阶段。
+
 ---
 
 ## English record
@@ -328,3 +339,19 @@ A live security audit confirmed that the new explicit-primary RPC has an empty `
 The 07:05 UTC production read-only preflight passed on healthy PostgreSQL 17.6 with 44 migrations, the 123/135/192/131/23/26 / CAD 1,642.00 reconciliation, 1,739 audits, 236 public functions, 17 direct writers and three wrappers, and an inactive 0/0/0 kernel. Activation, Session-assignment, and explicit-primary objects are absent; Realtime still publishes only `court_slots`, no Edge Functions exist, and advisors remain at 47 security / 62 performance INFO. Bundled Node `v24.19.0` / pnpm `11.19.0` passed 25/26 locally with one explicit no-local-PostgreSQL skip plus lint/build; fresh [Actions run 32819898640](https://github.com/tujiaqi2002/badminton/actions/runs/32819898640) passed 26/26 with no skips plus lint/build under Node 22 / pnpm 11.16.0 / PostgreSQL 16.
 
 Stage result: every preparation and revalidation gate for #137 is clean, but the PR remains Draft. Production stays at 44 migrations with inactive Phase 3B.1; a new explicit authorization is required before merging #137 and allowing the integration to activate migrations 45–46.
+
+### 27. 2026-08-25: First Phase 3B.2 production activation rolled back and zero-price recovery validated
+
+After separate review, the user explicitly authorized merging PR #137. It merged at 07:16:55 UTC, but the protected Supabase deployment stopped in migration 45's final fail-closed assertion with `payment=1` and SQLSTATE `55000`. The whole activation transaction rolled back. Production stayed at 44 migrations with inactive Phase 3B.1, 17 direct writers plus three wrappers, zero operations/memberships/transitions, and none of the activation objects or private legacy delegates.
+
+PII-free read-only diagnosis found one legitimate zero-price booking: total zero, allocation zero, `pay_at_venue`, and no Payment/refund. The old `0 >= 0` predicate incorrectly required paid, conflicting with the established schema, manager override, Phase 3A projection, and payment-primitive semantics. No booking was changed and no zero-value Payment was fabricated.
+
+Issue #139 was created and recovery started only after explicit confirmation. Migration 45's final predicate is corrected because that migration never entered production history. Append-only migration `20260825074102` converges staging, where the old 45 was already recorded, by requiring the exact 46-version baseline and uniquely matching the old or corrected `pg_get_functiondef` source shape; every unknown shape fails closed. The assertion remains private, security invoker, empty-search-path, and owner-only.
+
+Staging advanced to 47 migrations. Old-shape replacement and corrected-shape no-op rehearsals, Phase 2/3A/3B diagnostics, and the 17-writer matrix with a CAD 0 manager override all passed. Persistent state returned to 192/192 with zero shadow, Session, payment, or incomplete-operation drift. Advisors remained at 50 security and 60 performance INFO findings, all unused indexes and zero unindexed foreign keys.
+
+Bundled Node `v24.19.0` / pnpm `11.19.0` passed 27 of 28 tests with zero failures and one explicit no-local-PostgreSQL skip; lint and build passed. The added SQL truth table covers zero-price, positive unpaid/partial/paid, refund, paid-without-ledger, and over-allocation. [Actions run 32823781076](https://github.com/tujiaqi2002/badminton/actions/runs/32823781076) passed 28/28 with zero skips plus real concurrency, lint, and build under Node 22 / pnpm 11.16.0 / PostgreSQL 16.
+
+The 07:43–07:44 UTC production read-only preflight again confirmed 44 migrations, clean Phase 2/3A/3B.1 diagnostics, the 123/135/192/131/23/26 / CAD 1,642.00 reconciliation, a 0/0/0 kernel, and 17 direct writers plus three wrappers. Activation, Session-assignment, explicit-primary, and private-legacy objects are absent; zero Edge Functions are deployed, and advisors remain 47 security / 62 performance INFO.
+
+Stage result: zero-price recovery is complete on the isolated stage and pinned CI, and Draft PR #140 is open, while production remains safely at 44 migrations. Merge and another production attempt for migrations 45–47 remain separately gated. Read/UI, Stripe, and legacy decommission are outside this phase.

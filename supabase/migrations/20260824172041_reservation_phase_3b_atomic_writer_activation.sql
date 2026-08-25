@@ -3733,7 +3733,11 @@ begin
     left join public.payments as payment on payment.id = entry.payment_id
     group by booking.id, booking.payment_status, booking.total_amount
   ) as balance
-  where (balance.allocated_amount >= balance.total_amount
+  where balance.allocated_amount > balance.total_amount
+     or (balance.payment_status = 'paid'
+      and balance.allocated_amount is distinct from balance.total_amount)
+     or (balance.total_amount > 0
+      and balance.allocated_amount = balance.total_amount
       and balance.payment_status <> 'paid')
      or (balance.allocated_amount > 0
       and balance.allocated_amount < balance.total_amount
