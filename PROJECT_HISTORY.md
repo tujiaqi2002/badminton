@@ -342,6 +342,16 @@ AdminSchedule 与 AdminCapacity 现在可共用 canonical rows；venue-timezone 
 
 只读 diagnostic 继续为 48 migrations、192/192 memberships/allocations、123 Reservations、0 mismatch、17/0/17/3 writers、7 FORCE RLS 和 `court_slots`-only Realtime。Bundled Node v24.19.0 / pnpm 11.19.0 下 82 tests 为 81 pass、1 skip、0 fail，lint 与 production/staging builds 通过。没有 migration、DB push、生产配置或 legacy 删除；工作停在 Draft PR 评审前，Phase 4B.2、生产切换/部署与 decommission 各自另行授权。
 
+## 35. 2026-08-25：Phase 4B.1 以 default-legacy 发布生产
+
+用户在 Draft PR #149 完成 staging、浏览器和最终 CI 验证后同意继续。按 Issue #148 的顺序门禁，这次授权明确限定为 Ready、merge 和 default-legacy Pages deployment；不包含设置 production canonical selector、Phase 4B.2、数据库变化或 decommission。Fresh preflight 确认 PR 0 behind、mergeable/CLEAN、无 migration diff，Actions 中没有 schedule-source variable。
+
+PR #149 于 13:13:04 UTC 合并为 `560ecdc2d738b6bc42d03421e781ba73adac249c`。Pages [run 32852015723](https://github.com/tujiaqi2002/badminton/actions/runs/32852015723) 从同一 commit build/deploy 成功；线上首页 HTTP 200 并加载 `index-B_GCKKvu.js`。实际 bundle 中 canonical allocation RPC、staging project ref 和 schedule-source flag 均为 0，production project ref 为 1。真实页面正常渲染，console error/warn 为 0，因此 default-legacy fail-closed 边界在生产 artifact 上成立。
+
+上线后 Phase 4A 只读 diagnostic 仍为 48 migrations、192 bookings/memberships、192 canonical allocations、123 Reservations、全部 mismatch 0、17/0/17/3 writer boundary、7 FORCE RLS 和 `public.court_slots`-only Realtime。本次没有 pending migration、DB push、permission、writer、数据或 publication 变化。
+
+阶段结果：Phase 4B.1 frontend foundation 已进入生产代码并保持关闭，线上用户仍由 legacy schedule source 服务。production canonical 默认切换、Phase 4B.2 detail/actions 与 Phase 5 decommission 继续是三个独立门禁。
+
 ## English record
 
 ### 24. 2026-08-24: Phase 3B.2 atomic staging activation
@@ -497,3 +507,13 @@ AdminSchedule and AdminCapacity can now share canonical rows. Venue-timezone key
 A real synthetic manager in `badminton_stage` completed Chinese/English desktop and 390×844 mobile validation. Two Court 1/Court 2 allocations appeared on September 7, capacity showed three remaining Courts, and the page had no overflow. API logs recorded ten successful canonical RPC calls and zero direct legacy bookings schedule GETs during this run. The account signed out after verification.
 
 The read-only diagnostic remains clean at 48 migrations, 192/192 memberships/allocations, 123 Reservations, zero mismatch, the 17/0/17/3 writer boundary, seven FORCE RLS tables, and `court_slots`-only Realtime. Bundled Node v24.19.0 / pnpm 11.19.0 produced 81 passes, one skip, and zero failures across 82 tests; lint and both production/staging builds passed. No migration, database push, production configuration, or legacy removal occurred. Work stops before Draft PR review; Phase 4B.2, production cutover/deployment, and decommission each require separate authorization.
+
+### 35. 2026-08-25: Phase 4B.1 deployed to production as default legacy
+
+After Draft PR #149 completed staging, browser, and final CI validation, the user approved continuing. Under the ordered Issue #148 gate, the authorization was explicitly limited to Ready, merge, and a default-legacy Pages deployment. It did not include a production canonical selector, Phase 4B.2, a database change, or decommission. The fresh preflight showed the PR 0 behind, mergeable/CLEAN, with no migration diff and no schedule-source variable in Actions.
+
+PR #149 merged at 13:13:04 UTC as `560ecdc2d738b6bc42d03421e781ba73adac249c`. Pages [run 32852015723](https://github.com/tujiaqi2002/badminton/actions/runs/32852015723) successfully built and deployed that commit. The live HTTP-200 page loaded `index-B_GCKKvu.js`. The exact bundle contained zero canonical allocation RPC, staging project-reference, or schedule-source flag occurrences and one production project-reference occurrence. The real page rendered normally with no console errors or warnings, proving the fail-closed default-legacy boundary in the production artifact.
+
+The post-deployment Phase 4A read-only diagnostic remained clean at 48 migrations, 192 bookings/memberships, 192 canonical allocations, 123 Reservations, zero mismatch, the 17/0/17/3 writer boundary, seven FORCE RLS tables, and `public.court_slots`-only Realtime. No pending migration, database push, permission, writer, data, or publication changed.
+
+Stage result: the Phase 4B.1 frontend foundation is present in production code but inactive, and live users remain on the legacy schedule source. Production canonical default adoption, Phase 4B.2 detail/actions, and Phase 5 decommission remain three independent gates.
