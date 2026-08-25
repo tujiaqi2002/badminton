@@ -247,7 +247,27 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 
 阶段结果：production-like hosted Supabase apply 与 follow-up PostgreSQL CI 门禁均已完成，且在真正 merge 前发现并修复了一个 collation portability bug。生产仍是 42 migrations 和 legacy write/read path；下一步只能在 fresh production preflight 后由用户单独确认是否 merge/自动部署。
 
-## 24. 2026-08-25：Phase 3B.1 以未激活状态安装到生产
+## 24. 2026-08-24：Reservation Phase 3B.2 在独立 staging 原子激活
+
+- 按高风险门禁创建 Issue #136，并在用户确认后从 Draft PR #135 head 建立 `codex/phase-3b-atomic-writer-activation`。提交后建立 Draft PR #137，base 精确指向 `codex/phase-3b-inactive-transaction-kernel`，保持 3B.1 / 3B.2 一目标一分支。授权只包含 staging activation/validation；PR merge、production writes、read/UI cutover、Stripe 和 legacy decommission 仍被明确排除。
+- 第 45 个 append-only migration 在一个 transaction 中冻结旧定义、移入 17 个 private legacy delegates，并以相同 public signatures 重建授权优先的 Phase 3B entries。3 个 wrappers 保持 indirect，最终边界为 17 public entries / 0 public direct legacy writers / 17 private delegates / 3 wrappers。
+- 为表达移动、merge/split/reverse 后 physical/effective Session 的演进，新增 append-only `reservation_session_assignments` 和 membership pointer；controlled activation context 允许 legacy delegate 的事务中间态，deferred constraint 保证提交前 aggregate、legacy projection、payment 与 audit 一致。
+- 新的 manager-only explicit-primary link RPC 支持不同客户 merge 与 single/equal/custom payment intent。旧 link 仅在 primary 无歧义时兼容；mark-paid 追加 Payment/allocation，paid 改为 unpaid 追加 refund，不删除旧账本事实。
+- 多次 hosted `BEGIN`/`ROLLBACK` dry-run 在真实 PostgreSQL 17.6 中发现并修复六类只靠静态 review 难以发现的兼容问题：operation type 闭集限制、Session-assignment deterministic UUID 缺口、schedule-only membership transition shape、PostgreSQL 不支持 `min(uuid)`、legacy split 的 `legacy_unspecified` intent，以及 Phase 3A raw shadow 对新 effective relationship 的预期 mismatch。修复都进入同一 activation migration 并在真实应用前完成。
+- activation 只应用到 `badminton_stage`，并将远端历史精确对齐 repo version `20260824172041`。该项目随后有 192 memberships、0 shadow/session/payment drift、0 incomplete operation、7 张 FORCE RLS Phase 3B 表、zero client DML/private EXECUTE，Realtime 仍只有 `court_slots`。
+- synthetic hosted writer matrix 在一个外层 transaction 内覆盖 17 个 direct writers、explicit primary、permission rejection、idempotent retry 和 late rollback；运行中临时新建 8 条 booking，回滚后持久 stage 恢复 192 memberships 和 clean diagnostic。
+- 多个真实 hosted connection 验证 same-key payment、same-booking competing schedules 和 overlapping merge scopes 无 drift；Phase 3B.1 的 PostgreSQL 16 CI 继续提供 same-key Payment、overlapping AA 与 competing refund 的 committed-winner 证据。
+- emergency rollback artifact 在已激活 stage 上以外层 transaction 完整演练：内部成功恢复 17 public legacy writers 且不删除历史，外层 rollback 后持久 stage 恢复 activated 并无数据污染。
+- performance advisor 在 activation 后报告 8 个 composite FK 列顺序缺口；第 46 个 performance-only follow-up 补全 8 个索引，`unindexed_foreign_keys` 降为 0。剩余 62 条全部为 INFO，主要是 fresh synthetic stage 的 unused indexes，不删除。
+- Phase 2 diagnostic 在 staging synthetic fingerprints 下仍返回 123 Reservations、135 Sessions、192 allocations、131 Parties、23 Payments、26 allocations / CAD 1,642.00；Phase 3A diagnostic 已向前兼容 activated catalog 并保持 0 mismatch。Stage migration history 最终与 repo 46 个 version/name 完全一致。
+- Codex bundled Node `v24.19.0` / pnpm `11.19.0` 的最终本地门禁为 26 tests 中 25 pass / 0 fail / 1 个无本地 PostgreSQL URL 的明确 skip，lint/build 通过，仅有既有 large-chunk warning。固定 Node 22 / pnpm 11.16.0 / PostgreSQL 16 PR CI 继续作为最终环境兼容门禁。
+- Draft PR #137 实现提交的 [Actions run 32761921315](https://github.com/tujiaqi2002/badminton/actions/runs/32761921315) 在固定 Node 22 / pnpm 11.16.0 / PostgreSQL 16-alpine 中得到 26/26 pass、0 fail、0 skip，真实 Payment/AA/refund races、lint 与 build 均通过。Supabase Preview 仍因未配置付费 branch 而预期 skip，独立 stage 的 hosted apply/matrix/rollback 已另行完成。
+- staging 验收后于 18:26 UTC 执行 fresh production read-only preflight：生产仍是 healthy PostgreSQL 17.6 / 42 migrations / Phase 3A，Phase 2/3A diagnostics 及 123/135/192/131/23/26 / CAD 1,642.00 对账通过，192/192 owned、0 shadow mismatch、17 direct + 3 safe wrapper、236 public functions、1,739 audits、composite payment FK、仅 `court_slots` Realtime、0 Edge Functions 和 47/40 advisor 基线全部无漂移。Phase 3B kernel/activation/Session assignment 明确尚未存在于生产。
+- Git 同期为 `main` / #135 / #137 = 42 / 44 / 46 migrations，#135 相对 main 0 behind / 5 ahead，#137 相对 #135 0 behind / 3 ahead，两个 Draft PR 均 mergeable 且 CI green。因此生产顺序继续拆分：先只授权 #135 安装 inactive kernel 并验证，再独立决定 #137 activation；本次 preflight 不自动授权任何 merge。
+
+阶段结果：Phase 3B.2 的 staging-only activation、writer matrix、hosted contention、diagnostics、advisors、emergency rollback rehearsal 和当时的 fresh production read-only preflight 已完成。生产在该时点仍为 42 migrations 且继续使用 legacy write/read path；#137 activation 仍需等 #135 inactive kernel 单独上线验证后重新授权。Legacy 下线仍属于 Phase 5。
+
+## 25. 2026-08-25：Phase 3B.1 以未激活状态安装到生产
 
 - 用户明确授权的边界只有合并 PR #135 并由 Supabase integration 自动安装 inactive kernel；不授权 PR #137 activation、read/UI cutover、Stripe 或 legacy decommission。
 - 06:22 UTC fresh production preflight 确认远端仍为 42 个 migrations、PR 0 behind / 5 ahead 且 CI 全绿；Phase 2/3A diagnostics、17 direct writers / 3 wrappers、Realtime 与 47/40 advisor 基线均符合预期。
@@ -259,11 +279,33 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 
 阶段结果：生产 migration history 已精确推进到 44，Phase 3B.1 的事务能力已安装但完全未激活。下一步若要进入 Phase 3B.2，必须单独 review PR #137、重新执行 fresh production preflight，并获得明确的 merge/生产激活授权。
 
+## 26. 2026-08-25：Phase 3B.2 整理到最新 main 并完成重新验证
+
+- 用户明确授权只把 Draft PR #137 整理到最新 `main`、把 base 改为 `main`，并重跑 staging、CI 与 production read-only preflight；不授权 merge、生产 migration/write/catch-up、read/UI、Stripe 或 legacy decommission。
+- 为避免改写历史和 force-push，以非破坏性 merge commit `693ca38` 合入 `main` 的 #135/#138 内容；PR #137 随后改为 `main` base，保持 Draft / MERGEABLE / CLEAN。
+- Staging 46-version history 与 migration 文件完全一致。Phase 2 diagnostic 使用同一 synthetic fingerprints 专门化后通过；Phase 3A 和 3B.2 diagnostics 也通过。17-writer matrix 在外层 transaction 内通过并回滚，持久 baseline 回到 192/192，所有 shadow/session/payment drift 与 incomplete operation 为 0。
+- Fresh catalog security audit 确认新 explicit-primary RPC 是受控 manager entry：空 `search_path`、先调用 `private.require_manager()`、anon/public 无 EXECUTE，仅 authenticated/service_role 有入口。因此 staging security 正确基线是 50，不是旧记录的 49。
+- Staging 的 unindexed-FK advisor 保持 0；writer matrix 前后 unused-index INFO 从 62 变为 60，证明这是会随访问统计变化的运行指标，不能当固定 schema fingerprint。
+- Fresh production read-only preflight 于 07:05 UTC 通过：healthy PostgreSQL 17.6 / 44 migrations，123/135/192/131/23/26 / CAD 1,642.00、1,739 audits、236 public functions、17 direct / 3 wrappers，kernel 0/0/0。Activation/Session-assignment/explicit-primary objects 不存在，Realtime 仅 `court_slots`，Edge Functions 为 0，advisors 保持 47 security / 62 performance INFO。
+- Bundled Node `v24.19.0` / pnpm `11.19.0` 本地为 25/26 pass、0 fail、1 个无本地 PostgreSQL 的明确 skip，lint/build 通过；fresh [Actions run 32819898640](https://github.com/tujiaqi2002/badminton/actions/runs/32819898640) 在 Node 22 / pnpm 11.16.0 / PostgreSQL 16 为 26/26、0 skip，lint/build 全绿。
+
+阶段结果：#137 的准备与重新验证门禁全部 clean，但仍停留在 Draft。生产继续是 44 migrations 和 inactive 3B.1；只有新的明确授权才能合并 #137 并由 integration 激活 migrations 45–46。
+
 ---
 
 ## English record
 
-### 24. 2026-08-25: Phase 3B.1 installed in production while inactive
+### 24. 2026-08-24: Phase 3B.2 atomic staging activation
+
+After Issue #136 received explicit confirmation, a separate branch was stacked on Draft PR #135, preserving one objective per branch. The scope remained staging activation and validation only; merge, production writes, read/UI cutover, Stripe, and legacy decommission were excluded.
+
+Migration 45 atomically freezes and moves all 17 legacy direct writers to private delegates, recreates the same public signatures as authorization-first Phase 3B entries, and keeps the three wrappers indirect. It adds append-only Session assignment history, explicit-primary different-customer merge, stable idempotency, append-only Payment/refund behavior, and commit-time projection checks. Repeated hosted rollback dry-runs exposed and resolved operation-type, deterministic-ID, membership-shape, PostgreSQL UUID aggregate, legacy payment-plan, and Phase 3A shadow-compatibility issues before the real stage apply.
+
+The activation was applied only to `badminton_stage`. The full synthetic 17-writer matrix, permission and retry paths, multi-connection payment/schedule/relationship contention, all Phase 2/3A/3B diagnostics, and an emergency rollback rehearsal passed. Migration 46 added eight ordered composite-FK indexes and reduced the unindexed-FK advisor count to zero. The stage history exactly matched 46 repository migrations and returned to a clean persistent 192-membership baseline after every rollback test. Bundled Node `v24.19.0` / pnpm `11.19.0` produced 25 passes, zero failures, and one explicit local-PostgreSQL skip across 26 tests; lint and build passed. [Actions run 32761921315](https://github.com/tujiaqi2002/badminton/actions/runs/32761921315) then passed 26/26 tests with zero skips plus lint/build under pinned Node 22 / pnpm 11.16.0 / PostgreSQL 16.
+
+A read-only production preflight at that time passed with production healthy at 42 Phase 3A migrations. Phase 2/3A diagnostics, aggregate and ledger counts, 192/192 ownership, zero shadow drift, 17 direct writers plus three safe wrappers, 1,739 audit events, the composite payment FK, `court_slots`-only Realtime, zero deployed Edge Functions, and the 47/40 advisor baseline were unchanged. No production activation was authorized.
+
+### 25. 2026-08-25: Phase 3B.1 installed in production while inactive
 
 - The user explicitly authorized only merging PR #135 and allowing the Supabase integration to install the inactive kernel. PR #137 activation, read/UI cutover, Stripe, and legacy decommission were not authorized.
 - The 06:22 UTC fresh production preflight confirmed 42 remote migrations, a 0-behind/5-ahead mergeable PR with green CI, clean Phase 2/3A diagnostics, 17 direct writers and 3 wrappers, unchanged Realtime, and the expected 47/40 advisor baseline.
@@ -274,3 +316,15 @@ Tiger 最重要的产品决定是没有照单全收，而是先服务一家拥�
 - PR #137 remains Draft and staging-only. Production did not activate new writers, run catch-up, switch reads, or retire any legacy capability.
 
 Stage result: production migration history now stops exactly at 44, with Phase 3B.1 transaction capabilities installed but entirely inactive. Entering Phase 3B.2 requires a separate review of PR #137, another fresh production preflight, and explicit authorization to merge and activate it in production.
+
+### 26. 2026-08-25: Phase 3B.2 reorganized onto latest main and revalidated
+
+The user authorized only reorganizing Draft PR #137 onto the latest `main`, changing its base to `main`, and repeating staging, CI, and production read-only preflight. Merge, production migration/write/catch-up, read/UI, Stripe, and legacy decommission remained unauthorized.
+
+Non-destructive merge commit `693ca38` incorporated the merged #135/#138 history without rewriting or force-pushing. PR #137 now targets `main` and remains Draft, mergeable, and clean. Staging still matches all 46 repository migrations. The Phase 2 diagnostic passed after applying the same synthetic staging fingerprints, the Phase 3A and 3B.2 diagnostics passed, and the rolled-back 17-writer matrix returned the persistent database to 192/192 with zero drift or incomplete operations.
+
+A live security audit confirmed that the new explicit-primary RPC has an empty `search_path`, immediately requires a manager, denies anonymous/public EXECUTE, and grants entry only to authenticated/service_role. The correct staging security count is therefore 50 rather than the previously recorded 49. Unindexed-FK notices remain zero; unused-index INFO moved from 62 to 60 after the matrix exercised two indexes, confirming that it is runtime usage data rather than a fixed schema fingerprint.
+
+The 07:05 UTC production read-only preflight passed on healthy PostgreSQL 17.6 with 44 migrations, the 123/135/192/131/23/26 / CAD 1,642.00 reconciliation, 1,739 audits, 236 public functions, 17 direct writers and three wrappers, and an inactive 0/0/0 kernel. Activation, Session-assignment, and explicit-primary objects are absent; Realtime still publishes only `court_slots`, no Edge Functions exist, and advisors remain at 47 security / 62 performance INFO. Bundled Node `v24.19.0` / pnpm `11.19.0` passed 25/26 locally with one explicit no-local-PostgreSQL skip plus lint/build; fresh [Actions run 32819898640](https://github.com/tujiaqi2002/badminton/actions/runs/32819898640) passed 26/26 with no skips plus lint/build under Node 22 / pnpm 11.16.0 / PostgreSQL 16.
+
+Stage result: every preparation and revalidation gate for #137 is clean, but the PR remains Draft. Production stays at 44 migrations with inactive Phase 3B.1; a new explicit authorization is required before merging #137 and allowing the integration to activate migrations 45–46.

@@ -233,7 +233,33 @@ Production writer inventory 仍为 17 direct / 3 wrappers / 2 undeployed Stripe 
 
 上线后 security advisor 保持 47（2 INFO / 45 WARN），没有 Phase 3B.1 新 security finding。Performance advisor 为 62 INFO：4 `unindexed_foreign_keys` + 58 `unused_index`，无 WARN/ERROR。4 条 FK 提示对应 membership effective Session/origin 和 transition allocation from/to 的 composite 列顺序；Draft PR #137 的 performance-only follow-up 已在 staging 为这些及 activation 新增 FK 补齐 8 个 ordered indexes，但尚未授权生产。
 
-Draft PR #137 / Issue #136 的 Phase 3B.2 activation 仍只在 `badminton_stage` 验证：stage 为 46 migrations、192 memberships、17/0/17/3 writer boundary、0 shadow/session/payment drift、0 incomplete operations。#135 的 production inactive 验证是 #137 的必要前置，不是 merge/activation 授权。
+### Phase 3B.2 atomic writer activation（Issue #136 / Draft PR #137；staging 已激活，生产未应用）
+
+Issue #136 最初授权在 `badminton_stage` 激活和验证 writer。#135 与 docs-only #138 合并后，用户于 2026-08-25 只授权把 Draft PR #137 head 整理到最新 `main`、把 PR base 改为 `main` 并重跑 staging/CI/production read-only preflight。Production migration/write/catch-up、PR merge、read/UI cutover、Stripe 和 legacy decommission 全部保持未授权。
+
+Migration `20260824172041_reservation_phase_3b_atomic_writer_activation` 使用单一 `BEGIN`/`COMMIT` 原子完成 17-writer activation。它先核对 44-version baseline fingerprint、Phase 3B.1 inactive kernel、Phase 3A shadow、RLS/grants/Realtime 与 17 direct / 3 wrapper inventory；任一前置不符都在替换 function 前 fail closed。旧 public function 的规范化定义和 hash 被冻结到 private inventory，随后 17 个精确 signature 被移到 `private.reservation_phase3b_legacy_*`；同名 public signature 重建为 `SECURITY DEFINER SET search_path = ''` entry，先校验调用者，再在受控 activation context 中委托 legacy mutation 并调用 private transaction primitive。
+
+Activation 边界是 17 public entries / 0 public direct legacy writers / 17 private legacy delegates / 3 public wrappers。Private legacy delegates 和 primitives 对 client roles 无 EXECUTE；public entries 保持既有最小 grant。唯一新入口 `admin_link_booking_groups_with_primary(uuid,uuid,uuid,text)` 只 grant 给 `authenticated` 与 `service_role`，并立即调用 `private.require_manager()`；这是 security advisor 保留 `authenticated_security_definer_function_executable` WARN 的有意设计，不是匿名或无授权入口。
+
+`reservation_session_assignments` 是第七张 Phase 3B public append-only 表，记录 booking 的 origin projection Session 和 effective Session 每次变化。`reservation_allocation_memberships.last_session_assignment_id` 把当前 projection 指向对应历史事实；controlled activation context 与 deferred projection constraint trigger 保证 legacy delegate 中间态不被误拒，但提交前 physical/effective Session、membership、price、payment 和 audit 必须一致。表强制 RLS，client DML grant 为 0，不加入 Realtime。
+
+Stable `x-idempotency-key` 驱动 operation id/request fingerprint。Create、schedule、cancel/restore、details、mark-paid/refund、link/unlink、undo/revert 都经由 Phase 3B primitive；mark-paid 追加 Payment/allocation，paid 转 unpaid 追加 refund。不同客户 merge 通过新的 explicit-primary RPC 选择 primary Party 和 `single_payer` / `split_equal` / `split_custom`；旧双参数 link 只在 primary 无歧义时委托，内部 split 可保留 `legacy_unspecified`。
+
+Migration 安装时为 staging 的 192 个 booking 建立 192 条 effective membership；不修改 immutable booking origin。新 `private.assert_reservation_phase3b_activation()` 只输出 PII-free counts/status，核对 migration、activation state、17/0/17/3 writer boundary、192 membership、Phase 3B-aware shadow、physical/effective Session、payment projection、zero started operations、7 张 FORCE RLS 表、zero client DML/private EXECUTE 与仅 `court_slots` Realtime。旧 Phase 3A diagnostic 也改为同时支持 pre-activation 17 direct 和 post-activation 17/17/3 catalog。
+
+Migration `20260824181500_phase_3b_activation_fk_indexes` 是独立 performance-only follow-up，为 membership effective Session/origin、4 组 Session assignment 和 transition allocation from/to 共 8 个 composite FK 建立声明列顺序索引。它不分拆 activation 的原子性，也不改变 writer 或业务行为。Staging performance advisor 的 `unindexed_foreign_keys` 已从 8 变为 0；剩余 `unused_index` INFO 数量随测试访问统计变化，不根据 fresh/synthetic 流量删除索引。
+
+Hosted staging 现已精确对齐 46 个 repo version/name，诊断返回 `phase_3b_atomic_writer_activation_verified`：192 memberships、0 shadow/session/payment drift、0 incomplete operation、RLS/grants/Realtime boundary clean。全部 17 writers 的 synthetic matrix 在外层 transaction 中通过 success、permission rejection、idempotent retry 和 late rollback，持久 stage 数据回到 192/192 clean baseline。多连接 hosted contention 另外验证 same-key payment、同 booking 两个 schedule 与 overlapping merge scopes；Phase 3B.1 PostgreSQL CI 保留 same-key Payment、overlapping AA 和 competing refund 的 committed-winner 证据。
+
+最终本地门禁显式使用 Codex bundled Node `v24.19.0` 与 pnpm `11.19.0`：`pnpm run test:reservation` 共 26 tests，25 pass / 0 fail / 1 skip；skip 仅因本机未设 `PHASE3B_POSTGRES_URL`，对应真实 Payment/AA/refund concurrency 用例由 PostgreSQL CI 执行。`pnpm run lint` 与 `pnpm run build` 通过，Vite 6.4.3 仅保留既有 >500 kB chunk warning。内置版本与仓库固定 Node 22 / pnpm 11.16.0 不同，因此 PR CI 仍是生产兼容性门禁。
+
+Draft PR #137 已通过非破坏性 merge `693ca38` 对齐最新 `main` 并把 base 改为 `main`，保持 Draft。Fresh [Actions run 32819898640](https://github.com/tujiaqi2002/badminton/actions/runs/32819898640) 已在 Node 22 / pnpm 11.16.0 / PostgreSQL 16-alpine 下完整通过：26/26 tests、0 fail、0 skip，真实 Payment/AA/refund concurrency、lint 和 build 都是 green。Supabase Preview 仍因 Free plan 未配置 preview branch 而预期 skip；它不替代独立 `badminton_stage` hosted apply/matrix/rollback 证据。
+
+2026-08-25 07:04–07:05 UTC fresh baseline 显示 production `ACTIVE_HEALTHY` / PostgreSQL 17.6 / 44 migrations，3B.1 kernel inactive；staging 为 46 migrations和 activated 17/0/17/3 boundary。Production advisors 是 47 security（2 INFO / 45 WARN）和 62 performance INFO（4 `unindexed_foreign_keys` + 58 `unused_index`）；staging 是 50 security（2 INFO / 48 WARN），performance 在 writer matrix 前后由 62 变为 60 个 `unused_index` INFO，`unindexed_foreign_keys` 始终为 0。旧 staging security 49 少计了新 `admin_link_booking_groups_with_primary` 的 intentional authenticated-definer warning；live catalog 复核确认 `prosecdef=true`、`search_path=\"\"`、函数入口调用 `private.require_manager()`、anon/public 无 EXECUTE，ACL 仅 postgres/authenticated/service_role，因此该 WARN 是预期且受控的 manager entry。
+
+Fresh production preflight 全部在 read-only transaction/catalog API 内完成：Phase 2/3A/3B.1 diagnostics 通过，123 Reservations、135 Sessions、192/192 owned allocations、131 Parties、23 Payments、26 allocations / CAD 1,642.00、1,739 audits、236 public functions；kernel 为 0 operation / 0 membership / 0 transition，writer 仍为 17 direct / 3 wrappers。Activation state table、Session-assignment table 与 explicit-primary RPC 均不存在，Realtime 仅 `court_slots`，Edge Functions 为 0。
+
+[`supabase/rollback/phase_3b_atomic_writer_activation_rollback.sql`](./supabase/rollback/phase_3b_atomic_writer_activation_rollback.sql) 位于 migration path 之外，只用于手工 emergency rollback。它恢复冻结的 17 个 public legacy definition、撤销 explicit-primary RPC 对 client 的入口，并保留全部 transition、membership、Payment 和 audit history。该脚本已在 activated stage 内以外层 transaction 执行完整演练，内部诊断确认 legacy mode，外层 rollback 后 stage 恢复 activated 且无数据/历史污染。
 
 ## 8. 线上迁移状态
 
@@ -242,7 +268,7 @@ Draft PR #137 / Issue #136 的 Phase 3B.2 activation 仍只在 `badminton_stage`
 - 首个：`20260812161833_private_manager_schedule`
 - 生产/`main` 最新：`20260824164530_phase_3b_writer_inventory_c_collation`
 
-独立 `badminton_stage` 已对齐 Draft PR #137 的 46 个版本，最新为 `20260824181500_phase_3b_activation_fk_indexes`。Production 只到 44；activation migrations 45–46 仍不在 `main`，不得在没有新的明确授权时应用。
+独立 `badminton_stage` 已对齐 Draft PR #137 的 46 个版本，最新为 `20260824181500_phase_3b_activation_fk_indexes`。其中 Phase 2 migration 的 DDL/回填逻辑未变，只把四个冻结生产数据指纹替换为合成 fixture 的 staging 指纹；Phase 2 diagnostic 也必须使用相同 staging 指纹专门化，原样 production-fingerprint 版本会按设计 fail closed。Production 只到 44；activation migrations 45–46 仍不在 `main`，不得在没有新的明确授权时应用。
 
 本次未发现之前的 “Remote migration versions not found in local migrations directory” 漂移。
 
@@ -467,10 +493,22 @@ Vite `base` 为 `./`，支持 `/badminton/` 子路径。
 
 任何改变产品行为、schema、RPC contract、Auth、权限、计价、馆务配置、部署或安全模型的 PR，都必须同步更新 `PRODUCT_CONTEXT.md` / `TECHNICAL_CONTEXT.md`。这两份文档的目的就是让 compact 和后续交接安全；过期上下文本身属于缺陷。
 
-## English update: Phase 3B.1 production deployment
+## English update: Phase 3B production technical record
 
-PR #135 merged at 2026-08-25 06:24:23 UTC, and the Supabase GitHub integration applied migrations 43–44 at 06:25:04 UTC. Production now has 44 migrations and the Phase 3B.1 kernel remains strictly inactive.
+PR #135 merged at 2026-08-25 06:24:23 UTC, and the Supabase GitHub integration applied migrations 43–44 at 06:25:04 UTC. Production now has 44 migrations and the Phase 3B.1 kernel remains strictly inactive. Post-deployment Phase 2, Phase 3A, and Phase 3B.1 diagnostics pass with 192/192 owned allocations, zero shadow mismatch, and zero kernel operations, memberships, or transitions. The 17 direct writers and three wrappers remain unchanged; there is no client mutation, booking dual-write trigger, or Phase 3B Realtime publication.
 
-Post-deployment Phase 2, Phase 3A, and Phase 3B.1 diagnostics all pass: 123 Reservations, 135 Sessions, 192/192 owned Court allocations, 131 Parties, 23 Payments, 26 allocation entries / CAD 1,642.00, and zero shadow mismatch. Kernel operations, memberships, and transitions are all zero. The 17 direct writers and three wrappers retain their exact fingerprints. There is no client mutation function, client access to private helpers, booking dual-write trigger, or Phase 3B Realtime publication.
+Issue #136 originally authorized a stacked Phase 3B.2 branch and atomic writer activation on the synthetic `badminton_stage` project. After #135 and docs-only #138 merged, the user authorized only reorganizing Draft PR #137 onto the latest `main` and repeating staging, CI, and production read-only preflight. Production migration/write/catch-up, merge, read/UI cutover, Stripe, and legacy decommission remain unauthorized.
 
-Security advisors remain the existing 47 findings. Performance has 62 INFO findings only: four known composite-FK order notices and 58 unused indexes. Draft PR #137 has already eliminated those FK notices on synthetic staging with its ordered-index follow-up, but #137 remains unauthorized for production merge or activation. Reads, UI, Stripe, and legacy decommission are unchanged.
+`20260824172041_reservation_phase_3b_atomic_writer_activation` performs the complete 17-writer activation in one transaction after fail-closed checks of the 44-version baseline, inactive kernel, shadow state, security boundary, Realtime publication, and exact writer inventory. It freezes the exact legacy definitions, moves them to private delegates, and recreates the existing public signatures as authorization-first, empty-search-path entries. The resulting boundary is 17 public entries, zero public direct legacy writers, 17 private legacy delegates, and three indirect wrappers. The only new public RPC is manager-gated explicit-primary linking.
+
+The activation adds append-only Session assignment history and a deferred projection check, uses stable idempotency keys, and routes create, schedule, cancellation/restoration, details, payment/refund, relationship, undo, and revert operations through the transaction kernel. Mark-paid appends Payment/allocation facts; paid-to-unpaid appends a refund. Seven Phase 3B public tables use FORCE RLS, clients have no direct DML or private-helper EXECUTE, and Realtime still publishes only `public.court_slots`.
+
+`20260824181500_phase_3b_activation_fk_indexes` adds eight ordered composite-FK indexes. The stage database is aligned to 46 repository versions, all Phase 2/3A/3B diagnostics are clean, the full synthetic writer matrix and hosted contention checks pass, and the performance advisor reports zero unindexed foreign keys. The Phase 2 diagnostic must be specialized with the same staging fingerprints; the unchanged production-fingerprint diagnostic intentionally fails closed. A rollback artifact outside the migration path restores the frozen legacy public writers without deleting append-only history and has been rehearsed inside an outer transaction on the activated stage.
+
+Draft PR #137 now targets the latest `main` through non-destructive merge `693ca38` and remains Draft / MERGEABLE / CLEAN. Bundled Node `v24.19.0` / pnpm `11.19.0` produced 25 passes, zero failures, and one explicit no-local-PostgreSQL skip across 26 tests; lint/build passed. Fresh [Actions run 32819898640](https://github.com/tujiaqi2002/badminton/actions/runs/32819898640) passed 26/26 with no skips plus lint/build under pinned Node 22 / pnpm 11.16.0 / PostgreSQL 16.
+
+The 07:04–07:05 UTC baseline is 44 production migrations and 46 staging migrations. Production has 47 security findings and 62 performance INFO findings, including four unindexed-FK notices. Staging has 50 security findings and zero unindexed-FK notices; its unused-index INFO count changed from 62 to 60 after the matrix exercised two indexes, so this runtime statistic is not a schema fingerprint. The former staging security total of 49 undercounted the intentional authenticated-definer warning for the new manager-gated explicit-primary RPC. A live catalog audit confirmed `SECURITY DEFINER`, an empty `search_path`, a leading `private.require_manager()` check, no anonymous/public EXECUTE, and ACL entries only for postgres, authenticated, and service_role; this is therefore an expected controlled manager-entry warning.
+
+The fresh production preflight was read-only and passed with healthy PostgreSQL 17.6, 123 Reservations, 135 Sessions, 192/192 owned allocations, 131 Parties, 23 Payments, 26 allocations / CAD 1,642.00, 1,739 audits, and 236 public functions. The kernel remains at zero operations, memberships, and transitions with 17 direct writers and three wrappers. The activation-state table, Session-assignment table, and explicit-primary RPC are absent; Realtime still contains only `court_slots`, and no Edge Functions are deployed.
+
+Draft PR #137 must remain Draft after validation. A separate explicit authorization is still required to merge and activate it in production; reads, UI, Stripe, and legacy decommission remain unchanged.

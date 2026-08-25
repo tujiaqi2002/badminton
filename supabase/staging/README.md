@@ -13,7 +13,7 @@
 5. 使用 `generate_synthetic_legacy_fixture.mjs audit` 写入 6 条确定性付款审计证据。
 6. 从 staging 读取四个 Phase 2 指纹，仅将 Phase 2 migration 内冻结的生产指纹替换为 staging 合成指纹后执行。
 7. 原样执行其余 migrations，并把 Supabase migration history 的 version/name 对齐仓库文件名。
-8. 运行 Phase 2、Phase 3A、Phase 3B diagnostics、RLS/grant 检查、advisors 和并发验证。
+8. 使用同一组 staging 指纹专门化 Phase 2 diagnostic，再运行 Phase 2、Phase 3A、Phase 3B diagnostics、RLS/grant 检查、advisors 和并发验证。Phase 2 diagnostic 若原样运行，会按设计用生产冻结指纹 fail closed，不能把这个结果误判成 staging 数据漂移。
 
 `session_replication_role = replica` 只在 fixture 插入事务中临时使用，目的是让合成数据精确模拟 migration 前的历史行；事务提交前恢复为 `origin`。任何已存在 booking 都会触发 guard 并终止 fixture。
 
@@ -22,6 +22,7 @@
 ```text
 node --test supabase/tests/staging_fixture.test.mjs
 node supabase/staging/generate_synthetic_legacy_fixture.mjs summary
+node supabase/staging/generate_synthetic_legacy_fixture.mjs specialize supabase/diagnostics/phase_2_reservation_backfill.sql <booking> <bookingPayload> <slots> <paymentAudit>
 ```
 
 ---
@@ -41,7 +42,7 @@ The independent project does not contain the base schema that predates the repos
 5. Insert six deterministic payment-audit evidence rows with `generate_synthetic_legacy_fixture.mjs audit`.
 6. Read the four Phase 2 fingerprints from staging, replace only the frozen production fingerprints in the Phase 2 migration, and apply the specialized migration.
 7. Apply all remaining migrations unchanged and align Supabase migration-history versions/names with the repository filenames.
-8. Run the Phase 2, Phase 3A, and Phase 3B diagnostics, RLS/grant checks, advisors, and concurrency verification.
+8. Specialize the Phase 2 diagnostic with the same staging fingerprints, then run the Phase 2, Phase 3A, and Phase 3B diagnostics, RLS/grant checks, advisors, and concurrency verification. Running the Phase 2 diagnostic unchanged intentionally fails closed against the frozen production fingerprints and must not be misclassified as staging-data drift.
 
 `session_replication_role = replica` is scoped to the fixture transaction so the synthetic rows accurately represent pre-migration history. It is restored to `origin` before commit. A guard aborts the fixture if any booking already exists.
 
@@ -50,4 +51,5 @@ The independent project does not contain the base schema that predates the repos
 ```text
 node --test supabase/tests/staging_fixture.test.mjs
 node supabase/staging/generate_synthetic_legacy_fixture.mjs summary
+node supabase/staging/generate_synthetic_legacy_fixture.mjs specialize supabase/diagnostics/phase_2_reservation_backfill.sql <booking> <bookingPayload> <slots> <paymentAudit>
 ```
