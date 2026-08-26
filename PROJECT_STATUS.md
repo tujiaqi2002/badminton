@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-26。当前工作分支：`codex/reservation-phase-4b2-default-legacy-verification`。
+> 项目：`project-001-badminton`。核对日期：2026-08-26。当前工作分支：`codex/reservation-phase-4b2-production-cutover`。
 
 ## 1. 一句话结论
 
@@ -41,7 +41,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #153 / PR [#154](https://github.com/tujiaqi2002/badminton/pull/154) / evidence Draft PR [#155](https://github.com/tujiaqi2002/badminton/pull/155)：Reservation Phase 4B.2 canonical selected-detail read（default-legacy 已发布并验证）
+### Issue #153 / PR [#154](https://github.com/tujiaqi2002/badminton/pull/154) / evidence PR [#155](https://github.com/tujiaqi2002/badminton/pull/155)：Reservation Phase 4B.2 canonical selected-detail read（production canonical 已启用并验证）
 
 - 用户已明确确认 Issue #153。范围只包括选中排期后的只读 canonical Reservation 详情、可回退 selector、staging 验证和 Draft PR；不改变数据库、writer/action scope、生产 selector 或 legacy decommission。
 - 新 `VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE` 只有 exact `canonical` 才启用，缺失/未知值均回到 `legacy`。生产 workflow 缺省仍为 legacy；`.env.staging.example` 使用 canonical schedule + canonical detail 的成对组合。
@@ -52,6 +52,8 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - synthetic non-manager 页面门禁已通过：页面只显示未授权状态，没有馆长导航、排期或 canonical 详情卡，console error/warn 为 0；API 日志中本次登录只检查 `staff_members`，没有新增 `admin_get_reservation_detail`。最终本地 lint、production/canonical-staging build、diff check 与 PR PostgreSQL CI 均已通过。完整中英文设计与 staging 证据见 [`docs/reservation-migration/phase-4b2-canonical-selected-detail.md`](./docs/reservation-migration/phase-4b2-canonical-selected-detail.md)。
 - 用户在明确的 merge/default-legacy 门禁后授权继续。PR #154 于 2026-08-26 10:19:28 UTC 合并为 `92c892c28bf5458f62f84bc977007b872f3e1014`；Pages [run 32957663853](https://github.com/tujiaqi2002/badminton/actions/runs/32957663853) build/deploy 全绿。生产 selected-detail variable 仍缺失并回退 `legacy`；真实馆长选择生产订单后 canonical detail 卡为 0、legacy notes 为 1，API logs 无 detail RPC，console error/warn 为 0。线上 asset 为 `index-wknub-uV.js`，production ref 1、staging ref 0。
 - 部署前后生产 diagnostic 均保持 48 migrations、192/192 bookings/memberships、192 allocations、123 Reservations、所有 Phase 3B/4A mismatch 0、17/0/17/3 writer、7 FORCE RLS 与 `court_slots`-only Realtime。无 DB push、permission、writer、数据或 production detail cutover。完整发布证据见 [`docs/reservation-migration/phase-4b2-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4b2-default-legacy-production-verification.md)。
+- PR #155 随后以 `a16e5f6` 合并，default-legacy Pages run 32959334591 全绿。用户在明确的下一门禁后授权 production canonical selected-detail cutover；fresh preflight clean 后设置 exact `canonical`，Pages [run 32961018071](https://github.com/tujiaqi2002/badminton/actions/runs/32961018071) 从同一 `main` 成功部署 `index-DLJKKuT_.js`，production ref 1、staging ref 0、detail RPC 1。
+- 真实馆长观察显示 canonical v1 ready 卡 1、error 卡 0、中英文契约对应的 7 个业务区块完整；同一 3 Session / 3 allocation Reservation 的 sibling Court 切换保持同一 reference 且不新增 POST，跨 Reservation 才新增请求。三个 Reservation 共 3 POST + 1 OPTIONS，全部 HTTP 200；console error/warn 0。Authenticated non-manager 在 read-only transaction 被拒绝，anon 无 EXECUTE。切换后 diagnostic 完全不变。生产现保持 canonical schedule/capacity + canonical selected detail；order/search、writer/action、客户路径和 decommission 仍未切换。完整证据见 [`docs/reservation-migration/phase-4b2-production-cutover.md`](./docs/reservation-migration/phase-4b2-production-cutover.md)。
 
 ### Issue #148：Reservation Phase 4B.1 canonical schedule/capacity（production canonical 已启用并验证）
 
@@ -283,6 +285,14 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 不在没有第二家真实客户前抽象 marketplace。
 - 不把 AI 功能置于排期正确性、预览环境和测试之前。
 - 不在没有明确授权和未提交工作核对前清理旧 worktree；PR #90 已合并不等于自动授权清理。
+
+## English update: Phase 4B.2 production canonical selected detail active
+
+After PR #155 merged the default-legacy evidence as `a16e5f6`, the user explicitly continued into the separately named production detail cutover. A clean preflight was followed by exact `VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE=canonical`. [Pages run 32961018071](https://github.com/tujiaqi2002/badminton/actions/runs/32961018071) deployed `index-DLJKKuT_.js` from the same verified `main`, with one production ref, zero staging refs, and one detail RPC occurrence.
+
+The live manager path rendered one ready canonical v1 card with all seven business sections and zero error cards. Two sibling Courts inside a three-Session / three-allocation Reservation retained one reference and reused one request; crossing Reservations issued the next request. Three distinct Reservations produced three POST calls plus one OPTIONS, all HTTP 200, and browser error/warn stayed zero. A read-only authenticated non-manager test was denied, `anon` retained no EXECUTE, and the post-cutover database diagnostic was identical to preflight.
+
+Production now keeps canonical schedule/capacity plus canonical selected detail. Manager order/search, customer reads, writer/action scope, and legacy decommission remain unchanged. Rollback is setting/deleting only the selected-detail variable and rebuilding, with no DB rollback. Full bilingual evidence is in [`docs/reservation-migration/phase-4b2-production-cutover.md`](./docs/reservation-migration/phase-4b2-production-cutover.md).
 
 ## English update: Phase 4B.1 production canonical schedule/capacity active
 

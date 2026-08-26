@@ -374,6 +374,16 @@ variable 缺失的 Pages [run 32859078691](https://github.com/tujiaqi2002/badmin
 
 本阶段没有 migration、DB push、permission、数据、writer 或生产 selector 变化。Bundled Node v24.19.0 / pnpm 11.19.0 下 selected detail 为 9/9、Reservation read 为 30/30、全仓 93 tests 为 92 pass、1 个既有 no-local-PostgreSQL skip、0 fail；lint 与 production/canonical-staging builds 通过。用户在明确的 merge/default-legacy 门禁后授权继续；PR [#154](https://github.com/tujiaqi2002/badminton/pull/154) 于 10:19:28 UTC 合并为 `92c892c28bf5458f62f84bc977007b872f3e1014`，Pages [run 32957663853](https://github.com/tujiaqi2002/badminton/actions/runs/32957663853) build/deploy 全绿。生产 selected-detail variable 仍缺失并回退 legacy；真实馆长选择订单后 canonical detail DOM 为 0、legacy notes 为 1、detail RPC 为 0，console error/warn 为 0。部署前后 diagnostic 不变。Production canonical selected-detail cutover、Phase 4C writers/actions 与 legacy decommission 仍分别需要授权。
 
+## 38. 2026-08-26：Phase 4B.2 production canonical selected-detail 切换完成
+
+PR #155 以 `a16e5f6` 合并 default-legacy 证据后，用户从明确命名 production canonical selected-detail 的下一门禁继续。Fresh preflight 确认 production 健康、48 migrations、192/192 bookings/memberships、192 allocations、123 Reservations、0 mismatch、17/0/17/3 writer、7 FORCE RLS、`court_slots`-only Realtime；schedule 已 canonical，detail variable 仍缺失。
+
+设置 exact `VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE=canonical` 后，[Pages run 32961018071](https://github.com/tujiaqi2002/badminton/actions/runs/32961018071) 从 `main@a16e5f6` 成功部署 `index-DLJKKuT_.js`。Artifact 只有 production ref、没有 staging ref，并包含唯一 detail RPC path。
+
+真实馆长观察出现 1 张 ready canonical v1 卡、0 error cards 与完整 7 个业务区块。同一 3 Session / 3 allocation Reservation 的两个 sibling Courts 保持相同 reference 且复用同一请求；跨 Reservation 才发起下一次请求。三个 Reservations 共 3 POST + 1 OPTIONS，全部 200，console error/warn 为 0。随机 authenticated non-manager 在 read-only transaction 被拒绝，anon 无 EXECUTE。
+
+Post-cutover diagnostic 与 preflight 完全相同，没有 migration、DB push、grant、writer、数据、Auth 或 Realtime 变化。Bundled Node v24.19.0 / pnpm 11.19.0 下 93 tests 为 92 pass、1 skip、0 fail，lint 与 exact-canonical build 通过。阶段结果：production 保持 canonical schedule/capacity + canonical selected detail；manager order/search、客户读取、writer/action scope 和 legacy decommission 仍是独立后续门禁。完整记录见 [`docs/reservation-migration/phase-4b2-production-cutover.md`](./docs/reservation-migration/phase-4b2-production-cutover.md)。
+
 ## English record
 
 ### 24. 2026-08-24: Phase 3B.2 atomic staging activation
@@ -561,3 +571,13 @@ Sibling allocations inside one Reservation share the in-flight request and memor
 A synthetic `badminton_stage` manager completed Chinese/English desktop and 390×844 mobile validation. Court 1 and Court 2 of one Reservation showed one Session, two allocations, Parties, both note scopes, payment, and lineage. Switching sibling allocations produced only one successful detail RPC; an unsupported selector pairing failed closed; console errors/warnings stayed at zero; and mobile had no horizontal overflow. A synthetic non-manager saw only the unauthorized page, with no manager navigation, schedule, canonical detail card, or new detail RPC.
 
 This phase changed no migration, database state, permission, data, writer, or production selector. Bundled Node v24.19.0 / pnpm 11.19.0 produced 9/9 selected-detail passes, 30/30 Reservation-read passes, and 92 passes plus one existing no-local-PostgreSQL skip with zero failures across 93 repository tests; lint and production/canonical-staging builds passed. After the user authorized the explicit merge/default-legacy gate, PR [#154](https://github.com/tujiaqi2002/badminton/pull/154) merged at 10:19:28 UTC as `92c892c28bf5458f62f84bc977007b872f3e1014`, and Pages [run 32957663853](https://github.com/tujiaqi2002/badminton/actions/runs/32957663853) completed successfully. The production selected-detail variable remains absent and resolves to legacy. Live manager selection produced zero canonical-detail panels, one legacy-notes panel, zero detail RPCs, and zero browser errors/warnings. Pre/post diagnostics were identical. Production canonical selected-detail cutover, Phase 4C writers/actions, and legacy decommission remain separately authorized steps.
+
+### 38. 2026-08-26: Phase 4B.2 production canonical selected-detail cutover completed
+
+After PR #155 merged the default-legacy evidence as `a16e5f6`, the user continued from a gate that explicitly named the production canonical selected-detail cutover. Fresh preflight confirmed a healthy production project, 48 migrations, 192/192 bookings/memberships, 192 allocations, 123 Reservations, zero mismatch, 17/0/17/3 writers, seven FORCE RLS tables, and `court_slots`-only Realtime. Schedule was canonical and the detail variable remained absent before the switch.
+
+Setting exact `VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE=canonical` and dispatching [Pages run 32961018071](https://github.com/tujiaqi2002/badminton/actions/runs/32961018071) deployed `index-DLJKKuT_.js` from `main@a16e5f6`. The artifact contained one production ref, zero staging refs, and the one detail RPC path.
+
+Live manager observation rendered one ready canonical v1 card, zero error cards, and all seven business sections. Two sibling Courts in one three-Session / three-allocation Reservation retained the same reference and reused one request; only crossing Reservations issued the next request. Three Reservations produced three POST calls plus one OPTIONS request, all HTTP 200, and browser error/warn stayed zero. A random authenticated non-manager was denied inside a read-only transaction, while `anon` retained no EXECUTE.
+
+The post-cutover diagnostic was identical to preflight. No migration, DB push, grant, writer, data, Auth, or Realtime change occurred. Bundled Node v24.19.0 / pnpm 11.19.0 produced 92 passes, one skip, and zero failures across 93 tests; lint and the exact-canonical build passed. Production now keeps canonical schedule/capacity plus canonical selected detail. Manager order/search, customer reads, writer/action scopes, and legacy decommission remain independent future gates. See [`docs/reservation-migration/phase-4b2-production-cutover.md`](./docs/reservation-migration/phase-4b2-production-cutover.md).
