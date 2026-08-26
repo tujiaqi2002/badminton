@@ -1,7 +1,7 @@
 # Reservation Phase 4B.3：Canonical Reservation 订单查询
 
 > 关联 Issue：[#157](https://github.com/tujiaqi2002/badminton/issues/157)
-> 当前状态：代码完成；migration 49 已只应用到 `badminton_stage`；本地、hosted staging、Draft PR #158 CI 与 production 只读 preflight 均通过；等待明确 merge/production migration 授权。
+> 当前状态：PR #158 已合并，migration 49 已进入 staging 与 production；production order UI 仍按 selector fallback 使用 legacy。完整发布验证见 [`phase-4b3-default-legacy-production-verification.md`](./phase-4b3-default-legacy-production-verification.md)。
 > 范围：馆长订单查询的读取边界、聚合卡片与排期定位。
 > 不在范围：生产 migration/cutover、任何 writer/action 改造、客户读取、付款/计价规则、Stripe、Realtime 或 legacy decommission。
 
@@ -95,7 +95,7 @@ Canonical 卡片按一笔 Reservation 展示：
 
 - dry-run 只列出 migration 49；
 - `db push` 成功，staging 从 48 精确推进到 49，最新为 `20260826181644`；
-- production 仍为 48，未执行 production push；
+- 本次 staging 验证时 production 仍为 48；后续经独立授权已由 protected integration 推进到 49；
 - canonical 基线仍是 123 Reservations、135 Sessions、192 memberships、131 Parties；
 - 年度 manager 查询首屏 50 条，summary 为 83 results / 9,120 minutes，`has_more = true`；
 - 使用非 primary 的第二 Party “Synthetic customer 2” 查询，精确返回一笔 Reservation，`party_count = 2`、命中 Court 时长 120 分钟；
@@ -140,18 +140,18 @@ Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) 首轮 [CI ru
 - 以未来 30 天、all-Party/Court/notes 无命中条件模拟候选查询的 `EXPLAIN (ANALYZE, BUFFERS)`：execution 9.335 ms、95 shared-hit blocks、0 shared reads、0 temp blocks；使用 `reservation_sessions_admin_window_idx` 和 membership effective-session index，排序只使用 25 kB 内存；
 - security advisor 的 48 项和 performance advisor 的 60 项都是既有 baseline，没有 Phase 4B.3-specific finding；当前规模没有新增索引理由，这不是对未来数据量的永久保证。
 
-整个 preflight 都是只读或 dry-run。Production 仍为 48 migrations，PR #158 仍是 Draft，order selector 仍为 legacy。
+整个 preflight 都是只读或 dry-run。该门禁结束时 production 仍为 48 migrations、PR #158 仍是 Draft；后续授权、合并与 default-legacy 发布结果见第 10 节。
 
 ## 10. 发布、回退与下一门禁
 
-当前 production workflow 对 order selector 的 fallback 是 `legacy`，production 数据库也还没有 migration 49。因此 Draft PR 本身不授权 merge：本仓库的 Supabase integration 会在 migration PR 合并到 `main` 后自动应用 pending production migration。
+用户在上述门禁后明确授权继续。PR #158 于 2026-08-26 21:26:04 UTC 合并为 `58d9d59cab0eebd6f0591834217e744ecb2343f1`；Supabase integration 成功把 production 精确推进到 migration 49，Pages run 33015339219 同 commit build/deploy 全绿。Production workflow 对 order selector 的 fallback 继续是 `legacy`，本次没有 canonical UI cutover。
 
 后续必须按顺序单独确认：
 
-1. review Draft PR 与 CI；
+1. review Draft PR 与 CI（已完成）；
 2. fresh production read-only preflight（已完成且 clean）；
-3. 明确授权把 PR #158 转为 Ready 并 merge，也就是授权 production 自动应用 migration 49；
-4. 在 production 仍为 legacy order source 时完成默认-legacy 发布验证；
+3. 明确授权 merge / production migration 49（已完成）；
+4. production default-legacy 发布验证（已完成）；
 5. 再单独决定是否把 production order selector 设为 exact `canonical`；
 6. 最后才重新设计聚合订单上的付款、移动、取消和关系 action scope；legacy decommission 仍属于更晚的 Phase 5。
 
@@ -162,7 +162,7 @@ Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) 首轮 [CI ru
 # Reservation Phase 4B.3: Canonical Reservation order search
 
 > Related issue: [#157](https://github.com/tujiaqi2002/badminton/issues/157)
-> Current state: implementation complete; migration 49 applied only to `badminton_stage`; local, hosted-stage, Draft PR #158 CI, and production read-only preflight passed; awaiting explicit merge/production-migration authorization.
+> Current state: PR #158 merged and migration 49 is installed on staging and production; the production order UI still uses the selector's legacy fallback. Full release evidence is in [`phase-4b3-default-legacy-production-verification.md`](./phase-4b3-default-legacy-production-verification.md).
 > Scope: manager order-search read boundary, aggregate cards, and schedule focus.
 > Excluded: production migration/cutover, writer or action changes, customer reads, payment/pricing rules, Stripe, Realtime, and legacy decommission.
 
@@ -226,7 +226,7 @@ All screenshots use synthetic `badminton_stage` data and `.invalid` customer dom
 
 ## 7. Hosted-stage verification
 
-- The dry run listed only migration 49, and `db push` advanced staging exactly from 48 to 49 with `20260826181644` latest. Production remains at 48 and received no push.
+- The dry run listed only migration 49, and `db push` advanced staging exactly from 48 to 49 with `20260826181644` latest. Production was still at 48 during this stage verification and was later advanced to 49 by the separately authorized protected integration.
 - The canonical fixture remains 123 Reservations, 135 Sessions, 192 memberships, and 131 Parties.
 - A manager annual search returned 50 first-page items and a summary of 83 results / 9,120 minutes with `has_more = true`.
 - Searching through the non-primary Party “Synthetic customer 2” returned exactly one Reservation with `party_count = 2` and 120 matched Court minutes.
@@ -256,12 +256,12 @@ On 2026-08-26, a fresh production preflight completed without relinking Supabase
 - a future-30-day all-Party/Court/note no-match candidate plan completed in 9.335 ms with 95 shared-hit blocks, zero shared reads or temp blocks, existing Session/membership indexes in use, and a 25 kB in-memory sort;
 - 48 security-advisor items and 60 performance-advisor items were existing baseline findings, with no Phase 4B.3-specific issue. Current scale does not justify a new index, but this is not a permanent guarantee for future data volume.
 
-The entire preflight was read-only or dry-run. Production remains at 48 migrations, PR #158 remains Draft, and the production order selector remains legacy.
+The entire preflight was read-only or dry-run. At the end of that gate production still had 48 migrations and PR #158 remained Draft; the later authorized merge and default-legacy release are recorded in Section 10.
 
 ## 10. Rollout, rollback, and next gate
 
-Production currently retains the legacy order-selector fallback and does not have migration 49. Because merging a migration PR into `main` automatically deploys pending Supabase migrations, the Draft PR does not authorize merge.
+The user explicitly authorized continuing after the merge/production-migration gate was stated. PR #158 merged at 2026-08-26 21:26:04 UTC as `58d9d59cab0eebd6f0591834217e744ecb2343f1`; the Supabase integration advanced production exactly to migration 49, and Pages run 33015339219 passed for the same commit. The production order selector still resolves through the workflow's `legacy` fallback, so this deployment did not cut over the UI.
 
-The next independent gates are: review Draft PR/CI; run a fresh read-only production preflight (completed clean); explicitly authorize marking PR #158 ready, merging it, and automatically applying production migration 49; verify the default-legacy production deployment; separately decide whether to set the production selector to exact `canonical`; then redesign Reservation-level action scopes. Legacy decommission remains a later Phase 5 concern.
+PR/CI review, production preflight, merge/migration 49, and default-legacy production verification are complete. The next independent gate is deciding whether to set the production selector to exact `canonical`; Reservation-level writer/action scopes come later, and legacy decommission remains a Phase 5 concern.
 
 After a future canonical UI cutover, frontend rollback is setting/deleting the selector and rebuilding. Migration 49 preserves the old function signature and can remain installed; a database defect must be corrected through a new append-only follow-up migration rather than rewriting history.
