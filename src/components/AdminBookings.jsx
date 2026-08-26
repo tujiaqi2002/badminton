@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
+  ArrowUpRight,
+  BadgeDollarSign,
   CalendarRange,
   CalendarClock,
   ChevronLeft,
   ChevronRight,
   Clock3,
   Mail,
+  Repeat2,
   RefreshCw,
   Search,
   Trash2,
@@ -15,6 +18,7 @@ import {
 } from 'lucide-react'
 import { addDays, COURTS, formatMoney, mondayOfWeek, timeFromDateTime, toDateKey, venueNow } from '../lib/booking'
 import { useI18n } from '../lib/i18n'
+import { RESERVATION_ORDER_READ_SOURCE_CANONICAL } from '../lib/reservationOrderRead'
 import AdminSchedule from './AdminSchedule'
 import AdminRescheduleModal from './AdminRescheduleModal'
 
@@ -29,6 +33,8 @@ export default function AdminBookings({
   scheduleReadError,
   orderBookings,
   orderSummary,
+  orderReadSource,
+  orderReadError,
   orderFilters,
   onOrderFiltersChange,
   orderPagination,
@@ -71,6 +77,7 @@ export default function AdminBookings({
   const [query, setQuery] = useState(orderFilters.query)
   const [editingBooking, setEditingBooking] = useState(null)
   const [focusTime, setFocusTime] = useState(null)
+  const [focusReservationId, setFocusReservationId] = useState(null)
   // The report range starts on Monday, but the live editor should open on today.
   // Keeping these as separate concepts also lets managers browse historical weeks
   // without changing the editor's initial landing date back to a past Monday.
@@ -93,11 +100,13 @@ export default function AdminBookings({
     setScheduleDate(focusTarget.date)
     onScheduleDateChange?.(focusTarget.date)
     setFocusTime(focusTarget.time)
+    setFocusReservationId(focusTarget.reservationId || null)
     window.setTimeout(() => document.querySelector('.admin-schedule-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
   }, [focusTarget, onScheduleDateChange])
 
   const clearScheduleFocus = () => {
     setFocusTime(null)
+    setFocusReservationId(null)
     onClearFocus?.()
   }
 
@@ -124,14 +133,17 @@ export default function AdminBookings({
 
   const filteredBookings = orderBookings
 
+  const canonicalOrders = orderReadSource === RESERVATION_ORDER_READ_SOURCE_CANONICAL
   const groupedBookings = useMemo(() => filteredBookings.reduce((groups, booking) => {
-    const date = booking.start_at.slice(0, 10)
+    const date = canonicalOrders
+      ? booking.schedule.matchedStartsAt.slice(0, 10)
+      : booking.start_at.slice(0, 10)
     if (!groups[date]) groups[date] = []
     groups[date].push(booking)
     return groups
-  }, {}), [filteredBookings])
+  }, {}), [canonicalOrders, filteredBookings])
 
-  const totalHours = (orderSummary.total_minutes || 0) / 60
+  const totalHours = (orderSummary.totalMinutes || 0) / 60
   const uniqueCustomers = orderSummary.customers || 0
   const todayCount = orderSummary.today || 0
   const resultCount = orderSummary.results || 0
@@ -144,6 +156,79 @@ export default function AdminBookings({
   const formatDay = (dateKey) => new Intl.DateTimeFormat(locale, {
     month: 'long', day: 'numeric', weekday: 'long',
   }).format(new Date(`${dateKey}T12:00:00`))
+  const formatDateTime = (localDateTime) => new Intl.DateTimeFormat(locale, {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date(localDateTime))
+
+  const viewReservationInSchedule = (order) => {
+    const date = order.schedule.matchedStartsAt.slice(0, 10)
+    const time = order.schedule.matchedStartsAt.slice(11, 16)
+    setScheduleDate(date)
+    setFocusTime(time)
+    setFocusReservationId(order.reservationId)
+    onScheduleDateChange?.(date)
+    if (date < startDate || date > endDate) {
+      const weekStart = mondayOfWeek(date)
+      onRangeChange({ start: weekStart, end: toDateKey(addDays(new Date(`${weekStart}T12:00:00`), 6)) })
+    }
+    window.setTimeout(() => document.querySelector('.admin-schedule-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+  }
+
+  const canonicalOrderCard = (order) => {
+    const contact = order.primaryContact.email || order.primaryContact.phone || t('admin.schedule.notProvided')
+    const courts = order.schedule.courtIds.map((courtId) => {
+      const court = COURTS.find((item) => item.id === courtId)
+      return court ? courtTitle(court) : courtId
+    })
+    return (
+      <article className="admin-reservation-order-card" data-reservation-id={order.reservationId} key={order.reservationId}>
+        <header>
+          <div className="admin-reservation-reference">
+            <small>{t('admin.order.reference')}</small>
+            <strong>{order.reference}</strong>
+          </div>
+          <div className="admin-reservation-order-statuses">
+            <span className={`status-pill ${order.status}`}>{t(`status.${order.status}`)}</span>
+            <span className={`payment-pill ${order.payment.status}`}>{t(`payment.${order.payment.status}`)}</span>
+          </div>
+        </header>
+
+        <div className="admin-reservation-order-grid">
+          <section>
+            <span className="admin-order-field-label"><UserRound size={14} /> {t('admin.detail.primaryContact')}</span>
+            <strong>{order.primaryContact.name}</strong>
+            <small><Mail size={12} /> {contact}</small>
+            {order.otherPartyCount > 0 && <small><UsersRound size={12} /> {t('admin.order.otherParties', { count: order.otherPartyCount })}</small>}
+          </section>
+          <section>
+            <span className="admin-order-field-label"><Clock3 size={14} /> {t('admin.order.matchedSchedule')}</span>
+            <strong>{formatDateTime(order.schedule.matchedStartsAt)}</strong>
+            <small>{t('admin.order.matchedDuration', { duration: formatDuration(order.schedule.matchedAllocationMinutes) })}</small>
+          </section>
+          <section>
+            <span className="admin-order-field-label"><CalendarRange size={14} /> {t('admin.order.fullSchedule')}</span>
+            <strong>{formatDateTime(order.schedule.firstStartsAt)} — {formatDateTime(order.schedule.lastEndsAt)}</strong>
+            <small>{t('admin.order.scheduleCounts', { sessions: order.schedule.sessionCount, allocations: order.schedule.allocationCount })}</small>
+          </section>
+          <section>
+            <span className="admin-order-field-label"><BadgeDollarSign size={14} /> {t('admin.detail.payment')}</span>
+            <strong>{formatMoney(order.payment.totalAmount, locale, order.currency)}</strong>
+            <small>{t(`admin.detail.paymentPlan.${order.payment.plan}`)}{order.payment.outstandingAmount > 0 ? ` · ${t('admin.detail.outstanding', { amount: formatMoney(order.payment.outstandingAmount, locale, order.currency) })}` : ''}</small>
+          </section>
+        </div>
+
+        <footer>
+          <div className="admin-reservation-courts">
+            {courts.map((court) => <span key={court}>{court}</span>)}
+            {order.recurrence.seriesId && <span className="recurrence"><Repeat2 size={12} /> {t('admin.order.recurring')}</span>}
+          </div>
+          <button type="button" className="admin-order-view-schedule" onClick={() => viewReservationInSchedule(order)}>
+            {t('admin.order.viewSchedule')} <ArrowUpRight size={15} />
+          </button>
+        </footer>
+      </article>
+    )
+  }
 
   return (
     <main className="admin-bookings-page" aria-busy={loading || loadingOrders || scheduleBusy}>
@@ -177,12 +262,13 @@ export default function AdminBookings({
         onViewAuditLog={onViewAuditLog}
         onRevertAudit={onRevertAudit}
         focusTime={focusTime}
+        focusReservationId={focusReservationId}
         onClearFocus={clearScheduleFocus}
         configuration={configuration}
         onDateChange={(date) => {
+          if (focusTime && date !== scheduleDate) clearScheduleFocus()
           setScheduleDate(date)
           onScheduleDateChange?.(date)
-          if (focusTarget && date !== focusTarget.date) clearScheduleFocus()
           if (date < startDate || date > endDate) {
             const weekStart = mondayOfWeek(date)
             onRangeChange({ start: weekStart, end: toDateKey(addDays(new Date(`${weekStart}T12:00:00`), 6)) })
@@ -191,10 +277,10 @@ export default function AdminBookings({
       />}
 
       <section className="admin-summary" aria-label={t('admin.summaryAria')}>
-        <article><span>{t('admin.results')}</span><strong>{resultCount}</strong><small>{t('admin.bookingUnit')}</small></article>
+        <article><span>{t('admin.results')}</span><strong>{resultCount}</strong><small>{t(canonicalOrders ? 'admin.reservationUnit' : 'admin.bookingUnit')}</small></article>
         <article><span>{t('admin.totalDuration')}</span><strong>{Number.isInteger(totalHours) ? totalHours : totalHours.toFixed(1)}</strong><small>{t('admin.hoursUnit')}</small></article>
         <article><span>{t('admin.customers')}</span><strong>{uniqueCustomers}</strong><small>{t('admin.customerUnit')}</small></article>
-        <article><span>{t('admin.today')}</span><strong>{todayCount}</strong><small>{t('admin.sessionUnit')}</small></article>
+        <article><span>{t('admin.today')}</span><strong>{todayCount}</strong><small>{t(canonicalOrders ? 'admin.reservationUnit' : 'admin.sessionUnit')}</small></article>
       </section>
 
       <section className="admin-controls" aria-label={t('admin.filterAria')}>
@@ -216,7 +302,7 @@ export default function AdminBookings({
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('admin.search')} />
         </label>
         <label className="admin-filter-select">
-          <span>{t('admin.bookingStatus')}</span>
+          <span>{t(canonicalOrders ? 'admin.reservationStatus' : 'admin.bookingStatus')}</span>
           <select value={orderFilters.bookingStatus} onChange={(event) => onOrderFiltersChange((current) => ({ ...current, bookingStatus: event.target.value }))} aria-label={t('admin.statusAria')}>
             <option value="not_cancelled">{t('admin.notCancelled')}</option>
             <option value="confirmed">{t('status.confirmed')}</option>
@@ -234,10 +320,13 @@ export default function AdminBookings({
             <option value="all">{t('admin.allPayments')}</option>
             <option value="unpaid">{t('admin.unpaid')}</option>
             <option value="paid">{t('payment.paid')}</option>
-            <option value="pay_at_venue">{t('payment.pay_at_venue')}</option>
-            <option value="pending">{t('payment.pending')}</option>
+            {canonicalOrders && <option value="partial">{t('payment.partial')}</option>}
+            {canonicalOrders && <option value="no_charge">{t('payment.no_charge')}</option>}
+            {canonicalOrders && <option value="inconsistent">{t('payment.inconsistent')}</option>}
+            {!canonicalOrders && <option value="pay_at_venue">{t('payment.pay_at_venue')}</option>}
+            {!canonicalOrders && <option value="pending">{t('payment.pending')}</option>}
             <option value="refunded">{t('payment.refunded')}</option>
-            <option value="failed">{t('payment.failed')}</option>
+            {!canonicalOrders && <option value="failed">{t('payment.failed')}</option>}
           </select>
         </label>
       </section>
@@ -246,6 +335,13 @@ export default function AdminBookings({
         <span>{t('admin.showingPage', { from: firstResult, to: lastResult, total: resultCount })}</span>
         <button type="button" onClick={() => { const today = venueNow().dateKey; setQuery(''); onOrderFiltersChange({ start: today, end: today, query: '', bookingStatus: 'not_cancelled', paymentStatus: 'all' }) }}>{t('admin.resetFilters')}</button>
       </div>
+
+      {orderReadError && (
+        <section className="admin-order-read-error" role="alert">
+          <AlertTriangle size={22} />
+          <div><strong>{t('admin.order.readErrorTitle')}</strong><p>{t('admin.order.readErrorText')}</p></div>
+        </section>
+      )}
 
       {editingBooking && (
         <AdminRescheduleModal
@@ -266,7 +362,7 @@ export default function AdminBookings({
 
       {loadingOrders ? (
         <div className="board-loading"><RefreshCw className="spin" /> {t('admin.loading')}</div>
-      ) : filteredBookings.length === 0 ? (
+      ) : orderReadError ? null : filteredBookings.length === 0 ? (
         <div className="admin-empty">
           <CalendarRange size={30} />
           <h2>{t('admin.emptyTitle')}</h2>
@@ -278,10 +374,11 @@ export default function AdminBookings({
             <section className="admin-day" key={date}>
               <header>
                 <div><strong>{formatDay(date)}</strong><span>{date.replaceAll('-', '.')}</span></div>
-                <span>{t('admin.sessions', { count: dayBookings.length })}</span>
+                <span>{t(canonicalOrders ? 'admin.order.reservations' : 'admin.sessions', { count: dayBookings.length })}</span>
               </header>
               <div className="admin-booking-list">
                 {dayBookings.map((booking) => {
+                  if (canonicalOrders) return canonicalOrderCard(booking)
                   const court = COURTS.find((item) => item.id === booking.court_id) || COURTS[0]
                   const minutes = durationMinutes(booking)
                   return (

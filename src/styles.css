@@ -411,6 +411,9 @@ a { color: inherit; text-decoration: none; }
 .multi-court-pill { padding: 7px 10px; color: var(--paper-light); background: var(--ink); font-size: 0.5625rem; line-height: 1; }
 .payment-pill { padding: 7px 10px; color: var(--ink-soft); background: rgba(34,36,33,.06); font-size: 0.5625rem; line-height: 1; }
 .payment-pill.paid { color: #315c3f; background: rgba(55,113,75,.1); }
+.payment-pill.partial { color: #7a5520; background: rgba(146,106,39,.12); }
+.payment-pill.no_charge { color: #315c3f; background: rgba(55,113,75,.08); }
+.payment-pill.inconsistent { color: var(--red-dark); background: rgba(199,70,54,.1); }
 .payment-pill.pending, .payment-pill.pay_at_venue { color: #7a5520; background: rgba(146,106,39,.12); }
 .payment-pill.failed, .payment-pill.refunded { color: var(--red-dark); background: rgba(199,70,54,.1); }
 .booking-meta { display: grid; grid-template-columns: repeat(5, minmax(126px,1fr)); gap: 10px; color: var(--ink-soft); font-size: 0.625rem; }
@@ -443,6 +446,10 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-read-error div { max-width: 680px; }
 .admin-schedule-read-error strong { display: block; font: 1.25rem/1.2 "Songti SC",serif; }
 .admin-schedule-read-error p { margin: 7px 0 0; color: var(--ink-soft); font-size: .625rem; line-height: 1.65; }
+.admin-order-read-error { min-height: 112px; margin: 18px 0 0; padding: 24px; display: flex; align-items: center; justify-content: center; gap: 14px; border: 1px solid rgba(165,49,39,.28); background: rgba(165,49,39,.07); color: var(--red-dark); text-align: left; }
+.admin-order-read-error div { max-width: 680px; }
+.admin-order-read-error strong { display: block; font: 1.125rem/1.2 "Songti SC",serif; }
+.admin-order-read-error p { margin: 7px 0 0; color: var(--ink-soft); font-size: .625rem; line-height: 1.65; }
 .admin-capacity-page { padding-top: 42px; }
 .admin-capacity-page .capacity-monitor { margin-top: 0; }
 .admin-summary { margin: 16px 0 18px; display: grid; grid-template-columns: repeat(4, 1fr); border-block: 1px solid var(--line); }
@@ -517,6 +524,25 @@ a { color: inherit; text-decoration: none; }
 .admin-booking-list { display: grid; }
 .admin-booking-row { min-height: 105px; display: grid; grid-template-columns: 140px 205px minmax(220px, 1fr) 250px; align-items: center; gap: 18px; padding: 18px 18px 18px 6px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.25); }
 .admin-booking-row:hover { background: rgba(255,255,255,.56); }
+.admin-reservation-order-card { margin-top: 12px; border: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 84%, white); box-shadow: 0 12px 32px rgba(34,36,33,.045); }
+.admin-reservation-order-card > header { min-height: 58px; padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); }
+.admin-reservation-reference { display: grid; gap: 4px; }
+.admin-reservation-reference small, .admin-order-field-label { color: var(--ink-soft); font-size: .5rem; letter-spacing: .08em; text-transform: uppercase; }
+.admin-reservation-reference strong { font: 1.0625rem/1 var(--serif); }
+.admin-reservation-order-statuses { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.admin-reservation-order-grid { display: grid; grid-template-columns: 1.05fr 1fr 1.3fr 1fr; }
+.admin-reservation-order-grid > section { min-width: 0; min-height: 106px; padding: 17px 16px; display: flex; flex-direction: column; justify-content: center; gap: 7px; border-right: 1px solid var(--line); }
+.admin-reservation-order-grid > section:last-child { border-right: 0; }
+.admin-order-field-label { display: flex; align-items: center; gap: 6px; }
+.admin-order-field-label svg { color: var(--red-dark); }
+.admin-reservation-order-grid strong { overflow: hidden; text-overflow: ellipsis; color: var(--ink); font-size: .6875rem; line-height: 1.45; }
+.admin-reservation-order-grid small { min-width: 0; display: flex; align-items: center; gap: 5px; color: var(--ink-soft); font-size: .5625rem; line-height: 1.5; }
+.admin-reservation-order-card > footer { min-height: 52px; padding: 9px 12px 9px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); background: rgba(255,255,255,.2); }
+.admin-reservation-courts { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-reservation-courts span { padding: 5px 8px; display: inline-flex; align-items: center; gap: 4px; background: rgba(34,36,33,.055); color: var(--ink-soft); font-size: .5rem; }
+.admin-reservation-courts span.recurrence { color: var(--red-dark); background: rgba(199,70,54,.08); }
+.admin-order-view-schedule { min-height: 32px; padding: 0 11px; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer; font-size: .5625rem; }
+.admin-order-view-schedule:hover, .admin-order-view-schedule:focus-visible { border-color: var(--red); background: var(--red); color: white; outline: 0; }
 .admin-booking-time { display: grid; grid-template-columns: 22px auto 1fr; align-items: baseline; color: var(--ink-soft); }
 .admin-booking-time svg { grid-row: 1/3; align-self: center; color: var(--red); }
 .admin-booking-time strong { color: var(--ink); font-size: 1rem; }
@@ -830,6 +856,8 @@ a { color: inherit; text-decoration: none; }
 .admin-schedule-booking.dragging::after { content: attr(data-origin-label); position: absolute; inset: 0; padding: 8px; display: flex; align-items: center; justify-content: center; color: var(--ink-soft); background: repeating-linear-gradient(-45deg,rgba(34,36,33,.018) 0 7px,rgba(255,255,255,.14) 7px 14px); font-size: 0.5rem; font-weight: 700; line-height: 1.35; text-align: center; }
 .admin-schedule-booking.dragging.invalid-target { cursor: not-allowed; }
 .admin-schedule-booking.selected, .admin-schedule-booking.linked-context { z-index: 5; opacity: 1; outline: 3px solid var(--paper-light); box-shadow: 0 0 0 5px var(--red), 0 8px 20px rgba(34,36,33,.24); }
+.admin-schedule-booking.reservation-focus { z-index: 5; opacity: 1; outline: 3px solid var(--paper-light); box-shadow: 0 0 0 5px #2f6f85, 0 8px 20px rgba(34,36,33,.24); }
+.admin-schedule-booking.reservation-focus.selected, .admin-schedule-booking.reservation-focus.linked-context { box-shadow: 0 0 0 5px var(--red), 0 8px 20px rgba(34,36,33,.24); }
 .admin-schedule-editor.relationship-selecting .admin-schedule-booking:not(.relationship-source):not(.relationship-target) { opacity: .38; filter: saturate(.5); }
 .admin-schedule-booking.relationship-source { z-index: 5; opacity: 1; outline: 3px solid var(--paper-light); box-shadow: 0 0 0 5px var(--red),0 8px 20px rgba(34,36,33,.24); }
 .admin-schedule-booking.relationship-target { z-index: 5; opacity: 1; outline: 2px solid var(--paper-light); box-shadow: 0 0 0 4px var(--ink),0 10px 24px rgba(34,36,33,.22); cursor: pointer; }
@@ -990,6 +1018,9 @@ footer small { text-align: right; }
   .admin-filter-select select { min-height: 28px; }
   .admin-booking-row { grid-template-columns: 130px 190px minmax(190px, 1fr); }
   .admin-booking-details { grid-column: 2/-1; }
+  .admin-reservation-order-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-reservation-order-grid > section:nth-child(2) { border-right: 0; }
+  .admin-reservation-order-grid > section:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
   .admin-schedule-editor { --inspector-width: 220px; --cancel-width: 170px; }
   .admin-schedule-inspector, .admin-schedule-side-right { height: auto; min-height: 0; }
   .admin-schedule-add-hint { display: none; }
@@ -1189,6 +1220,13 @@ footer small { text-align: right; }
   .admin-customer, .admin-booking-details { grid-column: 1/-1; }
   .admin-customer { padding-top: 13px; border-top: 1px solid var(--line); }
   .admin-booking-details { grid-template-columns: auto auto 1fr auto; }
+  .admin-order-read-error { padding: 19px 16px; align-items: flex-start; }
+  .admin-reservation-order-card > header, .admin-reservation-order-card > footer { align-items: flex-start; flex-direction: column; }
+  .admin-reservation-order-statuses { justify-content: flex-start; }
+  .admin-reservation-order-grid { grid-template-columns: 1fr; }
+  .admin-reservation-order-grid > section { min-height: 88px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .admin-reservation-order-grid > section:last-child { border-bottom: 0; }
+  .admin-order-view-schedule { width: 100%; justify-content: center; }
   .admin-mobile-nav { grid-template-columns: repeat(6, 1fr); }
   .toast { bottom: 82px; }
   @keyframes slideUp { from { transform: translateY(100%); } }

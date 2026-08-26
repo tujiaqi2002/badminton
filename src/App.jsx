@@ -12,10 +12,16 @@ import { ADMIN_ACCESS_STATUS, authRedirectUrl, checkAdminAccess, shouldFetchSche
 import { addDays, addMinutes, bookingDurations, COURTS, customerSlotsFromConfiguration, demoSchedule, isPastSlot, mondayOfWeek, openingHoursForDate, overlaps, priceBreakdownFromConfiguration, setVenueTimezone, slotDateTime, toDateKey, venueNow } from './lib/booking'
 import { buildBookingRelationship, bookingGroupKey } from './lib/bookingRelationships'
 import { useI18n } from './lib/i18n'
+import {
+  fetchCanonicalAdminReservationOrders,
+  RESERVATION_ORDER_READ_SOURCE_CANONICAL,
+  RESERVATION_ORDER_READ_SOURCE_LEGACY,
+  reservationOrderSafeErrorCode,
+} from './lib/reservationOrderRead'
 import { runReservationScheduleShadow } from './lib/reservationReadShadow'
 import { fetchCanonicalAdminScheduleWindow, RESERVATION_SCHEDULE_READ_SOURCE_CANONICAL, RESERVATION_SCHEDULE_READ_SOURCE_LEGACY } from './lib/reservationScheduleRead'
 import { createAdminReservationDetailLoader, RESERVATION_SELECTED_DETAIL_READ_SOURCE_CANONICAL } from './lib/reservationSelectedDetailRead'
-import { googleAuthEnabled, isSupabaseConfigured, reservationReadShadowEnabled, reservationScheduleReadSource, reservationSelectedDetailReadSource, stagingPasswordAuthEnabled, stripeEnabled, supabase } from './lib/supabase'
+import { googleAuthEnabled, isSupabaseConfigured, reservationOrderReadSource, reservationReadShadowEnabled, reservationScheduleReadSource, reservationSelectedDetailReadSource, stagingPasswordAuthEnabled, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
 
 const getAuthRedirectUrl = () => authRedirectUrl({
@@ -33,7 +39,10 @@ const defaultAdminOrderFilters = () => ({
   paymentStatus: 'all',
 })
 
-const emptyAdminOrderSummary = { results: 0, total_minutes: 0, customers: 0, today: 0 }
+const emptyAdminOrderSummary = { results: 0, totalMinutes: 0, customers: 0, today: 0 }
+const effectiveReservationOrderReadSource = isSupabaseConfigured
+  ? reservationOrderReadSource
+  : RESERVATION_ORDER_READ_SOURCE_LEGACY
 const defaultAdminOrderPagination = () => ({
   page: 1,
   cursor: null,
@@ -132,6 +141,7 @@ export default function App() {
   const [loadingAdminBookings, setLoadingAdminBookings] = useState(false)
   const [adminScheduleReadError, setAdminScheduleReadError] = useState(null)
   const [loadingAdminOrders, setLoadingAdminOrders] = useState(false)
+  const [adminOrderReadError, setAdminOrderReadError] = useState(null)
   const [adminCancellingId, setAdminCancellingId] = useState(null)
   const [adminScheduleBusy, setAdminScheduleBusy] = useState(false)
   const [adminUndoDepth, setAdminUndoDepth] = useState(0)
@@ -141,6 +151,7 @@ export default function App() {
   const [adminFocus, setAdminFocus] = useState(null)
   const adminDemoHistory = useRef([])
   const adminOrderRequestRef = useRef(0)
+  const adminOrderReadAbortRef = useRef(null)
   const adminScheduleShadowAbortRef = useRef(null)
   const adminScheduleReadAbortRef = useRef(null)
   const adminScheduleRequestRef = useRef(0)
@@ -385,6 +396,9 @@ export default function App() {
   const fetchAdminOrderBookings = useCallback(async () => {
     const requestId = adminOrderRequestRef.current + 1
     adminOrderRequestRef.current = requestId
+    adminOrderReadAbortRef.current?.abort()
+    adminOrderReadAbortRef.current = null
+    setAdminOrderReadError(null)
     if (!user || !isAdmin) {
       setLoadingAdminOrders(false)
       setAdminOrderBookings([])
@@ -400,7 +414,7 @@ export default function App() {
       setAdminOrderBookings(items)
       setAdminOrderSummary({
         results: matches.length,
-        total_minutes: matches.reduce((sum, booking) => sum + Math.round((new Date(booking.end_at) - new Date(booking.start_at)) / 60_000), 0),
+        totalMinutes: matches.reduce((sum, booking) => sum + Math.round((new Date(booking.end_at) - new Date(booking.start_at)) / 60_000), 0),
         customers: new Set(matches.map((booking) => booking.customer_email || booking.customer_phone || booking.customer_name)).size,
         today: matches.filter((booking) => booking.start_at.startsWith(today)).length,
       })
@@ -409,33 +423,73 @@ export default function App() {
         hasMore: from + items.length < matches.length,
         nextCursor: from + items.length < matches.length ? { offset: from + items.length } : null,
       }))
+      setLoadingAdminOrders(false)
       return
     }
+
+    const controller = new AbortController()
+    adminOrderReadAbortRef.current = controller
     setLoadingAdminOrders(true)
-    const { data, error } = await supabase.rpc('admin_search_bookings', {
-      p_start_date: adminOrderFilters.start,
-      p_end_date: adminOrderFilters.end,
-      p_query: adminOrderFilters.query,
-      p_booking_status: adminOrderFilters.bookingStatus,
-      p_payment_status: adminOrderFilters.paymentStatus,
-      p_limit: 50,
-      p_after_start_at: adminOrderPagination.cursor?.start_at || null,
-      p_after_id: adminOrderPagination.cursor?.id || null,
-    })
-    if (requestId !== adminOrderRequestRef.current) return
-    setLoadingAdminOrders(false)
-    if (error) {
-      notify(t('errors.adminOrderSearch'), 'error')
-      return
+    try {
+      let result
+      if (effectiveReservationOrderReadSource === RESERVATION_ORDER_READ_SOURCE_CANONICAL) {
+        result = await fetchCanonicalAdminReservationOrders({
+          client: supabase,
+          filters: {
+            ...adminOrderFilters,
+            status: adminOrderFilters.bookingStatus,
+          },
+          cursor: adminOrderPagination.cursor,
+          limit: 50,
+          timeZone: venueOperationsConfiguration?.settings?.timezone || 'America/Toronto',
+          signal: controller.signal,
+        })
+      } else {
+        let request = supabase.rpc('admin_search_bookings', {
+          p_start_date: adminOrderFilters.start,
+          p_end_date: adminOrderFilters.end,
+          p_query: adminOrderFilters.query,
+          p_booking_status: adminOrderFilters.bookingStatus,
+          p_payment_status: adminOrderFilters.paymentStatus,
+          p_limit: 50,
+          p_after_start_at: adminOrderPagination.cursor?.start_at || null,
+          p_after_id: adminOrderPagination.cursor?.id || null,
+        })
+        if (typeof request?.abortSignal === 'function') request = request.abortSignal(controller.signal)
+        const { data, error } = await request
+        if (error) throw error
+        result = {
+          items: data?.items || [],
+          summary: {
+            results: Number(data?.summary?.results || 0),
+            totalMinutes: Number(data?.summary?.total_minutes || 0),
+            customers: Number(data?.summary?.customers || 0),
+            today: Number(data?.summary?.today || 0),
+          },
+          hasMore: Boolean(data?.has_more),
+          nextCursor: data?.next_cursor || null,
+        }
+      }
+      if (requestId !== adminOrderRequestRef.current || controller.signal.aborted) return
+      setAdminOrderBookings(result.items)
+      setAdminOrderSummary(result.summary)
+      setAdminOrderPagination((current) => ({
+        ...current,
+        hasMore: result.hasMore,
+        nextCursor: result.nextCursor,
+      }))
+    } catch (error) {
+      if (requestId !== adminOrderRequestRef.current || controller.signal.aborted) return
+      setAdminOrderBookings([])
+      setAdminOrderSummary(emptyAdminOrderSummary)
+      setAdminOrderReadError(reservationOrderSafeErrorCode(error))
+      setAdminOrderPagination((current) => ({ ...current, hasMore: false, nextCursor: null }))
+      notify(t('errors.adminReservationOrderSearch'), 'error')
+    } finally {
+      if (adminOrderReadAbortRef.current === controller) adminOrderReadAbortRef.current = null
+      if (requestId === adminOrderRequestRef.current) setLoadingAdminOrders(false)
     }
-    setAdminOrderBookings(data?.items || [])
-    setAdminOrderSummary(data?.summary || emptyAdminOrderSummary)
-    setAdminOrderPagination((current) => ({
-      ...current,
-      hasMore: Boolean(data?.has_more),
-      nextCursor: data?.next_cursor || null,
-    }))
-  }, [adminBookings, adminOrderFilters, adminOrderPagination.cursor, adminOrderPagination.page, isAdmin, notify, t, user])
+  }, [adminBookings, adminOrderFilters, adminOrderPagination.cursor, adminOrderPagination.page, isAdmin, notify, t, user, venueOperationsConfiguration])
 
   const changeAdminOrderFilters = useCallback((updater) => {
     setAdminOrderPagination(defaultAdminOrderPagination())
@@ -556,11 +610,14 @@ export default function App() {
         invalidateAdminReservationDetail()
         void fetchSchedule()
         if (view === 'admin' || view === 'capacity') void fetchAdminBookings()
+        if (view === 'admin') void fetchAdminOrderBookings()
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [fetchAdminBookings, fetchSchedule, invalidateAdminReservationDetail, isAdmin, user, view])
+  }, [fetchAdminBookings, fetchAdminOrderBookings, fetchSchedule, invalidateAdminReservationDetail, isAdmin, user, view])
   useEffect(() => () => {
+    adminOrderRequestRef.current += 1
+    adminOrderReadAbortRef.current?.abort()
     adminScheduleRequestRef.current += 1
     adminScheduleReadAbortRef.current?.abort()
     adminScheduleShadowAbortRef.current?.abort()
@@ -1328,12 +1385,15 @@ export default function App() {
 
   const signOut = async () => {
     adminAccessRequestRef.current += 1
+    adminOrderRequestRef.current += 1
+    adminOrderReadAbortRef.current?.abort()
     if (isSupabaseConfigured && user?.id !== 'demo-user') await supabase.auth.signOut()
     setUser(null)
     setAdminAccessStatus(ADMIN_ACCESS_STATUS.DENIED)
     setAdminBookings([])
     setAdminOrderBookings([])
     setAdminOrderSummary(emptyAdminOrderSummary)
+    setAdminOrderReadError(null)
     setAdminOrderFilters(defaultAdminOrderFilters())
     setAdminOrderPagination(defaultAdminOrderPagination())
     setAdminAuditOperations([])
@@ -1419,6 +1479,8 @@ export default function App() {
           scheduleReadError={adminScheduleReadError}
           orderBookings={adminOrderBookings}
           orderSummary={adminOrderSummary}
+          orderReadSource={effectiveReservationOrderReadSource}
+          orderReadError={adminOrderReadError}
           orderFilters={adminOrderFilters}
           onOrderFiltersChange={changeAdminOrderFilters}
           orderPagination={adminOrderPagination}

@@ -278,6 +278,7 @@ export const normalizeCanonicalReservationSummary = (row) => {
       email: source.primary_contact_email,
       phone: source.primary_contact_phone,
     }),
+    partyCount: Number(source.party_count || 0),
     money: {
       totalAmount: amount(source.total_amount),
       paidAmount: amount(source.paid_amount),

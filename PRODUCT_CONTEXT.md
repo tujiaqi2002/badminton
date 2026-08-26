@@ -123,7 +123,7 @@ Tiger 是为一家拥有五片场地的羽毛球馆打造的中英双语预约 P
 
 同一次创建、同一时间段的多场地订单在“我的预订”中应作为一张多场地卡片展示，聚合显示场地数量、场地标识和总金额；在没有整组取消后端能力前，取消操作继续逐片场地展示并调用既有单条 booking 取消流程。
 
-### 已确认的目标预约语义（写入层已激活；读取与界面尚未切换）
+### 已确认的目标预约语义（写入已激活；排期/详情已 canonical，订单查询在 staging 验证）
 
 Issue #118 已确认把现有 `booking_group_id` / `booking_link_id` 统一迁移到一个业务模型：**Reservation → Sessions → Court allocations**。Phase 3B.2 已在生产激活统一 transaction writer，但 Phase 4 read/UI 尚未切换；现有 group/link UI 和 public RPC contract 继续生效，RPC 内部已由新内核维护 aggregate、ledger 与 legacy projection 的一致性。
 
@@ -167,6 +167,10 @@ Phase 4A.3 曾在明确授权的短时窗口临时开启该变量，验证当前
 Phase 4B.0 已建立只在 loopback、本地 staging flag/environment 与精确 project-ref 全部匹配时出现的 password 测试入口，并用 `badminton_stage` 的 disposable manager/non-manager 完成真实 Auth 与馆长权限回归。Phase 4B.1 让馆长排期与容量监控直接读取 current Court allocations：同一 Reservation / Session 的多场地仍一片场地一张卡，但共享 effective identity；容量与排期共用同一数据。PR #151 安装 fail-closed Pages selector 后，production 已通过 exact `canonical` variable 启用该来源；读取失败会显示持续错误并隐藏排期/容量，不会把错误误报为全空，也不会 per-request 静默回旧数据。馆长订单列表/搜索与所有写操作仍是后续独立门禁；所有 legacy removal 仍属于独立 Phase 5 门禁。完整生产证据与回退方式见 [`docs/reservation-migration/phase-4b1-production-cutover.md`](./docs/reservation-migration/phase-4b1-production-cutover.md)。
 
 Phase 4B.2 已由 PR #154 进入 `main`，先完成 default-legacy 发布，再经独立授权把 production selected-detail selector 设为 exact canonical。馆长选中一片场地后会看到一张只读的统一 Reservation 卡，把主要联系人、其他参与人、整笔预约备注、当前 Session 备注、Session/allocation 范围、付款计划/已付/待付和 merge/split lineage 分开表达。同一 Reservation 的不同 Court allocation 共享商业详情与缓存，但当前 allocation / Session identity 继续严格核对；跨 Reservation 才发起新详情请求。生产真实观察、非馆长拒绝与 pre/post database diagnostic 均通过。现有编辑、付款、关联、移动和取消按钮继续保持 legacy booking writer scope；馆长 order/search、客户读取、数据库与登录策略均未改变。完整证据见 [`docs/reservation-migration/phase-4b2-production-cutover.md`](./docs/reservation-migration/phase-4b2-production-cutover.md)。
+
+Phase 4B.3 已在确认的 Issue #157 范围内完成 canonical 馆长订单查询并只应用到 `badminton_stage`。订单列表单位从一片 Court allocation 改为一笔 Reservation；一笔预约无论包含多少 Session、日期、时段、时长或 Courts 都只出现一次。日期筛选通过命中的 Session 找到 Reservation，卡片同时区分“本次命中的场次”和“整笔预约完整范围”。搜索覆盖所有 Party，而非只覆盖 primary contact；卡片显示主要联系人和其他 Party 数。付款筛选与金额来自整笔 Reservation 的 canonical ledger projection。
+
+Canonical 聚合卡当前只提供“在排期中查看”，并聚焦该 Reservation 当天的全部有效 allocations。它不提供含糊的单 booking 改期/取消入口；付款、移动、取消和关系动作必须在后续阶段明确 allocation/session/reservation scope 后才能迁移。Production order/search 仍是 legacy，migration 49 和 selector cutover 都需新的独立生产授权。完整中英文设计见 [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md)。
 
 订单较多时，“我的预订”默认展示即将开始的订单，并提供 Upcoming/Past/Cancelled tabs、日期/场地/编号等搜索、折叠式高级筛选、已应用筛选 chip 与清除入口。结果按月份分组，筛选和搜索只改变列表可见性，不隐藏单张订单卡片上的既有信息或取消动作。
 
@@ -281,11 +285,13 @@ Phase 4B.2 已由 PR #154 进入 `main`，先完成 default-legacy 发布，再�
 - 默认范围：今天。
 - 默认排除已取消订单。
 - 支持今天、未来 7 天、未来 30 天、自定义日期范围。
-- 支持姓名、邮箱、电话、备注、场地搜索。
-- 支持订单状态和支付状态筛选。
-- 统计查询结果数、总时长、独立客户数、今日场次。
-- 每页最多 50 条，支持前后分页。
-- 按日期分组显示状态、支付、客户、场地/时间、金额、改期和取消入口。
+- Canonical 单位是一笔 Reservation；多个日期、时间、时长和场地不会重复成多条订单。
+- 支持 reference、所有 Party 的姓名/邮箱/电话、Session 备注和场地搜索。
+- 支持 Reservation 状态和 canonical 支付状态筛选，包括部分付款、退款、免费和显式异常。
+- 统计 Reservation 数、命中场地时长、独立 primary contact 数和今日命中的 Reservation 数。
+- 每页最多 50 条，使用稳定 keyset cursor 支持前后分页。
+- 按命中日期分组，一张卡同时显示主要/其他 Party、命中场次、整笔完整范围、Courts、状态和付款汇总。
+- Canonical 卡当前只提供“在排期中查看”；改期、取消与付款 action 待后续明确作用域。Production 尚保持 legacy 列表，以上 canonical 行为已在 staging 验证。
 
 ## 8. 场地监控
 
@@ -439,6 +445,14 @@ Phase 4B.2 已由 PR #154 进入 `main`，先完成 default-legacy 发布，再�
 2. 明确旧规则是废弃、继续支持还是由设置控制。
 3. 涉及 schema、Auth、RPC、权限或部署时更新 [`TECHNICAL_CONTEXT.md`](./TECHNICAL_CONTEXT.md)。
 4. 不根据旧截图或旧聊天推断当前生产行为。
+
+## English update: Phase 4B.3 canonical Reservation order search
+
+Under confirmed Issue #157, Phase 4B.3 has completed canonical manager order search on isolated `badminton_stage`. The list unit is now one Reservation rather than one Court allocation: a Reservation containing multiple Sessions, dates, times, durations, or Courts still appears once. Date filters find Reservations through matching Sessions, and each card separates the matched schedule from the complete Reservation range.
+
+Search covers every Party rather than only the primary contact, and cards show the primary contact plus the remaining Party count. Payment filters and totals use the Reservation-level canonical ledger projection. The aggregate card currently exposes only “View in schedule,” which focuses every effective allocation for that Reservation on the matched day. It deliberately omits ambiguous single-booking move, cancellation, and payment actions until a later phase defines allocation/session/reservation scope.
+
+Production order/search remains legacy. Production migration 49 and the order selector cutover are separate gates requiring fresh verification and explicit authorization. Full bilingual scope is in [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md).
 
 ## English update: Phase 4A.1 production read contract and Phase 3B boundary
 

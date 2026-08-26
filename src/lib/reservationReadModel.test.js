@@ -248,6 +248,7 @@ test('Reservation search normalizes keyset pagination and aggregate summary with
       allocation_count: 2,
       matched_start_at: '2026-08-25T14:00:00+00:00',
       matched_allocation_minutes: 120,
+      party_count: 2,
     }],
     has_more: true,
     next_cursor: { sort_at: '2026-08-25T14:00:00+00:00', reservation_id: reservationOne },
@@ -255,6 +256,7 @@ test('Reservation search normalizes keyset pagination and aggregate summary with
   })
   assert.equal(result.items.length, 1)
   assert.equal(result.items[0].schedule.matchedAllocationMinutes, 120)
+  assert.equal(result.items[0].partyCount, 2)
   assert.deepEqual(result.summary, { results: 4, totalMinutes: 360, primaryContacts: 3, today: 2 })
   assert.equal(result.nextCursor.reservationId, reservationOne)
 })
