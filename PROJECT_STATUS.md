@@ -41,7 +41,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #153：Reservation Phase 4B.2 canonical selected-detail read（等待 Draft PR）
+### Issue #153 / Draft PR [#154](https://github.com/tujiaqi2002/badminton/pull/154)：Reservation Phase 4B.2 canonical selected-detail read（等待 CI/评审）
 
 - 用户已明确确认 Issue #153。范围只包括选中排期后的只读 canonical Reservation 详情、可回退 selector、staging 验证和 Draft PR；不改变数据库、writer/action scope、生产 selector 或 legacy decommission。
 - 新 `VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE` 只有 exact `canonical` 才启用，缺失/未知值均回到 `legacy`。生产 workflow 缺省仍为 legacy；`.env.staging.example` 使用 canonical schedule + canonical detail 的成对组合。
@@ -49,7 +49,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 同一 Reservation 的场地/场次切换共享进行中请求或内存缓存，跨 Reservation 会 abort 旧请求；writer、undo/revert 与 `court_slots` Realtime 会失效缓存。缓存不进入 storage、日志或数据库。
 - `badminton_stage` manager 已完成中英文桌面与 390×844 手机验证：9 月 7 日同一 Reservation 的 Court 1/Court 2 均显示 1 Session / 2 allocations、付款汇总、独立备注与 lineage；同 Reservation 两场地切换只新增一次 detail RPC，console error/warn 为 0，手机无横向 overflow。Before/After 位于 [`docs/screenshots/issue-153`](./docs/screenshots/issue-153)。
 - hosted preflight 仍为 48 migrations、192 allocations、123 Reservations、Phase 4A mismatch 0；detail RPC 为 security invoker、空 `search_path`、authenticated 可执行、anon 不可执行，Realtime 仍只发布 `court_slots`。本阶段没有 migration、DB push 或数据 mutation。
-- synthetic non-manager 页面门禁已通过：页面只显示未授权状态，没有馆长导航、排期或 canonical 详情卡，console error/warn 为 0；API 日志中本次登录只检查 `staff_members`，没有新增 `admin_get_reservation_detail`。最终 lint、production/canonical-staging build 与 diff check 均已通过，当前只剩创建 Draft PR。完整中英文设计与证据见 [`docs/reservation-migration/phase-4b2-canonical-selected-detail.md`](./docs/reservation-migration/phase-4b2-canonical-selected-detail.md)。
+- synthetic non-manager 页面门禁已通过：页面只显示未授权状态，没有馆长导航、排期或 canonical 详情卡，console error/warn 为 0；API 日志中本次登录只检查 `staff_members`，没有新增 `admin_get_reservation_detail`。最终 lint、production/canonical-staging build 与 diff check 均已通过；Draft PR #154 已创建，等待 CI 与用户评审。完整中英文设计与证据见 [`docs/reservation-migration/phase-4b2-canonical-selected-detail.md`](./docs/reservation-migration/phase-4b2-canonical-selected-detail.md)。
 
 ### Issue #148：Reservation Phase 4B.1 canonical schedule/capacity（production canonical 已启用并验证）
 

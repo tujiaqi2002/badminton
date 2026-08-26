@@ -335,7 +335,7 @@ PR [#149](https://github.com/tujiaqi2002/badminton/pull/149) 于 2026-08-25 13:1
 
 用户随后明确授权 production canonical schedule/capacity cutover。PR [#151](https://github.com/tujiaqi2002/badminton/pull/151) 增加 workflow `legacy` fallback 与 selector regression test，于 14:22:23 UTC 合并为 `6157f7a23daeb5d5c9c14d2d8310b41d24b7fd6d`。variable 缺失的 [run 32859078691](https://github.com/tujiaqi2002/badminton/actions/runs/32859078691) 先证明线上仍是 `index-B_GCKKvu.js` / 0 canonical RPC；exact canonical 的 [run 32859184175](https://github.com/tujiaqi2002/badminton/actions/runs/32859184175) 再部署 `index-CvTu7GmI.js` / 1 canonical RPC / 0 staging ref / 1 production ref。真实馆长会话在三个排期窗口与两个容量周均无 read error，console error/warn 0；API logs 为 8 POST + 1 OPTIONS，全部 200。post-cutover diagnostic 仍为 48、192/192、123、0 mismatch、17/0/17/3、7 FORCE RLS 与 `court_slots`-only Realtime。回退是设 legacy/删除 variable 后重跑 workflow，不需要 DB rollback。Phase 4B.2 与 decommission 未开始。完整记录见 [`docs/reservation-migration/phase-4b1-production-cutover.md`](./docs/reservation-migration/phase-4b1-production-cutover.md)。
 
-### Phase 4B.2 canonical selected-detail source（Issue #153；staging 验证完成）
+### Phase 4B.2 canonical selected-detail source（Issue #153 / Draft PR #154；staging 验证完成）
 
 `VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE` 是独立 build-time selector；只有 exact `canonical` 启用，其他值全部 fail closed 到 legacy。Staging 的受支持组合为 canonical schedule + canonical detail，因为 detail identity 必须来自 schedule row 的 physical allocation ID、`effective_reservation_id` 与 `effective_session_id`。Production workflow 对 detail selector 固定 `legacy` fallback，合并代码不会自动切换线上详情。
 

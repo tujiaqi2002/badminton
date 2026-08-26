@@ -1,8 +1,9 @@
 # Reservation Phase 4B.2：Canonical selected-detail read
 
 > Issue：[#153](https://github.com/tujiaqi2002/badminton/issues/153)
+> Draft PR：[#154](https://github.com/tujiaqi2002/badminton/pull/154)
 > 分支：`codex/reservation-phase-4b2-selected-detail`
-> 状态：实现、自动验证与 manager/non-manager staging 浏览器证据已完成；正在创建 Draft PR。
+> 状态：实现、自动验证与 manager/non-manager staging 浏览器证据已完成；Draft PR 已创建，等待 CI 与评审。
 > 数据库：无 migration、无 DB push、无数据写入。
 
 ## 1. 本阶段解决什么
@@ -140,7 +141,7 @@ Synthetic non-manager 登录后的页面只显示“未授权”，馆长导航�
 
 ## 10. 后续门禁
 
-1. 创建 Draft PR 并等待 CI；
+1. 等待 Draft PR #154 CI 与评审；
 2. 另行确认 Ready/merge，合并后 production selector 仍保持 legacy；
 3. 另行确认 production selected-detail cutover；
 4. Phase 4C 重新起草并确认所有 writer/action scope；
@@ -151,8 +152,9 @@ Synthetic non-manager 登录后的页面只显示“未授权”，馆长导航�
 # Reservation Phase 4B.2: Canonical selected-detail read
 
 > Issue: [#153](https://github.com/tujiaqi2002/badminton/issues/153)
+> Draft PR: [#154](https://github.com/tujiaqi2002/badminton/pull/154)
 > Branch: `codex/reservation-phase-4b2-selected-detail`
-> Status: implementation, automated verification, and manager/non-manager staging browser evidence are complete; the Draft PR is being opened.
+> Status: implementation, automated verification, and manager/non-manager staging browser evidence are complete; the Draft PR is open and awaiting CI and review.
 > Database: no migration, DB push, or data mutation.
 
 ## 1. Purpose
@@ -275,7 +277,7 @@ After the synthetic non-manager login, the page showed only the unauthorized sta
 
 ## 10. Next gates
 
-1. Open a Draft PR and wait for CI.
+1. Wait for Draft PR #154 CI and review.
 2. Separately confirm Ready/merge; production selected detail remains legacy after merge.
 3. Separately confirm the production selected-detail cutover.
 4. Re-draft and confirm every Phase 4C writer/action scope.
