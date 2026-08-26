@@ -11,7 +11,7 @@
     "test": "node --test",
     "test:phase2": "node --test supabase/tests/phase_2_backfill.test.mjs",
     "test:reservation": "node --test supabase/tests/phase_2_backfill.test.mjs supabase/tests/phase_3b_activation_contract.test.mjs supabase/tests/phase_4a_read_contract.test.mjs",
-    "test:reservation-read": "node --test src/lib/reservationDeploymentSource.test.js src/lib/reservationReadModel.test.js src/lib/reservationScheduleRead.test.js src/lib/reservationSelectedDetailRead.test.js",
+    "test:reservation-read": "node --test src/lib/reservationDeploymentSource.test.js src/lib/reservationReadModel.test.js src/lib/reservationOrderRead.test.js src/lib/reservationScheduleRead.test.js src/lib/reservationSelectedDetailRead.test.js",
     "test:staging-fixture": "node --test supabase/tests/staging_fixture.test.mjs"
   },
   "dependencies": {

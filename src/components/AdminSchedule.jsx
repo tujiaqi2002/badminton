@@ -336,7 +336,7 @@ function NewBookingModal({ draft, busy, onClose, onSubmit, onPreviewPrice, confi
   )
 }
 
-export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onSwap, onLink, selectedDetailReadSource, onLoadSelectedDetail, onLoadRelationship, onUnlink, onMarkPaid, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onViewAuditLog, onRevertAudit, configuration }) {
+export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onSwap, onLink, selectedDetailReadSource, onLoadSelectedDetail, onLoadRelationship, onUnlink, onMarkPaid, onCancel, onUpdateDetails, onDateChange, focusTime, focusReservationId, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onViewAuditLog, onRevertAudit, configuration }) {
   const { bookingColorScheme, dragLockMode } = useDisplay()
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
@@ -416,8 +416,14 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
 
   useEffect(() => {
     if (!focusTime) return
-    window.setTimeout(() => document.querySelector(`[data-schedule-time="${focusTime}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
-  }, [dateKey, focusTime])
+    window.setTimeout(() => {
+      const reservation = focusReservationId
+        ? document.querySelector(`[data-effective-reservation-id="${focusReservationId}"]`)
+        : null
+      const target = reservation || document.querySelector(`[data-schedule-time="${focusTime}"]`)
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 100)
+  }, [bookings, dateKey, focusReservationId, focusTime])
 
   useEffect(() => {
     if (draggedId) setAuditOpen(false)
@@ -1212,9 +1218,9 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       {focusTime && <div className="admin-schedule-context phone-focus">
           <div className="admin-phone-focus-guide" role="status" aria-live="polite">
             <PhoneCall size={15} />
-            <strong>{t('admin.schedule.phoneFocusTitle')}</strong>
-            <span>{t('admin.schedule.phoneFocusText', { date: dateKey.replaceAll('-', '.'), time: focusTime })}</span>
-            <button onClick={onClearFocus}><X size={13} /> {t('admin.schedule.clearPhoneFocus')}</button>
+            <strong>{t(focusReservationId ? 'admin.schedule.reservationFocusTitle' : 'admin.schedule.phoneFocusTitle')}</strong>
+            <span>{t(focusReservationId ? 'admin.schedule.reservationFocusText' : 'admin.schedule.phoneFocusText', { date: dateKey.replaceAll('-', '.'), time: focusTime })}</span>
+            <button onClick={onClearFocus}><X size={13} /> {t(focusReservationId ? 'admin.schedule.clearReservationFocus' : 'admin.schedule.clearPhoneFocus')}</button>
           </div>
       </div>}
       <div className="admin-schedule-workbench">
@@ -1371,10 +1377,11 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                 const isRelationshipSource = linkMode?.id === booking.id || linkDrag?.booking.id === booking.id
                 const isRelationshipTarget = Boolean((linkMode && canLinkBookings(linkMode, booking)) || linkDropId === booking.id)
                 const isLinkedContext = Boolean(activeSelection?.booking_link_id && activeSelection.booking_link_id === booking.booking_link_id && activeSelection.id !== booking.id)
+                const isReservationFocus = Boolean(focusReservationId && booking.effective_reservation_id === focusReservationId)
                 const customerColor = customerColorForBooking(booking, customerColorMap, bookingColorScheme)
                 return (
                   <article
-                    className={`admin-schedule-booking ${bookingPhase} ${minutes <= 60 ? 'short' : ''} ${minutes === 30 ? 'half-hour' : ''} ${indicatorCount ? 'has-indicators' : ''} ${indicatorCount > 1 ? 'has-two-indicators' : ''} ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${isRelationshipSource ? 'relationship-source' : ''} ${isRelationshipTarget ? 'relationship-target' : ''} ${isLinkedContext ? 'linked-context' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
+                    className={`admin-schedule-booking ${bookingPhase} ${minutes <= 60 ? 'short' : ''} ${minutes === 30 ? 'half-hour' : ''} ${indicatorCount ? 'has-indicators' : ''} ${indicatorCount > 1 ? 'has-two-indicators' : ''} ${draggedId === booking.id ? 'dragging' : ''} ${draggedId === booking.id && dragPreview?.invalid ? 'invalid-target' : ''} ${isRelationshipSource ? 'relationship-source' : ''} ${isRelationshipTarget ? 'relationship-target' : ''} ${isLinkedContext ? 'linked-context' : ''} ${isReservationFocus ? 'reservation-focus' : ''} ${selectedBooking?.id === booking.id ? 'selected' : ''}`}
                     draggable={false}
                     onDragStart={(event) => event.preventDefault()}
                     role="button"
@@ -1413,6 +1420,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                     }}
                     style={{ '--start': offset / slotMinutes, '--span': minutes / slotMinutes, '--customer-color-start': customerColor.start, '--customer-color-end': customerColor.end, '--customer-color-ink': customerColor.foreground, '--customer-text-shadow': customerColor.textShadow }}
                     data-customer-color={customerColor.index}
+                    data-effective-reservation-id={booking.effective_reservation_id || undefined}
                     data-booking-id={booking.id}
                     data-origin-label={draggedId === booking.id ? `${t('admin.schedule.originPosition')} · ${timeFromDateTime(booking.start_at)}–${endTimeFromDateTime(booking.start_at, booking.end_at)}` : undefined}
                     key={booking.id}

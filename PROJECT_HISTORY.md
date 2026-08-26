@@ -384,6 +384,22 @@ PR #155 以 `a16e5f6` 合并 default-legacy 证据后，用户从明确命名 pr
 
 Post-cutover diagnostic 与 preflight 完全相同，没有 migration、DB push、grant、writer、数据、Auth 或 Realtime 变化。Bundled Node v24.19.0 / pnpm 11.19.0 下 93 tests 为 92 pass、1 skip、0 fail，lint 与 exact-canonical build 通过。阶段结果：production 保持 canonical schedule/capacity + canonical selected detail；manager order/search、客户读取、writer/action scope 和 legacy decommission 仍是独立后续门禁。完整记录见 [`docs/reservation-migration/phase-4b2-production-cutover.md`](./docs/reservation-migration/phase-4b2-production-cutover.md)。
 
+## 39. 2026-08-26：Phase 4B.3 canonical Reservation order/search 在 staging 完成
+
+用户 review 并确认 Issue #157 后，分支新增 append-only migration 49，只替换既有 manager Reservation search 定义。RPC 保持 signature/version 1 envelope、security invoker、空 `search_path` 与 authenticated-only manager gate，并新增 all-Party search、`party_count`、venue-local bounds 和 `(matched_start_at, reservation_id)` keyset pagination。Migration 以前后双重断言冻结 48-version Phase 4A baseline 与 Phase 3B/4A clean contracts；不写业务数据、不改变 RLS、client DML、Realtime、Auth、付款或计价。
+
+前端新增独立 fail-closed order source：只有 exact `canonical` 启用，staging example opt in，production example/workflow 缺省 legacy。Version 1 order ViewModel 严格核对 Reservation/Party/schedule/Court/payment/currency/cursor；abort 和 request identity 防止 stale commit，失败不静默回 legacy。馆长列表从 Court-allocation row 收敛为每笔 Reservation 一张聚合卡，并区分 matched schedule 与 full Reservation schedule。卡片只保留“在排期中查看”，同时聚焦该 Reservation 当天全部 effective allocations；旧单 booking 改期/取消 action 不进入聚合卡。
+
+Supabase dry-run 只列 migration 49，随后只 push 到 `badminton_stage`。Stage 从 48 精确推进到 49，production 保持 48。合成基线仍为 123 Reservations、135 Sessions、192 memberships、131 Parties；年度 manager query 首屏 50、summary 83 / 9,120 minutes。用 non-primary “Synthetic customer 2” 查询精确返回一笔 `party_count = 2` Reservation；authenticated non-manager 被拒绝，ACL 仍为 authenticated-only。
+
+浏览器 future-30 对比从 10 条 legacy rows 变为 5 张 Reservation cards；首张卡的 schedule action 同时高亮 2 条 allocation。中英文 desktop、390×844 mobile、primary search、non-manager 门禁和 fresh console 均通过，Before/After 已保存到 `docs/screenshots/issue-157`。Bundled Node v24.19.0 / pnpm 11.19.0 下 read suite 36/36，Reservation suite 37 total / 36 pass / 1 个 no-local-PostgreSQL skip / 0 fail，lint/build 通过。
+
+Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) 已创建并保持 Draft/mergeable。首轮 [CI run 33013724851](https://github.com/tujiaqi2002/badminton/actions/runs/33013724851) 在 Node v22.23.2 / pnpm 11.16.0 / PostgreSQL 16.15 下通过 Reservation 37/37、read 36/36、0 skip，以及 lint/build；唯一 annotation 是 action 内部 Node 20 target 的平台弃用提示。
+
+随后完成 fresh production read-only preflight：migration history 为 remote 48、remote-only 0、local-only 仅 migration 49，dry-run 也只列该 migration；Phase 3B/4A diagnostic 与 non-manager gate clean。候选查询计划为 9.335 ms、95 shared hits、0 read/temp，并使用现有 Session/membership 索引；advisor 没有 Phase 4B.3 新发现。期间没有 merge、production push 或 mutation。
+
+阶段结果：实现、isolated-stage migration、浏览器、固定环境 CI 与 production preflight 均已完成。PR #158 仍为 Draft；下一步需要用户单独明确授权 merge，也就是授权 integration 自动应用 production migration 49。Production order selector 继续 legacy，canonical cutover 仍是后续独立门禁。完整中英文记录见 [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md)。
+
 ## English record
 
 ### 24. 2026-08-24: Phase 3B.2 atomic staging activation
@@ -581,3 +597,19 @@ Setting exact `VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE=canonical` and dispa
 Live manager observation rendered one ready canonical v1 card, zero error cards, and all seven business sections. Two sibling Courts in one three-Session / three-allocation Reservation retained the same reference and reused one request; only crossing Reservations issued the next request. Three Reservations produced three POST calls plus one OPTIONS request, all HTTP 200, and browser error/warn stayed zero. A random authenticated non-manager was denied inside a read-only transaction, while `anon` retained no EXECUTE.
 
 The post-cutover diagnostic was identical to preflight. No migration, DB push, grant, writer, data, Auth, or Realtime change occurred. Bundled Node v24.19.0 / pnpm 11.19.0 produced 92 passes, one skip, and zero failures across 93 tests; lint and the exact-canonical build passed. Production now keeps canonical schedule/capacity plus canonical selected detail. Manager order/search, customer reads, writer/action scopes, and legacy decommission remain independent future gates. See [`docs/reservation-migration/phase-4b2-production-cutover.md`](./docs/reservation-migration/phase-4b2-production-cutover.md).
+
+### 39. 2026-08-26: Phase 4B.3 canonical Reservation order/search completed on isolated staging
+
+After the user reviewed and confirmed Issue #157, append-only migration 49 replaced only the existing manager Reservation-search definition. It preserves the signature/version 1 envelope, security-invoker empty-search-path shape, and authenticated-only manager gate while adding all-Party search, `party_count`, venue-local bounds, and `(matched_start_at, reservation_id)` keyset pagination. Strict pre/postflight assertions freeze the 48-version Phase 4A baseline and clean Phase 3B/4A contracts. No business data, RLS/client DML, Realtime, Auth, pricing, or payment facts changed.
+
+The frontend adds an independent fail-closed order source. Only exact `canonical` enables it; staging opts in, while the production example and workflow default to legacy. The version 1 order ViewModel validates Reservation/Party/schedule/Court/payment/currency/cursor facts; abort and request identity prevent stale commits, and canonical errors never silently switch source. The manager list becomes one aggregate card per Reservation, separating matched from full schedule. The only aggregate action is “View in schedule,” which highlights every effective allocation for that Reservation on the day; legacy single-booking reschedule/cancel actions are not exposed.
+
+The Supabase dry run listed only migration 49, which was then pushed only to `badminton_stage`. Stage advanced exactly from 48 to 49 while production stayed at 48. The synthetic baseline remains 123 Reservations, 135 Sessions, 192 memberships, and 131 Parties. The annual manager query returned a 50-item first page and an 83-result / 9,120-minute summary. Searching the non-primary “Synthetic customer 2” returned exactly one `party_count = 2` Reservation. An authenticated non-manager was denied and the ACL remained authenticated-only.
+
+Future-30 browser evidence changed ten legacy rows into five Reservation cards, and the first schedule action highlighted two allocations. Chinese/English desktop, 390×844 mobile, primary search, non-manager access, and a fresh zero-error/warn console all passed. Bundled Node v24.19.0 / pnpm 11.19.0 passed 36/36 read tests, 36/37 Reservation tests with one explicit no-local-PostgreSQL skip, lint, and build.
+
+Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) is open, Draft, and mergeable. Its first [CI run 33013724851](https://github.com/tujiaqi2002/badminton/actions/runs/33013724851) passed 37/37 Reservation PostgreSQL tests, 36/36 read tests, zero skips, lint, and build under Node v22.23.2, pnpm 11.16.0, and PostgreSQL 16.15. Its sole annotation is the platform deprecation warning for an action's internal Node 20 target.
+
+A fresh production read-only preflight then confirmed 48 remote migrations, zero remote-only drift, and only migration 49 local-only/pending; the dry run listed the same single migration. Phase 3B/4A diagnostics and the non-manager gate stayed clean. The candidate query plan completed in 9.335 ms with 95 shared hits, zero reads or temp blocks, and existing Session/membership indexes in use. Advisors reported no Phase 4B.3-specific finding. No merge, production push, or mutation occurred.
+
+Stage result: implementation, isolated-stage migration, browser validation, pinned CI, and production preflight are complete. PR #158 remains Draft. The next gate is separate explicit authorization to merge, which also authorizes the integration to deploy production migration 49. The production order selector remains legacy, and canonical cutover is still a later independent gate. Full bilingual evidence is in [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md).

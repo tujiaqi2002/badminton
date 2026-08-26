@@ -36,6 +36,7 @@ jobs:
           VITE_STRIPE_ENABLED: ${{ vars.VITE_STRIPE_ENABLED || 'false' }}
           VITE_RESERVATION_READ_SHADOW: ${{ vars.VITE_RESERVATION_READ_SHADOW || 'false' }}
           VITE_RESERVATION_SCHEDULE_READ_SOURCE: ${{ vars.VITE_RESERVATION_SCHEDULE_READ_SOURCE || 'legacy' }}
+          VITE_RESERVATION_ORDER_READ_SOURCE: ${{ vars.VITE_RESERVATION_ORDER_READ_SOURCE || 'legacy' }}
           VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE: ${{ vars.VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE || 'legacy' }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4

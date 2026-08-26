@@ -82,6 +82,9 @@ GitHub Pages 没有可信服务器运行时。特权写入、权限裁决、并�
 | `VITE_GOOGLE_AUTH_ENABLED` | Actions Variable | Google 登录开关 |
 | `VITE_STRIPE_ENABLED` | Actions Variable | 在线支付 UI 开关 |
 | `VITE_RESERVATION_READ_SHADOW` | Actions Variable | 默认关闭；馆长排期 canonical shadow read 观察开关 |
+| `VITE_RESERVATION_SCHEDULE_READ_SOURCE` | Actions Variable | exact `canonical` 启用馆长排期/容量 canonical read；否则 legacy |
+| `VITE_RESERVATION_ORDER_READ_SOURCE` | Actions Variable | exact `canonical` 启用馆长 Reservation order read；否则 legacy |
+| `VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE` | Actions Variable | exact `canonical` 启用馆长 selected-detail canonical read；否则 legacy |
 
 Supabase client 启用 session persistence、自动刷新和 OAuth redirect 检测。session 只证明身份；前端还会读取 `staff_members`，数据库 RPC/RLS 会独立验证馆长权限。
 
@@ -349,14 +352,31 @@ PR [#154](https://github.com/tujiaqi2002/badminton/pull/154) 于 2026-08-26 10:1
 
 PR #155 随后以 `a16e5f6` 合并上述 default-legacy 证据。用户在单独门禁中授权生产 canonical detail；fresh diagnostic clean 后设置 exact variable，[Pages run 32961018071](https://github.com/tujiaqi2002/badminton/actions/runs/32961018071) 从同一 `main` 部署 `index-DLJKKuT_.js`，production ref 1、staging ref 0、detail RPC 1。真实馆长的 canonical ViewModel v1 ready 卡为 1、error 为 0；同一 3 Session / 3 allocation Reservation 的两个 sibling allocations 保持相同 reference 且只发一次 POST，跨 Reservation 才新增 POST。三个 Reservation 共 3 POST + 1 OPTIONS，全部 200；console error/warn 为 0。随机 authenticated non-manager 在 read-only transaction 中得到 `Manager access required`，anon 无 EXECUTE。post-cutover diagnostic 完全不变；没有 migration、DB push、grant、writer、数据、Auth 或 Realtime 变化。完整证据见 [`docs/reservation-migration/phase-4b2-production-cutover.md`](./docs/reservation-migration/phase-4b2-production-cutover.md)。
 
+### Phase 4B.3 canonical Reservation order/search（Issue #157；staging 已验证，production legacy）
+
+append-only migration `20260826181644_reservation_phase_4b3_order_search` 只替换既有 `public.admin_search_reservations(date,date,text,text,text,integer,timestamptz,uuid)` 定义，保持 signature 与 schema version 1 response envelope。它增加所有 `reservation_parties` 的姓名/邮箱/电话搜索、`party_count`、venue-local date bounds、显式 Reservation/payment filter allowlist，以及 `(matched_start_at, reservation_id)` keyset pagination。每页最多 50 条，日期范围最多 367 天。
+
+Migration preflight 要求精确 48-version Phase 4A baseline、clean Phase 3B activation/read assertions、既有 security shape 与 grants；postflight 再验证定义、ACL 和 predecessor contracts。RPC 继续是 `STABLE`、`SECURITY INVOKER`、`search_path = ''`，函数内独立检查 `auth.uid()` 与 `staff_members.role = 'admin'`，并只 grant authenticated EXECUTE。Anon/service_role 无入口；没有业务数据 mutation、RLS/client DML、Realtime、Auth、pricing 或 payment-fact 变化。
+
+查询先用 Session starts-at 的 venue-local 367-day 上限缩小 Reservation，再执行 all-Party/Court/notes matching。当前未添加推测性索引；现有 Session、membership 和 Party access paths 已满足 synthetic stage 规模。Fresh production read-only preflight 的候选查询 `EXPLAIN (ANALYZE, BUFFERS)` 为 9.335 ms、95 shared-hit blocks、0 shared read/temp；使用 `reservation_sessions_admin_window_idx` 与 membership effective-session index，Party scope 只扫描 131 行。因此目前没有新增索引证据；未来只有可复现的慢计划才能通过独立 append-only migration 增加索引。
+
+`VITE_RESERVATION_ORDER_READ_SOURCE` 是独立 build-time selector。只有 exact `canonical` 启用，`.env.staging.example` 为 canonical，`.env.example` 与 Pages workflow 缺省 legacy。`reservationOrderRead.js` 把 canonical DTO 映射为 explicit version 1 `AdminReservationOrderViewModel`，并 fail-closed 校验 Reservation/Party/schedule/Court/payment/currency/cursor。请求使用 AbortController 与 React request identity 防 stale commit；失败不 per-request 回 legacy，也不伪装空结果。
+
+AdminBookings 在 canonical 下以一笔 Reservation 一张卡渲染，分开 matched Session range 与 full Reservation range，并展示 Party count 和 canonical payment aggregate。聚合卡只提供 schedule focus；该动作使用 effective Reservation identity 高亮当天全部 allocations。旧 booking row 的 reschedule/cancel/payment actions 没有被复用到 aggregate card，writer/action scope 保留后续门禁。
+
+Hosted stage dry-run 只列 migration 49，`db push` 后 staging 精确为 49，而 production 保持 48。Stage 基线为 123 Reservations / 135 Sessions / 192 memberships / 131 Parties；manager annual query 首屏 50、summary 83 / 9,120 minutes，secondary Party search 返回一笔 `party_count = 2` Reservation。Authenticated non-manager 被拒绝，ACL 为 authenticated only。浏览器把 future-30 从 10 legacy rows 收敛为 5 Reservation cards，并验证两 allocation focus、中英 desktop、390×844 mobile 与零 console error/warn。完整中英文证据见 [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md)。
+
+Merge 前的 fresh production preflight 已只读完成：migration list 为 remote-applied 48、remote-only 0、local-only 仅 `20260826181644`；`db push --dry-run` 同样只列 migration 49。Phase 3B/4A diagnostic、FORCE RLS、writer 边界和 `court_slots`-only Realtime 均保持 clean；non-manager role test 在 read-only transaction 内按预期返回 `Manager access required`。Security advisor 的 48 项与 performance advisor 的 60 项均为既有 baseline，没有 Phase 4B.3-specific finding。PR #158 仍为 Draft；没有 merge、production push 或数据 mutation。下一门禁是明确授权 merge/自动应用 migration 49，order selector 仍独立保持 legacy。
+
 ## 8. 线上迁移状态
 
-2026-08-25 PR #143 上线后，生产精确为 48 个版本：
+2026-08-26 Phase 4B.3 staging apply 后，环境状态为：
 
 - 首个：`20260812161833_private_manager_schedule`
 - 生产最新：`20260825091608_reservation_phase_4a_manager_read_contract`
+- staging 最新：`20260826181644_reservation_phase_4b3_order_search`
 
-独立 `badminton_stage` 也为 48 个版本，最新同为 `20260825091608_reservation_phase_4a_manager_read_contract`。其中 Phase 2 migration 的 DDL/回填逻辑未变，只把四个冻结生产数据指纹替换为合成 fixture 的 staging 指纹；Phase 2 diagnostic 也必须使用相同 staging 指纹专门化，原样 production-fingerprint 版本会按设计 fail closed。Production migrations 45–48 已由 protected-branch integration 成功应用；Phase 4A.2/4A.3 不新增 migration，默认 read/UI cutover、Stripe 或 legacy decommission 仍需新的独立门禁与明确授权。
+Production 精确为 48 个版本；独立 `badminton_stage` 为 49 个版本。Stage 的 Phase 2 migration DDL/回填逻辑未变，只把四个冻结生产数据指纹替换为合成 fixture 的 staging 指纹；Phase 2 diagnostic 也必须使用相同 staging 指纹专门化，原样 production-fingerprint 版本会按设计 fail closed。Production migrations 45–48 已由 protected-branch integration 成功应用；migration 49 尚未进入 production。Phase 4B.3 PR merge 会被 integration 视为 production deployment，因此必须在 merge 前重新 preflight 并获得明确授权。
 
 本次未发现之前的 “Remote migration versions not found in local migrations directory” 漂移。
 
@@ -580,6 +600,16 @@ Vite `base` 为 `./`，支持 `/badminton/` 子路径。
 ## 19. 上下文维护
 
 任何改变产品行为、schema、RPC contract、Auth、权限、计价、馆务配置、部署或安全模型的 PR，都必须同步更新 `PRODUCT_CONTEXT.md` / `TECHNICAL_CONTEXT.md`。这两份文档的目的就是让 compact 和后续交接安全；过期上下文本身属于缺陷。
+
+## English update: Phase 4B.3 canonical Reservation order/search
+
+Confirmed Issue #157 adds append-only migration `20260826181644_reservation_phase_4b3_order_search`, replacing only the existing `admin_search_reservations(...)` definition while preserving its signature and version 1 envelope. The function now searches every Reservation Party, returns `party_count`, uses venue-local date bounds and `(matched_start_at, reservation_id)` keyset pagination, and enforces allowlisted Reservation/payment filters, a 367-day maximum range, and a 50-row page limit.
+
+Strict pre/postflight checks require the exact 48-version Phase 4A baseline and clean Phase 3B/4A contracts. The function remains stable, security-invoker, empty-search-path, manager-gated, and authenticated-only. No business data, RLS/client DML, Auth, Realtime, pricing, or payment facts change. No speculative index was added. The fresh production read-only candidate plan completed in 9.335 ms with 95 shared-hit blocks, zero shared reads or temp blocks, and the existing Session/membership indexes in use. Any future justified index must still use a separate append-only migration.
+
+Only exact `VITE_RESERVATION_ORDER_READ_SOURCE=canonical` enables the frontend path. The version 1 order ViewModel validates Reservation/Party/schedule/Court/payment/currency/cursor facts and fails closed without per-request legacy fallback. Canonical AdminBookings renders one card per Reservation, separates matched from complete schedule, and exposes only schedule focus, which highlights all same-Reservation allocations for the day. Migration 49 is installed only on `badminton_stage`; production remains at 48 with legacy order search. Full bilingual evidence is in [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md).
+
+The pre-merge production preflight confirmed 48 remote-applied migrations, zero remote-only drift, and only `20260826181644` local-only/pending; the dry run listed only migration 49. Phase 3B/4A diagnostics and the authenticated non-manager gate remained clean. Existing advisor findings were unchanged and none were specific to Phase 4B.3. PR #158 remains Draft, and no merge, production push, or data mutation occurred. Explicit merge authorization is the next gate; the production order selector remains independently legacy.
 
 ## English update: Phase 4A.1 production read contract and Phase 3B technical record
 

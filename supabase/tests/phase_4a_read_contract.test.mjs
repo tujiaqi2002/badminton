@@ -7,6 +7,10 @@ const migrationPath = new URL(
   '../migrations/20260825091608_reservation_phase_4a_manager_read_contract.sql',
   import.meta.url,
 )
+const phase4b3MigrationPath = new URL(
+  '../migrations/20260826181644_reservation_phase_4b3_order_search.sql',
+  import.meta.url,
+)
 const diagnosticPath = new URL(
   '../diagnostics/phase_4a_manager_read_contract.sql',
   import.meta.url,
@@ -35,6 +39,8 @@ const ids = Object.freeze({
   partyPaid: '50000000-0000-4000-8000-000000000001',
   partyFree: '50000000-0000-4000-8000-000000000002',
   partyMerged: '50000000-0000-4000-8000-000000000003',
+  partyMergedHusband: '50000000-0000-4000-8000-000000000004',
+  partyMergedWife: '50000000-0000-4000-8000-000000000005',
   paymentPaid: '60000000-0000-4000-8000-000000000001',
   paymentPartial: '60000000-0000-4000-8000-000000000002',
   transitionMerge: '70000000-0000-4000-8000-000000000001',
@@ -447,14 +453,18 @@ function fixtureSql() {
     ) values
       (${quote(ids.partyPaid)}, ${quote(ids.reservationPaid)}, 'person', 'Paid customer', 'paid@example.invalid', '5551000000', 'synthetic', null, now(), now()),
       (${quote(ids.partyFree)}, ${quote(ids.reservationFree)}, 'person', 'Free customer', 'free@example.invalid', '5552000000', 'synthetic', null, now(), now()),
-      (${quote(ids.partyMerged)}, ${quote(ids.reservationMerged)}, 'person', 'Merged primary', 'merged@example.invalid', '5553000000', 'manager_merge', null, now(), now());
+      (${quote(ids.partyMerged)}, ${quote(ids.reservationMerged)}, 'person', 'Merged primary', 'merged@example.invalid', '5553000000', 'manager_merge', null, now(), now()),
+      (${quote(ids.partyMergedHusband)}, ${quote(ids.reservationMerged)}, 'person', 'Husband alternate', 'husband@example.invalid', '5553000001', 'manager_merge', null, now(), now()),
+      (${quote(ids.partyMergedWife)}, ${quote(ids.reservationMerged)}, 'person', 'Wife alternate', 'wife@example.invalid', '5553000002', 'manager_merge', null, now(), now());
 
     insert into public.reservation_party_roles (
       reservation_id, party_id, role, created_at
     ) values
       (${quote(ids.reservationPaid)}, ${quote(ids.partyPaid)}, 'primary_contact', now()),
       (${quote(ids.reservationFree)}, ${quote(ids.partyFree)}, 'primary_contact', now()),
-      (${quote(ids.reservationMerged)}, ${quote(ids.partyMerged)}, 'primary_contact', now());
+      (${quote(ids.reservationMerged)}, ${quote(ids.partyMerged)}, 'primary_contact', now()),
+      (${quote(ids.reservationMerged)}, ${quote(ids.partyMergedHusband)}, 'original_booker', now()),
+      (${quote(ids.reservationMerged)}, ${quote(ids.partyMergedWife)}, 'participant', now());
 
     insert into public.payments (
       id, reservation_id, payer_party_id, kind, amount, currency, method, status,
@@ -563,6 +573,17 @@ async function buildDatabase() {
   return db
 }
 
+async function buildPhase4B3Database() {
+  const db = await buildDatabase()
+  await db.exec(`
+    insert into supabase_migrations.schema_migrations (version, name)
+    values ('20260825091608', 'reservation_phase_4a_manager_read_contract');
+  `)
+  const migration = await readFile(phase4b3MigrationPath, 'utf8')
+  await db.exec(migration)
+  return db
+}
+
 async function queryAs(db, role, userId, sql) {
   await db.exec('begin;')
   try {
@@ -616,6 +637,164 @@ test('Phase 4A hosted diagnostic is read-only and PII-free', async () => {
     sql,
     /select[\s\S]{0,120}\b(customer_(name|email|phone|notes)|display_name|email|phone)\b/i,
   )
+})
+
+test('Phase 4B.3 search migration is additive, invoker-secured, and keeps keyset identity', async () => {
+  const sql = await readFile(phase4b3MigrationPath, 'utf8')
+
+  assert.match(sql, /^begin;/m)
+  assert.match(sql, /commit;\s*$/)
+  assert.match(sql, /v_version_count <> 48/)
+  assert.match(sql, /v_latest_version <> '20260825091608'/)
+  assert.match(sql, /security invoker/)
+  assert.match(sql, /set search_path = ''/)
+  assert.match(sql, /public\.reservation_parties as search_party/)
+  assert.match(sql, /party_scope\.party_count/)
+  assert.match(sql, /\(matching\.matched_start_at, matching\.reservation_id\)/)
+  assert.match(sql, /revoke all on function public\.admin_search_reservations/)
+  assert.doesNotMatch(sql, /security definer/i)
+  assert.doesNotMatch(sql, /service[_ -]?role[_ -]?(key|secret)/i)
+  assert.doesNotMatch(
+    sql,
+    /\b(insert|update|delete|truncate)\s+(?:table\s+)?public\.(?:bookings|reservations|reservation_sessions|reservation_parties|payments|payment_allocation_entries)\b/i,
+  )
+})
+
+test('Phase 4B.3 finds one merged Reservation by every Party and reports Party count', async () => {
+  const db = await buildPhase4B3Database()
+  try {
+    for (const query of ['Merged primary', 'Husband alternate', 'wife@example.invalid', '5553000002']) {
+      const search = await queryAs(
+        db,
+        'authenticated',
+        ids.manager,
+        `select public.admin_search_reservations(
+          '2026-09-01', '2026-09-04', ${quote(query)}, 'all', 'partial', 50, null, null
+        ) as payload`,
+      )
+      assert.equal(search.rows[0].payload.items.length, 1)
+      assert.equal(search.rows[0].payload.items[0].reservation_id, ids.reservationMerged)
+      assert.equal(search.rows[0].payload.items[0].party_count, 3)
+    }
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 4B.3 clamps pages, keeps stable cursors, and rejects invalid filters', async () => {
+  const db = await buildPhase4B3Database()
+  try {
+    const firstPage = await queryAs(
+      db,
+      'authenticated',
+      ids.manager,
+      `select public.admin_search_reservations(
+        '2026-09-01', '2026-09-04', '', 'all', 'all', 1, null, null
+      ) as payload`,
+    )
+    const firstPayload = firstPage.rows[0].payload
+    assert.equal(firstPayload.items.length, 1)
+    assert.equal(firstPayload.has_more, true)
+    assert.ok(firstPayload.next_cursor)
+
+    const secondPage = await queryAs(
+      db,
+      'authenticated',
+      ids.manager,
+      `select public.admin_search_reservations(
+        '2026-09-01',
+        '2026-09-04',
+        '',
+        'all',
+        'all',
+        1,
+        ${quote(firstPayload.next_cursor.sort_at)}::timestamptz,
+        ${quote(firstPayload.next_cursor.reservation_id)}::uuid
+      ) as payload`,
+    )
+    assert.equal(secondPage.rows[0].payload.items.length, 1)
+    assert.notEqual(
+      secondPage.rows[0].payload.items[0].reservation_id,
+      firstPayload.items[0].reservation_id,
+    )
+
+    const clamped = await queryAs(
+      db,
+      'authenticated',
+      ids.manager,
+      `select public.admin_search_reservations(
+        '2026-09-01', '2026-09-04', '', 'all', 'all', 999, null, null
+      ) as payload`,
+    )
+    assert.equal(clamped.rows[0].payload.limit, 50)
+
+    await assert.rejects(
+      queryAs(
+        db,
+        'authenticated',
+        ids.manager,
+        `select public.admin_search_reservations(
+          '2026-01-01', '2027-01-03', '', 'all', 'all', 50, null, null
+        )`,
+      ),
+      /cannot exceed 367 days/,
+    )
+    await assert.rejects(
+      queryAs(
+        db,
+        'authenticated',
+        ids.manager,
+        `select public.admin_search_reservations(
+          '2026-09-01', '2026-09-04', '', 'all', 'pay_at_venue', 50, null, null
+        )`,
+      ),
+      /Invalid Reservation payment status filter/,
+    )
+    await assert.rejects(
+      queryAs(
+        db,
+        'authenticated',
+        ids.manager,
+        `select public.admin_search_reservations(
+          '2026-09-01', '2026-09-04', '', 'all', 'all', 50,
+          '2026-09-01 14:00:00+00'::timestamptz, null
+        )`,
+      ),
+      /Invalid Reservation search cursor/,
+    )
+  } finally {
+    await db.close()
+  }
+})
+
+test('Phase 4B.3 Reservation search remains manager-only', async () => {
+  const db = await buildPhase4B3Database()
+  try {
+    await assert.rejects(
+      queryAs(
+        db,
+        'authenticated',
+        ids.nonManager,
+        `select public.admin_search_reservations(
+          '2026-09-01', '2026-09-04', '', 'all', 'all', 50, null, null
+        )`,
+      ),
+      /Manager access required/,
+    )
+    await assert.rejects(
+      queryAs(
+        db,
+        'anon',
+        null,
+        `select public.admin_search_reservations(
+          '2026-09-01', '2026-09-04', '', 'all', 'all', 50, null, null
+        )`,
+      ),
+      /permission denied/i,
+    )
+  } finally {
+    await db.close()
+  }
 })
 
 test('Phase 4A derives paid, no-charge, and merged partial balances from current membership', async () => {
