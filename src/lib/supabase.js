@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { isReservationReadShadowEnabled } from './reservationReadShadow.js'
 import { normalizeReservationScheduleReadSource } from './reservationScheduleRead.js'
+import { normalizeReservationSelectedDetailReadSource } from './reservationSelectedDetailRead.js'
 import { isStagingPasswordAuthAllowed } from './stagingAuth.js'
 
 const url = import.meta.env.VITE_SUPABASE_URL
@@ -34,4 +35,7 @@ export const reservationReadShadowEnabled = isReservationReadShadowEnabled(
 )
 export const reservationScheduleReadSource = normalizeReservationScheduleReadSource(
   import.meta.env.VITE_RESERVATION_SCHEDULE_READ_SOURCE,
+)
+export const reservationSelectedDetailReadSource = normalizeReservationSelectedDetailReadSource(
+  import.meta.env.VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE,
 )

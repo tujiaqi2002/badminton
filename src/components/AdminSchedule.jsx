@@ -7,6 +7,7 @@ import { canLinkBookings } from '../lib/bookingRelationships'
 import { bookingSwapPreview } from '../lib/bookingSwap'
 import { DRAG_LOCK_COURT_ONLY, DRAG_LOCK_FREE, DRAG_LOCK_TIME_ONLY, useDisplay } from '../lib/display'
 import { useI18n } from '../lib/i18n'
+import { RESERVATION_SELECTED_DETAIL_READ_SOURCE_CANONICAL, selectedDetailSafeErrorCode } from '../lib/reservationSelectedDetailRead'
 import AdminAuditDrawer, { AdminAuditQuickPanel } from './AdminAuditDrawer'
 
 const durationMinutes = (booking) => Math.round(
@@ -28,6 +29,73 @@ function DragOperationPanel({ details }) {
       </dl>
       <p>{details.status}</p>
     </div>
+  )
+}
+
+function CanonicalReservationDetailPanel({ detail, loading, errorCode, locale, t }) {
+  if (loading) {
+    return (
+      <section
+        className="admin-canonical-detail loading"
+        data-reservation-detail-source="canonical"
+        data-reservation-detail-state="loading"
+        role="status"
+        aria-busy="true"
+      >
+        <header><Layers3 size={14} /><strong>{t('admin.detail.loading')}</strong></header>
+        <p>{t('admin.detail.loadingHelp')}</p>
+      </section>
+    )
+  }
+  if (errorCode) {
+    return (
+      <section
+        className="admin-canonical-detail error"
+        data-reservation-detail-source="canonical"
+        data-reservation-detail-state="error"
+        data-reservation-detail-error={errorCode}
+        role="alert"
+      >
+        <header><AlertTriangle size={14} /><strong>{t('admin.detail.errorTitle')}</strong></header>
+        <p>{t('admin.detail.errorText')}</p>
+      </section>
+    )
+  }
+  if (!detail) return null
+
+  const reference = detail.reservation.reference
+    || (detail.reservation.referenceNumber ? `#${detail.reservation.referenceNumber}` : t('admin.schedule.notRecorded'))
+  const contact = [detail.primaryContact.email, detail.primaryContact.phone].filter(Boolean).join(' · ')
+  const otherPartyNames = detail.otherParties.map((party) => party.name).filter(Boolean)
+  const lineageCount = Number(detail.lineage.sourceLineageCount || detail.lineage.sources.length || 0)
+  const transitionCount = Number(detail.lineage.transitionCount || detail.lineage.transitions.length || 0)
+  const paymentStatus = detail.payment.status ? t(`payment.${detail.payment.status}`) : t('admin.schedule.notRecorded')
+  const paymentPlan = detail.payment.plan
+    ? t(`admin.detail.paymentPlan.${detail.payment.plan}`)
+    : t('admin.schedule.notRecorded')
+
+  return (
+    <section
+      className="admin-canonical-detail"
+      data-reservation-detail-source="canonical"
+      data-reservation-detail-state="ready"
+      data-reservation-detail-version={detail.inspector_view_model_version}
+    >
+      <header>
+        <span><Layers3 size={14} /><small>{t('admin.detail.eyebrow')}</small><strong>{reference}</strong></span>
+        <em>{t('admin.detail.readOnly')}</em>
+      </header>
+      <dl>
+        <div><dt>{t('admin.detail.primaryContact')}</dt><dd><strong>{detail.primaryContact.name}</strong><span>{contact || t('admin.schedule.notProvided')}</span></dd></div>
+        <div><dt>{t('admin.detail.otherParties')}</dt><dd>{otherPartyNames.length ? otherPartyNames.join(' · ') : t('admin.detail.noOtherParties')}</dd></div>
+        <div><dt>{t('admin.detail.reservationNotes')}</dt><dd>{detail.reservation.notes || t('admin.schedule.noNotes')}</dd></div>
+        <div><dt>{t('admin.detail.sessionNotes')}</dt><dd>{detail.selectedSession.notes || t('admin.schedule.noNotes')}</dd></div>
+        <div><dt>{t('admin.detail.reservationScope')}</dt><dd>{t('admin.detail.reservationScopeValue', { sessions: detail.reservation.sessionCount, allocations: detail.reservation.allocationCount })}</dd></div>
+        <div><dt>{t('admin.detail.payment')}</dt><dd className="admin-canonical-payment"><span>{paymentStatus} · {paymentPlan}</span><strong>{formatMoney(detail.payment.paidAmount, locale, detail.payment.currency, true)} / {formatMoney(detail.payment.totalAmount, locale, detail.payment.currency, true)}</strong><small>{t('admin.detail.outstanding', { amount: formatMoney(detail.payment.outstandingAmount, locale, detail.payment.currency, true) })}</small></dd></div>
+        <div><dt>{t('admin.detail.lineage')}</dt><dd>{t('admin.detail.lineageValue', { sources: lineageCount, transitions: transitionCount })}</dd></div>
+      </dl>
+      <p className="admin-canonical-compatibility">{t('admin.detail.compatibilityScope')}</p>
+    </section>
   )
 }
 
@@ -268,7 +336,7 @@ function NewBookingModal({ draft, busy, onClose, onSubmit, onPreviewPrice, confi
   )
 }
 
-export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onSwap, onLink, onLoadRelationship, onUnlink, onMarkPaid, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onViewAuditLog, onRevertAudit, configuration }) {
+export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onSwap, onLink, selectedDetailReadSource, onLoadSelectedDetail, onLoadRelationship, onUnlink, onMarkPaid, onCancel, onUpdateDetails, onDateChange, focusTime, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onViewAuditLog, onRevertAudit, configuration }) {
   const { bookingColorScheme, dragLockMode } = useDisplay()
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
@@ -293,6 +361,9 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const [unlinkConfirmation, setUnlinkConfirmation] = useState(false)
   const [relationship, setRelationship] = useState(null)
   const [relationshipLoading, setRelationshipLoading] = useState(false)
+  const [selectedDetail, setSelectedDetail] = useState(null)
+  const [selectedDetailLoading, setSelectedDetailLoading] = useState(false)
+  const [selectedDetailError, setSelectedDetailError] = useState(null)
   const [auditOpen, setAuditOpen] = useState(false)
   const [auditFocusId, setAuditFocusId] = useState(null)
   const [now, setNow] = useState(() => new Date())
@@ -302,6 +373,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const suppressLinkClick = useRef(false)
   const linkTarget = useRef(null)
   const relationshipRequest = useRef(0)
+  const selectedDetailRequest = useRef(0)
   const pointerTarget = useRef(null)
   const rangeTarget = useRef(null)
   const suppressSlotClick = useRef(false)
@@ -500,6 +572,38 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
     })
     return undefined
   }, [activeSelection, onLoadRelationship])
+
+  useEffect(() => {
+    const requestId = selectedDetailRequest.current + 1
+    selectedDetailRequest.current = requestId
+    if (
+      !activeSelection
+      || selectedDetailReadSource !== RESERVATION_SELECTED_DETAIL_READ_SOURCE_CANONICAL
+      || typeof onLoadSelectedDetail !== 'function'
+    ) {
+      setSelectedDetail(null)
+      setSelectedDetailLoading(false)
+      setSelectedDetailError(null)
+      return undefined
+    }
+
+    setSelectedDetail(null)
+    setSelectedDetailLoading(true)
+    setSelectedDetailError(null)
+    Promise.resolve(onLoadSelectedDetail(activeSelection)).then((next) => {
+      if (selectedDetailRequest.current !== requestId) return
+      setSelectedDetail(next)
+      setSelectedDetailLoading(false)
+    }).catch((error) => {
+      if (selectedDetailRequest.current !== requestId) return
+      setSelectedDetail(null)
+      setSelectedDetailError(selectedDetailSafeErrorCode(error))
+      setSelectedDetailLoading(false)
+    })
+    return () => {
+      if (selectedDetailRequest.current === requestId) selectedDetailRequest.current += 1
+    }
+  }, [activeSelection, onLoadSelectedDetail, selectedDetailReadSource])
 
   useEffect(() => {
     if (!linkMode && !linkConfirmation && !linkMenuOpen && !unlinkConfirmation) return undefined
@@ -1051,6 +1155,15 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               <small>{t(relationshipGroupCount > 2 ? 'admin.relationship.unlinkConfirmMany' : 'admin.relationship.unlinkConfirmTwo')}</small>
               <div><button type="button" onClick={() => setUnlinkConfirmation(false)}>{t('admin.relationship.cancel')}</button><button type="button" className="confirm danger" disabled={busy} onClick={unlinkActiveRelationship}>{busy ? t('admin.relationship.saving') : t('admin.relationship.confirmDisconnect')}</button></div>
             </div>}
+            {selectedDetailReadSource === RESERVATION_SELECTED_DETAIL_READ_SOURCE_CANONICAL && (
+              <CanonicalReservationDetailPanel
+                detail={selectedDetail}
+                loading={selectedDetailLoading}
+                errorCode={selectedDetailError}
+                locale={locale}
+                t={t}
+              />
+            )}
             {editingDetails ? (
               <form className="admin-inspector-form" onSubmit={async (event) => {
                 event.preventDefault()
@@ -1088,7 +1201,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                   </dd>
                 </div>
                 {activeSelection.recurrence_series_id && <div><dt>{t('admin.schedule.recurrence')}</dt><dd>{t('admin.schedule.recurrenceWeek', { count: activeSelection.recurrence_week })}</dd></div>}
-                <div className="notes"><dt>{t('admin.schedule.customerNotes')}</dt><dd>{activeSelection.customer_notes || t('admin.schedule.noNotes')}</dd></div>
+                {selectedDetailReadSource !== RESERVATION_SELECTED_DETAIL_READ_SOURCE_CANONICAL && <div className="notes"><dt>{t('admin.schedule.customerNotes')}</dt><dd>{activeSelection.customer_notes || t('admin.schedule.noNotes')}</dd></div>}
               </dl>
             )}
           </>

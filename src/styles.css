@@ -620,6 +620,23 @@ a { color: inherit; text-decoration: none; }
 .admin-link-confirm button.confirm { color: white; border-color: var(--ink); background: var(--ink); }
 .admin-link-confirm button.confirm.danger { border-color: var(--red-dark); background: var(--red-dark); }
 .admin-link-confirm button:disabled { cursor: wait; opacity: .52; }
+.admin-canonical-detail { flex: 0 0 auto; padding: 11px; display: grid; gap: 10px; border: 1px solid rgba(49,92,63,.22); border-left: 3px solid #315c3f; background: linear-gradient(145deg,rgba(49,92,63,.075),rgba(255,255,255,.54)); }
+.admin-canonical-detail > header { min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.admin-canonical-detail > header > span { min-width: 0; display: grid; grid-template-columns: 17px minmax(0,1fr); align-items: center; gap: 2px 5px; }
+.admin-canonical-detail > header > span svg { grid-row: 1/3; color: #315c3f; }
+.admin-canonical-detail > header small { color: #315c3f; font-size: .4375rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.admin-canonical-detail > header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .59375rem; }
+.admin-canonical-detail > header > em { flex: 0 0 auto; padding: 3px 5px; border: 1px solid rgba(49,92,63,.18); color: #315c3f; background: rgba(255,255,255,.55); font-size: .40625rem; font-style: normal; font-weight: 700; }
+.admin-schedule-inspector .admin-canonical-detail > dl { display: grid; grid-template-columns: 1fr; gap: 0; overflow: visible; padding: 0; }
+.admin-schedule-inspector .admin-canonical-detail > dl > div { padding: 7px 0; gap: 3px; border-top: 1px solid rgba(49,92,63,.1); }
+.admin-canonical-detail dd { display: grid; gap: 2px; }
+.admin-canonical-detail dd > span, .admin-canonical-detail dd > small { color: var(--ink-soft); font-size: .46875rem; }
+.admin-canonical-payment strong { color: #315c3f; font-variant-numeric: tabular-nums; }
+.admin-canonical-compatibility, .admin-canonical-detail.loading > p, .admin-canonical-detail.error > p { margin: 0; color: var(--ink-soft); font-size: .4375rem; line-height: 1.55; }
+.admin-canonical-detail.loading, .admin-canonical-detail.error { min-height: 62px; align-content: center; }
+.admin-canonical-detail.loading > header, .admin-canonical-detail.error > header { justify-content: flex-start; align-items: center; color: #315c3f; }
+.admin-canonical-detail.error { border-color: rgba(199,70,54,.24); border-left-color: var(--red-dark); background: rgba(199,70,54,.055); }
+.admin-canonical-detail.error > header { color: var(--red-dark); }
 .admin-schedule-inspector dl { min-width: 0; flex: 0 0 auto; margin: 0; display: grid; grid-template-columns: 1fr; gap: 15px; align-content: start; }
 .admin-schedule-inspector dl > div { min-width: 0; display: grid; gap: 4px; }
 .admin-schedule-inspector dt { color: var(--ink-soft); font-size: 0.5rem; }
@@ -1029,6 +1046,8 @@ footer small { text-align: right; }
   .admin-link-menu { right: 0; }
   .admin-schedule-inspector dl { width: auto; min-width: 0; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 12px; }
   .admin-schedule-inspector.has-booking dl { min-width: 0; overflow-y: auto; padding-right: 3px; }
+  .admin-schedule-inspector .admin-canonical-detail > dl { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 12px; overflow: visible; padding: 0; }
+  .admin-canonical-detail { padding: 12px 13px; }
   .admin-schedule-inspector dl > div.admin-group-schedule, .admin-schedule-inspector dl > div.admin-booking-status { grid-column: 1/-1; }
   .admin-quick-payment, .admin-related-payment { min-height: 38px; }
   .admin-inspector-form { min-width: 0; grid-template-columns: 1fr; }

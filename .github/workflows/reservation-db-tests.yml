@@ -14,6 +14,8 @@ on:
       - 'src/lib/reservationDeploymentSource.test.js'
       - 'src/lib/reservationScheduleRead.js'
       - 'src/lib/reservationScheduleRead.test.js'
+      - 'src/lib/reservationSelectedDetailRead.js'
+      - 'src/lib/reservationSelectedDetailRead.test.js'
       - 'src/lib/supabase.js'
       - 'supabase/**'
       - 'docs/reservation-migration/**'
