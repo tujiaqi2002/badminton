@@ -2,6 +2,7 @@
 
 > Issue：[#153](https://github.com/tujiaqi2002/badminton/issues/153)
 > PR：[#154](https://github.com/tujiaqi2002/badminton/pull/154)
+> Evidence Draft PR：[#155](https://github.com/tujiaqi2002/badminton/pull/155)
 > Merge commit：`92c892c28bf5458f62f84bc977007b872f3e1014`
 > 结论：Phase 4B.2 只读 canonical selected-detail foundation 已进入 `main` 并成功部署；生产详情仍为 legacy，未执行 canonical detail cutover。
 
@@ -86,7 +87,7 @@ Phase 4C writer/action scope 与 legacy decommission 仍是后续独立门禁。
 
 ## Reservation Phase 4B.2: default-legacy production deployment verification
 
-Issue [#153](https://github.com/tujiaqi2002/badminton/issues/153) and PR [#154](https://github.com/tujiaqi2002/badminton/pull/154) delivered the read-only canonical selected-detail foundation to `main`. Production detail remains legacy; no canonical-detail cutover occurred.
+Issue [#153](https://github.com/tujiaqi2002/badminton/issues/153) and PR [#154](https://github.com/tujiaqi2002/badminton/pull/154) delivered the read-only canonical selected-detail foundation to `main`. Evidence Draft PR [#155](https://github.com/tujiaqi2002/badminton/pull/155) records this deployment. Production detail remains legacy; no canonical-detail cutover occurred.
 
 ### Authorization and boundary
 

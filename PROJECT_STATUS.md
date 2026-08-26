@@ -41,7 +41,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #153 / PR [#154](https://github.com/tujiaqi2002/badminton/pull/154)：Reservation Phase 4B.2 canonical selected-detail read（default-legacy 已发布并验证）
+### Issue #153 / PR [#154](https://github.com/tujiaqi2002/badminton/pull/154) / evidence Draft PR [#155](https://github.com/tujiaqi2002/badminton/pull/155)：Reservation Phase 4B.2 canonical selected-detail read（default-legacy 已发布并验证）
 
 - 用户已明确确认 Issue #153。范围只包括选中排期后的只读 canonical Reservation 详情、可回退 selector、staging 验证和 Draft PR；不改变数据库、writer/action scope、生产 selector 或 legacy decommission。
 - 新 `VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE` 只有 exact `canonical` 才启用，缺失/未知值均回到 `legacy`。生产 workflow 缺省仍为 legacy；`.env.staging.example` 使用 canonical schedule + canonical detail 的成对组合。
