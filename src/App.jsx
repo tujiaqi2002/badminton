@@ -14,7 +14,8 @@ import { buildBookingRelationship, bookingGroupKey } from './lib/bookingRelation
 import { useI18n } from './lib/i18n'
 import { runReservationScheduleShadow } from './lib/reservationReadShadow'
 import { fetchCanonicalAdminScheduleWindow, RESERVATION_SCHEDULE_READ_SOURCE_CANONICAL, RESERVATION_SCHEDULE_READ_SOURCE_LEGACY } from './lib/reservationScheduleRead'
-import { googleAuthEnabled, isSupabaseConfigured, reservationReadShadowEnabled, reservationScheduleReadSource, stagingPasswordAuthEnabled, stripeEnabled, supabase } from './lib/supabase'
+import { createAdminReservationDetailLoader, RESERVATION_SELECTED_DETAIL_READ_SOURCE_CANONICAL } from './lib/reservationSelectedDetailRead'
+import { googleAuthEnabled, isSupabaseConfigured, reservationReadShadowEnabled, reservationScheduleReadSource, reservationSelectedDetailReadSource, stagingPasswordAuthEnabled, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
 
 const getAuthRedirectUrl = () => authRedirectUrl({
@@ -143,21 +144,31 @@ export default function App() {
   const adminScheduleShadowAbortRef = useRef(null)
   const adminScheduleReadAbortRef = useRef(null)
   const adminScheduleRequestRef = useRef(0)
+  const adminReservationDetailLoaderRef = useRef(null)
   const adminAccessRequestRef = useRef(0)
   const authUserIdRef = useRef(null)
   const adminLandingUserRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState(null)
 
+  if (!adminReservationDetailLoaderRef.current && supabase) {
+    adminReservationDetailLoaderRef.current = createAdminReservationDetailLoader({ client: supabase })
+  }
+
   const notify = useCallback((message, tone = 'success') => {
     setToast({ message, tone })
     window.setTimeout(() => setToast(null), 3600)
   }, [])
 
+  const invalidateAdminReservationDetail = useCallback((reservationId = null) => {
+    adminReservationDetailLoaderRef.current?.invalidate(reservationId)
+  }, [])
+
   const rememberAdminAction = useCallback((snapshot = null) => {
+    invalidateAdminReservationDetail()
     if (snapshot) adminDemoHistory.current = [...adminDemoHistory.current, snapshot].slice(-5)
     setAdminUndoDepth((current) => Math.min(5, current + 1))
-  }, [])
+  }, [invalidateAdminReservationDetail])
 
   const fetchSchedule = useCallback(async () => {
     if (!shouldFetchSchedule({
@@ -273,6 +284,7 @@ export default function App() {
     adminScheduleReadAbortRef.current?.abort()
     adminScheduleReadAbortRef.current = null
     if (!user || !isAdmin) {
+      invalidateAdminReservationDetail()
       setLoadingAdminBookings(false)
       setAdminScheduleReadError(null)
       setAdminBookings([])
@@ -368,7 +380,7 @@ export default function App() {
         if (adminScheduleShadowAbortRef.current === controller) adminScheduleShadowAbortRef.current = null
       })
     }
-  }, [adminRange, isAdmin, user, notify, t, venueOperationsConfiguration])
+  }, [adminRange, invalidateAdminReservationDetail, isAdmin, user, notify, t, venueOperationsConfiguration])
 
   const fetchAdminOrderBookings = useCallback(async () => {
     const requestId = adminOrderRequestRef.current + 1
@@ -541,16 +553,18 @@ export default function App() {
     const channel = supabase
       .channel('public-court-schedule')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'court_slots' }, () => {
+        invalidateAdminReservationDetail()
         void fetchSchedule()
         if (view === 'admin' || view === 'capacity') void fetchAdminBookings()
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [fetchAdminBookings, fetchSchedule, isAdmin, user, view])
+  }, [fetchAdminBookings, fetchSchedule, invalidateAdminReservationDetail, isAdmin, user, view])
   useEffect(() => () => {
     adminScheduleRequestRef.current += 1
     adminScheduleReadAbortRef.current?.abort()
     adminScheduleShadowAbortRef.current?.abort()
+    adminReservationDetailLoaderRef.current?.invalidate()
   }, [])
 
   const openSelection = (slot) => {
@@ -1090,6 +1104,16 @@ export default function App() {
     return { saved: true, bookingLinkId: data?.[0]?.booking_link_id }
   }
 
+  const adminLoadReservationDetail = useCallback(async (booking) => {
+    if (
+      reservationSelectedDetailReadSource !== RESERVATION_SELECTED_DETAIL_READ_SOURCE_CANONICAL
+      || !adminReservationDetailLoaderRef.current
+    ) return null
+    return adminReservationDetailLoaderRef.current.load(booking, {
+      timeZone: venueOperationsConfiguration?.settings?.timezone || 'America/Toronto',
+    })
+  }, [venueOperationsConfiguration])
+
   const adminLoadBookingRelationship = useCallback(async (booking) => {
     const localRelationship = buildBookingRelationship(adminBookings, booking)
     if (!isSupabaseConfigured) return localRelationship
@@ -1186,6 +1210,7 @@ export default function App() {
       await fetchAdminAuditOperations()
       return false
     }
+    invalidateAdminReservationDetail()
     notify(t('success.adminUndo'))
     await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchSchedule(), fetchAdminAuditOperations()])
     return true
@@ -1208,6 +1233,7 @@ export default function App() {
       payment_status: details.paymentStatus,
     } : item
     if (!isSupabaseConfigured) {
+      invalidateAdminReservationDetail()
       setAdminBookings((current) => current.map(update))
       notify(t('success.adminDetails'))
       return true
@@ -1226,6 +1252,7 @@ export default function App() {
       notify(t(error.message.includes('name') ? 'errors.customerName' : 'errors.adminDetails'), 'error')
       return false
     }
+    invalidateAdminReservationDetail(booking.effective_reservation_id || null)
     setAdminBookings((current) => current.map(update))
     notify(t('success.adminDetails'))
     await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchAdminAuditOperations()])
@@ -1410,6 +1437,8 @@ export default function App() {
           onRescheduleGroup={adminRescheduleBookingGroup}
           onSwap={adminSwapBookings}
           onLink={adminLinkBookings}
+          selectedDetailReadSource={reservationSelectedDetailReadSource}
+          onLoadSelectedDetail={adminLoadReservationDetail}
           onLoadRelationship={adminLoadBookingRelationship}
           onUnlink={adminUnlinkBookingGroup}
           onMarkPaid={adminMarkBookingPaid}

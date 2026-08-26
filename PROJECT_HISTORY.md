@@ -364,6 +364,16 @@ variable 缺失的 Pages [run 32859078691](https://github.com/tujiaqi2002/badmin
 
 阶段结果：production AdminSchedule/AdminCapacity 现保持 canonical。order/detail/actions 与所有 writer 仍保持既有 contract；回退只需设 legacy/删除 variable 后重跑 workflow，不需要 DB rollback。Phase 4B.2 与 Phase 5 decommission 继续是独立门禁。
 
+## 37. 2026-08-26：Phase 4B.2 canonical selected-detail 在独立 staging 完成验证
+
+用户确认 Issue #153 后，分支新增独立、fail-closed 的 selected-detail selector：只有 exact `canonical` 才调用既有 `admin_get_reservation_detail(uuid)`，缺失或未知值继续 legacy。前端把 RPC 明确映射成 version 1 Reservation inspector ViewModel，分开保留 physical allocation、effective Session/Reservation、Party、整笔/场次备注、付款汇总/计划与 lineage；identity、数量、金额、currency、membership、引用或枚举矛盾都会以安全错误码停止详情渲染，不查询 legacy fallback。
+
+同一 Reservation 的 sibling allocation 共用进行中请求与内存缓存，跨 Reservation 会 abort 旧请求；成功 writer、undo/revert 与 `court_slots` Realtime 负责失效。现有编辑、付款、关联、移动和取消仍使用旧 writer/action contract，卡片明确标为只读。生产 workflow 缺省继续 legacy，合并本阶段也不会自动切换 production detail。
+
+`badminton_stage` synthetic manager 完成中英文桌面与 390×844 手机验证：同一 Reservation 的 Court 1/Court 2 正确显示 1 Session / 2 allocations、Party、双层备注、付款与 lineage；同 Reservation 切换只产生一次成功 detail RPC，错误组合 fail closed，console error/warn 为 0，手机无横向 overflow。Synthetic non-manager 只看到未授权页面，没有馆长导航、排期或 canonical 详情卡，且没有新增 detail RPC。
+
+本阶段没有 migration、DB push、permission、数据、writer 或生产 selector 变化。Bundled Node v24.19.0 / pnpm 11.19.0 下 selected detail 为 9/9、Reservation read 为 30/30、全仓 93 tests 为 92 pass、1 个既有 no-local-PostgreSQL skip、0 fail；lint 与 production/canonical-staging builds 通过。阶段结果是 Phase 4B.2 已达到 Draft PR 评审门禁；Ready/merge、production selected-detail cutover、Phase 4C writers/actions 与 legacy decommission 仍分别需要授权。
+
 ## English record
 
 ### 24. 2026-08-24: Phase 3B.2 atomic staging activation
@@ -541,3 +551,13 @@ With the variable absent, Pages run 32859078691 first proved that production sti
 An authenticated manager loaded schedule dates August 17, August 24, and August 31 with 8, 2, and 0 allocation cards, five Court lanes, and no read error. Capacity loaded seven days by fourteen rows for the August 24 and August 31 weeks with four to five Courts available. Browser error/warn logs remained zero. Post-cutover API logs contained eight POST calls and one OPTIONS request, all HTTP 200. The final diagnostic remained clean at 48 migrations, 192/192, 123, zero mismatch, 17/0/17/3, seven FORCE RLS tables, and `court_slots`-only Realtime.
 
 Stage result: production AdminSchedule/AdminCapacity now remain canonical. Order/detail/actions and every writer keep their existing contracts. Rollback is setting/deleting the variable and rebuilding, with no DB rollback. Phase 4B.2 and Phase 5 decommission remain independent gates.
+
+### 37. 2026-08-26: Phase 4B.2 canonical selected detail completed isolated-staging verification
+
+After the user confirmed Issue #153, the branch added an independent fail-closed selected-detail selector. Only exact `canonical` calls the existing `admin_get_reservation_detail(uuid)` RPC; missing and unknown values remain legacy. The frontend explicitly maps the response into a version 1 Reservation inspector ViewModel that separates the physical allocation, effective Session/Reservation, Parties, Reservation/Session notes, payment aggregate/plan, and lineage. Identity, count, amount, currency, membership, reference, or enum contradictions stop detail rendering with a safe code and never query a legacy fallback.
+
+Sibling allocations inside one Reservation share the in-flight request and memory cache, while moving to another Reservation aborts obsolete work. Successful writers, undo/revert, and `court_slots` Realtime invalidate the cache. Existing edit, payment, relationship, move, and cancellation controls keep their legacy writer/action contracts, and the new card is explicitly read-only. The production workflow continues to default to legacy, so merging this phase cannot automatically cut over production detail.
+
+A synthetic `badminton_stage` manager completed Chinese/English desktop and 390×844 mobile validation. Court 1 and Court 2 of one Reservation showed one Session, two allocations, Parties, both note scopes, payment, and lineage. Switching sibling allocations produced only one successful detail RPC; an unsupported selector pairing failed closed; console errors/warnings stayed at zero; and mobile had no horizontal overflow. A synthetic non-manager saw only the unauthorized page, with no manager navigation, schedule, canonical detail card, or new detail RPC.
+
+This phase changed no migration, database state, permission, data, writer, or production selector. Bundled Node v24.19.0 / pnpm 11.19.0 produced 9/9 selected-detail passes, 30/30 Reservation-read passes, and 92 passes plus one existing no-local-PostgreSQL skip with zero failures across 93 repository tests; lint and production/canonical-staging builds passed. Phase 4B.2 has reached its Draft PR review gate. Ready/merge, production selected-detail cutover, Phase 4C writers/actions, and legacy decommission remain separately authorized steps.

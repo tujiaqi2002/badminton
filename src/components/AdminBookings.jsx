@@ -47,6 +47,8 @@ export default function AdminBookings({
   onRescheduleGroup,
   onSwap,
   onLink,
+  selectedDetailReadSource,
+  onLoadSelectedDetail,
   onLoadRelationship,
   onUnlink,
   onMarkPaid,
@@ -161,6 +163,8 @@ export default function AdminBookings({
         onRescheduleGroup={onRescheduleGroup}
         onSwap={onSwap}
         onLink={onLink}
+        selectedDetailReadSource={selectedDetailReadSource}
+        onLoadSelectedDetail={onLoadSelectedDetail}
         onLoadRelationship={onLoadRelationship}
         onUnlink={onUnlink}
         onMarkPaid={onMarkPaid}
