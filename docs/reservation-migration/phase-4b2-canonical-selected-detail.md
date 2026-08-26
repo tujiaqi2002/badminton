@@ -3,7 +3,7 @@
 > Issue：[#153](https://github.com/tujiaqi2002/badminton/issues/153)
 > Draft PR：[#154](https://github.com/tujiaqi2002/badminton/pull/154)
 > 分支：`codex/reservation-phase-4b2-selected-detail`
-> 状态：实现、自动验证与 manager/non-manager staging 浏览器证据已完成；Draft PR 已创建，等待 CI 与评审。
+> 状态：实现、自动验证、manager/non-manager staging 浏览器证据与 Draft PR CI 已完成；等待评审。
 > 数据库：无 migration、无 DB push、无数据写入。
 
 ## 1. 本阶段解决什么
@@ -118,6 +118,8 @@ Canonical 卡明确标为只读。以下语义没有在本阶段改变：
 
 CI 仍固定 Node 22、pnpm 11.16.0、PostgreSQL 16；本地 bundled runtime 通过不替代 merge-head CI。
 
+Draft PR #154 首轮 [CI run 32954788755](https://github.com/tujiaqi2002/badminton/actions/runs/32954788755) 已通过 PostgreSQL integration、Reservation migration/concurrency tests、Reservation read adapters、lint 与 build。唯一 annotation 是 GitHub runner 对 `pnpm/action-setup@v4` 内部 Node 20 target 的平台弃用提示，不是仓库代码或本阶段测试失败。
+
 ## 9. 浏览器证据
 
 本地 staging 使用 exact canonical schedule + exact canonical selected detail，连接 `badminton_stage` 合成数据。馆长在 2026-09-07 选择同一 Reservation 的 Court 1 / Court 2 allocations，结果如下：
@@ -141,7 +143,7 @@ Synthetic non-manager 登录后的页面只显示“未授权”，馆长导航�
 
 ## 10. 后续门禁
 
-1. 等待 Draft PR #154 CI 与评审；
+1. 评审 Draft PR #154；
 2. 另行确认 Ready/merge，合并后 production selector 仍保持 legacy；
 3. 另行确认 production selected-detail cutover；
 4. Phase 4C 重新起草并确认所有 writer/action scope；
@@ -154,7 +156,7 @@ Synthetic non-manager 登录后的页面只显示“未授权”，馆长导航�
 > Issue: [#153](https://github.com/tujiaqi2002/badminton/issues/153)
 > Draft PR: [#154](https://github.com/tujiaqi2002/badminton/pull/154)
 > Branch: `codex/reservation-phase-4b2-selected-detail`
-> Status: implementation, automated verification, and manager/non-manager staging browser evidence are complete; the Draft PR is open and awaiting CI and review.
+> Status: implementation, automated verification, manager/non-manager staging browser evidence, and Draft PR CI are complete; review is pending.
 > Database: no migration, DB push, or data mutation.
 
 ## 1. Purpose
@@ -254,6 +256,8 @@ Coverage includes the fail-closed selector, a complete multi-Party/multi-Session
 
 CI remains pinned to Node 22, pnpm 11.16.0, and PostgreSQL 16. Local bundled-runtime success does not replace merge-head CI.
 
+Draft PR #154 [CI run 32954788755](https://github.com/tujiaqi2002/badminton/actions/runs/32954788755) passed PostgreSQL integration, Reservation migration/concurrency tests, Reservation read adapters, lint, and build. Its only annotation is the GitHub runner platform notice about the internal Node 20 target in `pnpm/action-setup@v4`; it is not a repository-code or Phase 4B.2 test failure.
+
 ## 9. Browser evidence
 
 Local staging used exact canonical schedule plus exact canonical selected detail against the synthetic `badminton_stage` data. A manager selected the Court 1 and Court 2 allocations of one Reservation on 2026-09-07:
@@ -277,7 +281,7 @@ After the synthetic non-manager login, the page showed only the unauthorized sta
 
 ## 10. Next gates
 
-1. Wait for Draft PR #154 CI and review.
+1. Review Draft PR #154.
 2. Separately confirm Ready/merge; production selected detail remains legacy after merge.
 3. Separately confirm the production selected-detail cutover.
 4. Re-draft and confirm every Phase 4C writer/action scope.
