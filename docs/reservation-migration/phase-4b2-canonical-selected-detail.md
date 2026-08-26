@@ -1,9 +1,9 @@
 # Reservation Phase 4B.2：Canonical selected-detail read
 
 > Issue：[#153](https://github.com/tujiaqi2002/badminton/issues/153)
-> Draft PR：[#154](https://github.com/tujiaqi2002/badminton/pull/154)
+> PR：[#154](https://github.com/tujiaqi2002/badminton/pull/154)
 > 分支：`codex/reservation-phase-4b2-selected-detail`
-> 状态：实现、自动验证、manager/non-manager staging 浏览器证据与 Draft PR CI 已完成；等待评审。
+> 状态：实现、自动验证、manager/non-manager staging 证据、合并与 default-legacy 生产发布均已完成；production canonical cutover 尚未授权。
 > 数据库：无 migration、无 DB push、无数据写入。
 
 ## 1. 本阶段解决什么
@@ -143,20 +143,20 @@ Synthetic non-manager 登录后的页面只显示“未授权”，馆长导航�
 
 ## 10. 后续门禁
 
-1. 评审 Draft PR #154；
-2. 另行确认 Ready/merge，合并后 production selector 仍保持 legacy；
-3. 另行确认 production selected-detail cutover；
-4. Phase 4C 重新起草并确认所有 writer/action scope；
-5. legacy decommission 仍必须等 read/write/rollback observation 全部结束后单独授权。
+1. 另行确认 production selected-detail cutover；
+2. Phase 4C 重新起草并确认所有 writer/action scope；
+3. legacy decommission 仍必须等 read/write/rollback observation 全部结束后单独授权。
+
+Default-legacy 合并与线上验证见 [`phase-4b2-default-legacy-production-verification.md`](./phase-4b2-default-legacy-production-verification.md)。
 
 ---
 
 # Reservation Phase 4B.2: Canonical selected-detail read
 
 > Issue: [#153](https://github.com/tujiaqi2002/badminton/issues/153)
-> Draft PR: [#154](https://github.com/tujiaqi2002/badminton/pull/154)
+> PR: [#154](https://github.com/tujiaqi2002/badminton/pull/154)
 > Branch: `codex/reservation-phase-4b2-selected-detail`
-> Status: implementation, automated verification, manager/non-manager staging browser evidence, and Draft PR CI are complete; review is pending.
+> Status: implementation, automated verification, manager/non-manager staging evidence, merge, and default-legacy production deployment are complete. The production canonical cutover is not authorized.
 > Database: no migration, DB push, or data mutation.
 
 ## 1. Purpose
@@ -281,8 +281,8 @@ After the synthetic non-manager login, the page showed only the unauthorized sta
 
 ## 10. Next gates
 
-1. Review Draft PR #154.
-2. Separately confirm Ready/merge; production selected detail remains legacy after merge.
-3. Separately confirm the production selected-detail cutover.
-4. Re-draft and confirm every Phase 4C writer/action scope.
-5. Legacy decommission remains separately gated until read/write/rollback observation is complete.
+1. Separately confirm the production selected-detail cutover.
+2. Re-draft and confirm every Phase 4C writer/action scope.
+3. Legacy decommission remains separately gated until read/write/rollback observation is complete.
+
+See [`phase-4b2-default-legacy-production-verification.md`](./phase-4b2-default-legacy-production-verification.md) for the merge and live default-legacy verification.

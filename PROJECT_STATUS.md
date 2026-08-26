@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-26。当前工作分支：`codex/reservation-phase-4b2-selected-detail`。
+> 项目：`project-001-badminton`。核对日期：2026-08-26。当前工作分支：`codex/reservation-phase-4b2-default-legacy-verification`。
 
 ## 1. 一句话结论
 
@@ -41,7 +41,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue #153 / Draft PR [#154](https://github.com/tujiaqi2002/badminton/pull/154)：Reservation Phase 4B.2 canonical selected-detail read（CI 通过，等待评审）
+### Issue #153 / PR [#154](https://github.com/tujiaqi2002/badminton/pull/154) / evidence Draft PR [#155](https://github.com/tujiaqi2002/badminton/pull/155)：Reservation Phase 4B.2 canonical selected-detail read（default-legacy 已发布并验证）
 
 - 用户已明确确认 Issue #153。范围只包括选中排期后的只读 canonical Reservation 详情、可回退 selector、staging 验证和 Draft PR；不改变数据库、writer/action scope、生产 selector 或 legacy decommission。
 - 新 `VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE` 只有 exact `canonical` 才启用，缺失/未知值均回到 `legacy`。生产 workflow 缺省仍为 legacy；`.env.staging.example` 使用 canonical schedule + canonical detail 的成对组合。
@@ -49,7 +49,9 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 同一 Reservation 的场地/场次切换共享进行中请求或内存缓存，跨 Reservation 会 abort 旧请求；writer、undo/revert 与 `court_slots` Realtime 会失效缓存。缓存不进入 storage、日志或数据库。
 - `badminton_stage` manager 已完成中英文桌面与 390×844 手机验证：9 月 7 日同一 Reservation 的 Court 1/Court 2 均显示 1 Session / 2 allocations、付款汇总、独立备注与 lineage；同 Reservation 两场地切换只新增一次 detail RPC，console error/warn 为 0，手机无横向 overflow。Before/After 位于 [`docs/screenshots/issue-153`](./docs/screenshots/issue-153)。
 - hosted preflight 仍为 48 migrations、192 allocations、123 Reservations、Phase 4A mismatch 0；detail RPC 为 security invoker、空 `search_path`、authenticated 可执行、anon 不可执行，Realtime 仍只发布 `court_slots`。本阶段没有 migration、DB push 或数据 mutation。
-- synthetic non-manager 页面门禁已通过：页面只显示未授权状态，没有馆长导航、排期或 canonical 详情卡，console error/warn 为 0；API 日志中本次登录只检查 `staff_members`，没有新增 `admin_get_reservation_detail`。最终本地 lint、production/canonical-staging build 与 diff check 均已通过；Draft PR #154 首轮 [CI run 32954788755](https://github.com/tujiaqi2002/badminton/actions/runs/32954788755) 的 PostgreSQL integration、Reservation tests、read adapters、lint 与 build 全绿，当前等待用户评审。完整中英文设计与证据见 [`docs/reservation-migration/phase-4b2-canonical-selected-detail.md`](./docs/reservation-migration/phase-4b2-canonical-selected-detail.md)。
+- synthetic non-manager 页面门禁已通过：页面只显示未授权状态，没有馆长导航、排期或 canonical 详情卡，console error/warn 为 0；API 日志中本次登录只检查 `staff_members`，没有新增 `admin_get_reservation_detail`。最终本地 lint、production/canonical-staging build、diff check 与 PR PostgreSQL CI 均已通过。完整中英文设计与 staging 证据见 [`docs/reservation-migration/phase-4b2-canonical-selected-detail.md`](./docs/reservation-migration/phase-4b2-canonical-selected-detail.md)。
+- 用户在明确的 merge/default-legacy 门禁后授权继续。PR #154 于 2026-08-26 10:19:28 UTC 合并为 `92c892c28bf5458f62f84bc977007b872f3e1014`；Pages [run 32957663853](https://github.com/tujiaqi2002/badminton/actions/runs/32957663853) build/deploy 全绿。生产 selected-detail variable 仍缺失并回退 `legacy`；真实馆长选择生产订单后 canonical detail 卡为 0、legacy notes 为 1，API logs 无 detail RPC，console error/warn 为 0。线上 asset 为 `index-wknub-uV.js`，production ref 1、staging ref 0。
+- 部署前后生产 diagnostic 均保持 48 migrations、192/192 bookings/memberships、192 allocations、123 Reservations、所有 Phase 3B/4A mismatch 0、17/0/17/3 writer、7 FORCE RLS 与 `court_slots`-only Realtime。无 DB push、permission、writer、数据或 production detail cutover。完整发布证据见 [`docs/reservation-migration/phase-4b2-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4b2-default-legacy-production-verification.md)。
 
 ### Issue #148：Reservation Phase 4B.1 canonical schedule/capacity（production canonical 已启用并验证）
 
