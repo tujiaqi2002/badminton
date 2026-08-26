@@ -1,7 +1,7 @@
 # Reservation Phase 4B.3：Canonical Reservation 订单查询
 
 > 关联 Issue：[#157](https://github.com/tujiaqi2002/badminton/issues/157)
-> 当前状态：代码完成；migration 49 已只应用到 `badminton_stage`；本地、hosted staging 与 Draft PR #158 CI 验证通过；production 未改变。
+> 当前状态：代码完成；migration 49 已只应用到 `badminton_stage`；本地、hosted staging、Draft PR #158 CI 与 production 只读 preflight 均通过；等待明确 merge/production migration 授权。
 > 范围：馆长订单查询的读取边界、聚合卡片与排期定位。
 > 不在范围：生产 migration/cutover、任何 writer/action 改造、客户读取、付款/计价规则、Stripe、Realtime 或 legacy decommission。
 
@@ -43,7 +43,7 @@ Phase 4B.3 将馆长查询单位改为已经确认的 canonical 模型：
 
 函数继续是 `STABLE`、`SECURITY INVOKER`、空 `search_path`，并在函数内部独立要求 `staff_members.role = 'admin'`。ACL 只允许 `authenticated` EXECUTE；`anon` 和 `service_role` 均没有入口。Migration 不写业务数据、不新增 client DML、不改变 RLS、Realtime publication、Auth、付款或计价事实。
 
-本阶段没有盲目增加索引。查询先以最多 367 天的 Session 范围缩小 Reservation，再对匹配 Reservation 执行 Party/Court/notes 条件；现有 membership/Session/Party 索引和 staging 数据规模足够支撑当前负载。上线前应在 production-like 数据量重新执行 `EXPLAIN (ANALYZE, BUFFERS)`；只有出现可复现的慢计划时，再用独立 migration 增加有证据的索引。这样避免为了模糊搜索预先制造高维护成本索引。
+本阶段没有盲目增加索引。查询先以最多 367 天的 Session 范围缩小 Reservation，再对匹配 Reservation 执行 Party/Court/notes 条件；现有 membership/Session/Party 索引和 staging 数据规模足够支撑当前负载。Merge 前已经在 production 以只读候选 SQL 执行 `EXPLAIN (ANALYZE, BUFFERS)`，结果见第 9 节；当前没有新增索引证据。未来只有出现可复现的慢计划时，才用独立 migration 增加有证据的索引。
 
 ## 4. 前端读取边界
 
@@ -129,15 +129,28 @@ Authenticated non-manager 页面只显示未授权状态；既没有馆长 UI，
 
 Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) 首轮 [CI run 33013724851](https://github.com/tujiaqi2002/badminton/actions/runs/33013724851) 在 Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL `16.15` 下通过 Reservation 37/37、read 36/36、0 skip，以及 lint/build。唯一 annotation 是 GitHub runner 对 `pnpm/action-setup@v4` 内部 Node 20 target 的平台弃用提示，不是仓库代码或 Phase 4B.3 测试失败。
 
-## 9. 发布、回退与下一门禁
+## 9. Production 只读 preflight
+
+2026-08-26 在不改变 Supabase link、不执行 merge/db push、且不输出客户 PII 的前提下完成 fresh production preflight：
+
+- production remote history 精确为 48 个 migration，最新 `20260825091608`；remote-only 为 0，唯一 local-only/pending 项是 `20260826181644`；
+- `db push --dry-run --skip-vault` 只列 migration 49，没有 seed、role 或其他 migration；
+- Phase 3B/4A diagnostic 仍为 192 bookings / memberships / allocations、123 Reservations、所有 projection/payment/incomplete mismatch 为 0、7 个 FORCE RLS 表、17/0/17/3 writer 边界，Realtime 仍只发布 `court_slots`；
+- production 当前 search function 仍为 `SECURITY INVOKER`、空 `search_path`、authenticated=true / anon=false / service_role=false；authenticated non-manager 在 read-only transaction 内按预期被 `Manager access required` 拒绝；
+- 以未来 30 天、all-Party/Court/notes 无命中条件模拟候选查询的 `EXPLAIN (ANALYZE, BUFFERS)`：execution 9.335 ms、95 shared-hit blocks、0 shared reads、0 temp blocks；使用 `reservation_sessions_admin_window_idx` 和 membership effective-session index，排序只使用 25 kB 内存；
+- security advisor 的 48 项和 performance advisor 的 60 项都是既有 baseline，没有 Phase 4B.3-specific finding；当前规模没有新增索引理由，这不是对未来数据量的永久保证。
+
+整个 preflight 都是只读或 dry-run。Production 仍为 48 migrations，PR #158 仍是 Draft，order selector 仍为 legacy。
+
+## 10. 发布、回退与下一门禁
 
 当前 production workflow 对 order selector 的 fallback 是 `legacy`，production 数据库也还没有 migration 49。因此 Draft PR 本身不授权 merge：本仓库的 Supabase integration 会在 migration PR 合并到 `main` 后自动应用 pending production migration。
 
 后续必须按顺序单独确认：
 
 1. review Draft PR 与 CI；
-2. fresh production read-only preflight；
-3. 明确授权 merge，也就是授权 production 自动应用 migration 49；
+2. fresh production read-only preflight（已完成且 clean）；
+3. 明确授权把 PR #158 转为 Ready 并 merge，也就是授权 production 自动应用 migration 49；
 4. 在 production 仍为 legacy order source 时完成默认-legacy 发布验证；
 5. 再单独决定是否把 production order selector 设为 exact `canonical`；
 6. 最后才重新设计聚合订单上的付款、移动、取消和关系 action scope；legacy decommission 仍属于更晚的 Phase 5。
@@ -149,7 +162,7 @@ Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) 首轮 [CI ru
 # Reservation Phase 4B.3: Canonical Reservation order search
 
 > Related issue: [#157](https://github.com/tujiaqi2002/badminton/issues/157)
-> Current state: implementation complete; migration 49 applied only to `badminton_stage`; local, hosted-stage, and Draft PR #158 CI verification passed; production unchanged.
+> Current state: implementation complete; migration 49 applied only to `badminton_stage`; local, hosted-stage, Draft PR #158 CI, and production read-only preflight passed; awaiting explicit merge/production-migration authorization.
 > Scope: manager order-search read boundary, aggregate cards, and schedule focus.
 > Excluded: production migration/cutover, writer or action changes, customer reads, payment/pricing rules, Stripe, Realtime, and legacy decommission.
 
@@ -179,7 +192,7 @@ Append-only migration `20260826181644_reservation_phase_4b3_order_search.sql` re
 
 The migration has strict 48-version and Phase 3B/4A pre/postflight checks. The function remains `STABLE`, `SECURITY INVOKER`, and empty-search-path, independently verifies `staff_members.role = 'admin'`, and grants EXECUTE only to `authenticated`. `anon` and `service_role` have no entry. No business data, RLS, client DML, Auth, Realtime publication, pricing, or payment fact changes.
 
-No speculative index was added. The query first bounds Sessions to at most 367 venue-local days, then evaluates Party/Court/note matching for the matching Reservations using existing membership, Session, and Party access paths. A production-like `EXPLAIN (ANALYZE, BUFFERS)` is required before production; any index must be justified by a repeatable slow plan and delivered in a separate append-only migration.
+No speculative index was added. The query first bounds Sessions to at most 367 venue-local days, then evaluates Party/Court/note matching for the matching Reservations using existing membership, Session, and Party access paths. A read-only production candidate `EXPLAIN (ANALYZE, BUFFERS)` has now been completed before merge; Section 9 records the result. Any future index must still be justified by a repeatable slow plan and delivered in a separate append-only migration.
 
 ## 4. Frontend contract and failure behavior
 
@@ -232,10 +245,23 @@ Using Codex Desktop bundled Node `v24.19.0` and pnpm `11.19.0`, the read suite p
 
 Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) first [CI run 33013724851](https://github.com/tujiaqi2002/badminton/actions/runs/33013724851) passed 37/37 Reservation PostgreSQL tests and 36/36 read tests with zero skips, plus lint/build, under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL `16.15`. The sole annotation is the GitHub runner deprecation notice for the internal Node 20 target in `pnpm/action-setup@v4`, not a repository-code or Phase 4B.3 failure.
 
-## 9. Rollout, rollback, and next gate
+## 9. Production read-only preflight
+
+On 2026-08-26, a fresh production preflight completed without relinking Supabase, merging, pushing the database, or outputting customer PII:
+
+- production has exactly 48 remote-applied migrations with `20260825091608` latest, zero remote-only drift, and only `20260826181644` local-only/pending;
+- `db push --dry-run --skip-vault` listed only migration 49, with no seed, role, or additional migration;
+- Phase 3B/4A diagnostics remained at 192 bookings/memberships/allocations and 123 Reservations, with zero projection/payment/incomplete mismatches, seven FORCE RLS tables, the 17/0/17/3 writer boundary, and `court_slots`-only Realtime;
+- the current production function remains security-invoker, empty-search-path, and authenticated=true / anon=false / service_role=false; an authenticated non-manager was denied with `Manager access required` inside a read-only transaction;
+- a future-30-day all-Party/Court/note no-match candidate plan completed in 9.335 ms with 95 shared-hit blocks, zero shared reads or temp blocks, existing Session/membership indexes in use, and a 25 kB in-memory sort;
+- 48 security-advisor items and 60 performance-advisor items were existing baseline findings, with no Phase 4B.3-specific issue. Current scale does not justify a new index, but this is not a permanent guarantee for future data volume.
+
+The entire preflight was read-only or dry-run. Production remains at 48 migrations, PR #158 remains Draft, and the production order selector remains legacy.
+
+## 10. Rollout, rollback, and next gate
 
 Production currently retains the legacy order-selector fallback and does not have migration 49. Because merging a migration PR into `main` automatically deploys pending Supabase migrations, the Draft PR does not authorize merge.
 
-The next independent gates are: review Draft PR/CI; run a fresh read-only production preflight; explicitly authorize merge and automatic production migration 49; verify the default-legacy production deployment; separately decide whether to set the production selector to exact `canonical`; then redesign Reservation-level action scopes. Legacy decommission remains a later Phase 5 concern.
+The next independent gates are: review Draft PR/CI; run a fresh read-only production preflight (completed clean); explicitly authorize marking PR #158 ready, merging it, and automatically applying production migration 49; verify the default-legacy production deployment; separately decide whether to set the production selector to exact `canonical`; then redesign Reservation-level action scopes. Legacy decommission remains a later Phase 5 concern.
 
 After a future canonical UI cutover, frontend rollback is setting/deleting the selector and rebuilding. Migration 49 preserves the old function signature and can remain installed; a database defect must be corrected through a new append-only follow-up migration rather than rewriting history.

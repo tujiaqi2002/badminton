@@ -396,7 +396,9 @@ Supabase dry-run 只列 migration 49，随后只 push 到 `badminton_stage`。St
 
 Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) 已创建并保持 Draft/mergeable。首轮 [CI run 33013724851](https://github.com/tujiaqi2002/badminton/actions/runs/33013724851) 在 Node v22.23.2 / pnpm 11.16.0 / PostgreSQL 16.15 下通过 Reservation 37/37、read 36/36、0 skip，以及 lint/build；唯一 annotation 是 action 内部 Node 20 target 的平台弃用提示。
 
-阶段结果：实现、isolated-stage migration、浏览器与固定环境 CI 验证已完成，production 没有 DB push 或 order cutover。下一步是 Draft PR review；由于 merge 会自动部署 production migration 49，必须先做 fresh production preflight 并由用户单独明确授权。完整中英文记录见 [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md)。
+随后完成 fresh production read-only preflight：migration history 为 remote 48、remote-only 0、local-only 仅 migration 49，dry-run 也只列该 migration；Phase 3B/4A diagnostic 与 non-manager gate clean。候选查询计划为 9.335 ms、95 shared hits、0 read/temp，并使用现有 Session/membership 索引；advisor 没有 Phase 4B.3 新发现。期间没有 merge、production push 或 mutation。
+
+阶段结果：实现、isolated-stage migration、浏览器、固定环境 CI 与 production preflight 均已完成。PR #158 仍为 Draft；下一步需要用户单独明确授权 merge，也就是授权 integration 自动应用 production migration 49。Production order selector 继续 legacy，canonical cutover 仍是后续独立门禁。完整中英文记录见 [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md)。
 
 ## English record
 
@@ -608,4 +610,6 @@ Future-30 browser evidence changed ten legacy rows into five Reservation cards, 
 
 Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) is open, Draft, and mergeable. Its first [CI run 33013724851](https://github.com/tujiaqi2002/badminton/actions/runs/33013724851) passed 37/37 Reservation PostgreSQL tests, 36/36 read tests, zero skips, lint, and build under Node v22.23.2, pnpm 11.16.0, and PostgreSQL 16.15. Its sole annotation is the platform deprecation warning for an action's internal Node 20 target.
 
-Stage result: implementation, isolated-stage migration, browser validation, and pinned CI are complete. Production received no DB push or order cutover. Draft PR review is next; because merge automatically deploys production migration 49, a fresh production preflight and separate explicit user authorization are required first. Full bilingual evidence is in [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md).
+A fresh production read-only preflight then confirmed 48 remote migrations, zero remote-only drift, and only migration 49 local-only/pending; the dry run listed the same single migration. Phase 3B/4A diagnostics and the non-manager gate stayed clean. The candidate query plan completed in 9.335 ms with 95 shared hits, zero reads or temp blocks, and existing Session/membership indexes in use. Advisors reported no Phase 4B.3-specific finding. No merge, production push, or mutation occurred.
+
+Stage result: implementation, isolated-stage migration, browser validation, pinned CI, and production preflight are complete. PR #158 remains Draft. The next gate is separate explicit authorization to merge, which also authorizes the integration to deploy production migration 49. The production order selector remains legacy, and canonical cutover is still a later independent gate. Full bilingual evidence is in [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md).
