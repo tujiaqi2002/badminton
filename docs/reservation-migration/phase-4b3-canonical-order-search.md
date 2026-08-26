@@ -1,7 +1,7 @@
 # Reservation Phase 4B.3：Canonical Reservation 订单查询
 
 > 关联 Issue：[#157](https://github.com/tujiaqi2002/badminton/issues/157)
-> 当前状态：代码完成；migration 49 已只应用到 `badminton_stage`；本地与 hosted staging 验证通过；production 未改变。
+> 当前状态：代码完成；migration 49 已只应用到 `badminton_stage`；本地、hosted staging 与 Draft PR #158 CI 验证通过；production 未改变。
 > 范围：馆长订单查询的读取边界、聚合卡片与排期定位。
 > 不在范围：生产 migration/cutover、任何 writer/action 改造、客户读取、付款/计价规则、Stripe、Realtime 或 legacy decommission。
 
@@ -127,6 +127,8 @@ Authenticated non-manager 页面只显示未授权状态；既没有馆长 UI，
 
 仓库 CI 固定 Node 22 / pnpm 11.16.0，与本地 bundled 版本不同；最终生产兼容必须以 PR CI 为门禁。
 
+Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) 首轮 [CI run 33013724851](https://github.com/tujiaqi2002/badminton/actions/runs/33013724851) 在 Node `v22.23.2` / pnpm `11.16.0` / PostgreSQL `16.15` 下通过 Reservation 37/37、read 36/36、0 skip，以及 lint/build。唯一 annotation 是 GitHub runner 对 `pnpm/action-setup@v4` 内部 Node 20 target 的平台弃用提示，不是仓库代码或 Phase 4B.3 测试失败。
+
 ## 9. 发布、回退与下一门禁
 
 当前 production workflow 对 order selector 的 fallback 是 `legacy`，production 数据库也还没有 migration 49。因此 Draft PR 本身不授权 merge：本仓库的 Supabase integration 会在 migration PR 合并到 `main` 后自动应用 pending production migration。
@@ -147,7 +149,7 @@ Authenticated non-manager 页面只显示未授权状态；既没有馆长 UI，
 # Reservation Phase 4B.3: Canonical Reservation order search
 
 > Related issue: [#157](https://github.com/tujiaqi2002/badminton/issues/157)
-> Current state: implementation complete; migration 49 applied only to `badminton_stage`; local and hosted-stage verification passed; production unchanged.
+> Current state: implementation complete; migration 49 applied only to `badminton_stage`; local, hosted-stage, and Draft PR #158 CI verification passed; production unchanged.
 > Scope: manager order-search read boundary, aggregate cards, and schedule focus.
 > Excluded: production migration/cutover, writer or action changes, customer reads, payment/pricing rules, Stripe, Realtime, and legacy decommission.
 
@@ -227,6 +229,8 @@ The authenticated staging manager's future-30-day view changed from 10 legacy ro
 The authenticated non-manager page exposed no manager UI and could not bypass the database manager check.
 
 Using Codex Desktop bundled Node `v24.19.0` and pnpm `11.19.0`, the read suite passed 36/36; the Reservation suite reported 37 total, 36 pass, one explicit no-local-PostgreSQL contention skip, and zero failures; lint and build passed with only the existing >500 kB chunk warning. Repository CI pins Node 22 / pnpm 11.16.0, so PR CI remains the production-compatibility gate.
+
+Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) first [CI run 33013724851](https://github.com/tujiaqi2002/badminton/actions/runs/33013724851) passed 37/37 Reservation PostgreSQL tests and 36/36 read tests with zero skips, plus lint/build, under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL `16.15`. The sole annotation is the GitHub runner deprecation notice for the internal Node 20 target in `pnpm/action-setup@v4`, not a repository-code or Phase 4B.3 failure.
 
 ## 9. Rollout, rollback, and next gate
 

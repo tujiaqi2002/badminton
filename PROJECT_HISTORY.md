@@ -394,7 +394,9 @@ Supabase dry-run 只列 migration 49，随后只 push 到 `badminton_stage`。St
 
 浏览器 future-30 对比从 10 条 legacy rows 变为 5 张 Reservation cards；首张卡的 schedule action 同时高亮 2 条 allocation。中英文 desktop、390×844 mobile、primary search、non-manager 门禁和 fresh console 均通过，Before/After 已保存到 `docs/screenshots/issue-157`。Bundled Node v24.19.0 / pnpm 11.19.0 下 read suite 36/36，Reservation suite 37 total / 36 pass / 1 个 no-local-PostgreSQL skip / 0 fail，lint/build 通过。
 
-阶段结果：实现、isolated-stage migration 与验证已完成，production 没有 DB push 或 order cutover。下一步是 Draft PR/CI review；由于 merge 会自动部署 production migration 49，必须先做 fresh production preflight 并由用户单独明确授权。完整中英文记录见 [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md)。
+Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) 已创建并保持 Draft/mergeable。首轮 [CI run 33013724851](https://github.com/tujiaqi2002/badminton/actions/runs/33013724851) 在 Node v22.23.2 / pnpm 11.16.0 / PostgreSQL 16.15 下通过 Reservation 37/37、read 36/36、0 skip，以及 lint/build；唯一 annotation 是 action 内部 Node 20 target 的平台弃用提示。
+
+阶段结果：实现、isolated-stage migration、浏览器与固定环境 CI 验证已完成，production 没有 DB push 或 order cutover。下一步是 Draft PR review；由于 merge 会自动部署 production migration 49，必须先做 fresh production preflight 并由用户单独明确授权。完整中英文记录见 [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md)。
 
 ## English record
 
@@ -604,4 +606,6 @@ The Supabase dry run listed only migration 49, which was then pushed only to `ba
 
 Future-30 browser evidence changed ten legacy rows into five Reservation cards, and the first schedule action highlighted two allocations. Chinese/English desktop, 390×844 mobile, primary search, non-manager access, and a fresh zero-error/warn console all passed. Bundled Node v24.19.0 / pnpm 11.19.0 passed 36/36 read tests, 36/37 Reservation tests with one explicit no-local-PostgreSQL skip, lint, and build.
 
-Stage result: implementation, isolated-stage migration, and verification are complete. Production received no DB push or order cutover. Draft PR/CI review is next; because merge automatically deploys production migration 49, a fresh production preflight and separate explicit user authorization are required first. Full bilingual evidence is in [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md).
+Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) is open, Draft, and mergeable. Its first [CI run 33013724851](https://github.com/tujiaqi2002/badminton/actions/runs/33013724851) passed 37/37 Reservation PostgreSQL tests, 36/36 read tests, zero skips, lint, and build under Node v22.23.2, pnpm 11.16.0, and PostgreSQL 16.15. Its sole annotation is the platform deprecation warning for an action's internal Node 20 target.
+
+Stage result: implementation, isolated-stage migration, browser validation, and pinned CI are complete. Production received no DB push or order cutover. Draft PR review is next; because merge automatically deploys production migration 49, a fresh production preflight and separate explicit user authorization are required first. Full bilingual evidence is in [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md).
