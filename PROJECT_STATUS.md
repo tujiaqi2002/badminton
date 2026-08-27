@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-26。当前工作分支：`codex/reservation-phase-4b3-default-legacy-verification`。
+> 项目：`project-001-badminton`。核对日期：2026-08-27。当前工作分支：`codex/reservation-phase-4b3-production-cutover`。
 
 ## 1. 一句话结论
 
@@ -15,9 +15,9 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 后端：Supabase project `ldbtrouofmqmnkyxiewk`，PostgreSQL + Auth + Realtime + RPC/RLS。
 - 独立数据库 staging：Supabase project `badminton_stage` / `vcoujmzsgdboidndtzzg`，已应用 Issue #157 的第 49 个 Phase 4B.3 Reservation order-search migration，只含确定性合成数据，不复制生产客户或 Auth 数据。
 - `main` 已包含 PR #143 的 Phase 4A.1 manager read contract；生产 Supabase 已由受保护分支 integration 原子应用 migration 48。
-- 生产与 staging migration history 均为 49 个版本，最新为 `20260826181644_reservation_phase_4b3_order_search`。Production 已安装 canonical manager order-search RPC；schedule/capacity 与 selected detail 已 canonical，但 manager order UI selector 仍为 legacy；Stripe 与 legacy decommission 未切换。
+- 生产与 staging migration history 均为 49 个版本，最新为 `20260826181644_reservation_phase_4b3_order_search`。Production 的 manager schedule/capacity、selected detail 与 order/search 三个读取面均已通过独立 selector 启用 canonical；writer/action、客户读取、Stripe 与 legacy decommission 未切换。
 - Phase 4A.3 受控生产 shadow observation 已完成：四个馆长排期窗口全部 clean，两个 canonical 只读 RPC 各 4 次 POST / HTTP 200；观察后已删除临时 feature variable 并重新部署默认关闭版本。
-- `main` 已包含 PR #149 的 Phase 4B.0/4B.1 frontend foundation与 PR #151 的 fail-closed Pages selector。生产馆长 schedule/capacity 已切到 canonical allocation RPC；order/detail/actions 与所有 writer 仍保持既有 contract。
+- `main` 已包含 PR #149/#151 的 canonical schedule foundation/selector、PR #154/#155 的 selected-detail foundation/evidence，以及 PR #158/#159 的 canonical order-search 与 default-legacy evidence。生产三个 manager read selectors 当前均为 exact `canonical`；actions 与所有 writer 仍保持既有 contract。
 - 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；Reservation Phase 2/3A/3B/4A 已有 migration-chain 与真实 PostgreSQL 并发测试，但仍没有浏览器 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
 - `App.jsx`、`AdminSchedule.jsx`、`i18n.js` 和 `styles.css` 已成为大型集中模块，后续改动的回归面较大。
@@ -30,7 +30,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 | 防超卖与权限 | 较成熟 | PostgreSQL exclusion/约束、RLS、manager RPC 是正确边界；仍需持续回归 migration 与 policy |
 | 馆长日排期编辑器 | 高级 Beta | 拖拽、缩放、跨日、快速新增、多场地、循环、关联、置换、历史锁定、日志/撤回均已实现；交互仍在密集打磨 |
 | 每周容量监控 | 已实现 | 适合电话查询，当前最小显示刻度为 1 小时 |
-| 订单查询与分页 | canonical RPC 已生产安装 / UI legacy | 一笔 Reservation 一张聚合卡、所有 Party 可搜索、canonical 状态/付款筛选、keyset pagination 已在 staging 验证；生产 UI cutover 仍待独立门禁 |
+| 订单查询与分页 | production canonical 已启用 | 一笔 Reservation 一张聚合卡、所有 Party 可搜索、canonical 状态/付款筛选与 keyset pagination 已在 staging 和受控生产观察验证；聚合卡仍只读，action scope 待 Phase 4C |
 | 馆务中心 | 功能完整度较高 | 基础设置、营业时间、定价、活动、会员、管理员和完整日志已接入；需要跨页面一致性回归 |
 | 计价 | 已实现但高风险 | 优先级/覆盖区间已重做得更直觉，客户隐藏规则名，馆长可查看和调整；需用边界时段和多场地持续测试 |
 | 审计与撤回 | 已实现 | 排期侧栏提供短日志，馆务中心保留完整查询；为快速拖拽提供了重要安全网 |
@@ -41,7 +41,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue [#157](https://github.com/tujiaqi2002/badminton/issues/157) / PR [#158](https://github.com/tujiaqi2002/badminton/pull/158)：Reservation Phase 4B.3 canonical order/search（migration 49 已生产安装；UI default legacy 已验证）
+### Issue [#157](https://github.com/tujiaqi2002/badminton/issues/157) / PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) / evidence PR [#160](https://github.com/tujiaqi2002/badminton/pull/160)：Reservation Phase 4B.3 canonical order/search（production canonical 已启用并验证）
 
 - 用户已明确确认 Issue #157。范围只包括馆长 Reservation 订单查询、聚合卡片、可回退 selector、staging migration/验证和 Draft PR；不授权 production migration/cutover、writer/action scope、客户读取、付款/计价、Stripe、Realtime 或 decommission。
 - append-only migration `20260826181644_reservation_phase_4b3_order_search` 保持现有 `admin_search_reservations(...)` signature/version 1 envelope，新增 all-Party 搜索、`party_count`、venue-local date bounds 与 `(matched_start_at, reservation_id)` keyset pagination。函数继续 security invoker、空 `search_path`、authenticated-only，并独立要求 manager；不写业务数据。
@@ -53,6 +53,11 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - Fresh production read-only preflight 确认远端精确 48 migrations、无 remote-only 漂移，唯一 pending 项是 `20260826181644`。用户在明确说明 merge 会自动应用 production migration 49、order selector 仍保持 legacy 后回复继续；PR #158 于 2026-08-26 21:26:04 UTC 合并为 `58d9d59cab0eebd6f0591834217e744ecb2343f1`。
 - Supabase check 于 21:26:47 UTC 成功，production 精确推进到 49；Pages [run 33015339219](https://github.com/tujiaqi2002/badminton/actions/runs/33015339219) build/deploy 全绿。Postflight 在 read-only transaction 中证明 Phase 4B.3 function 已安装、manager v1 RPC clean、non-manager denied、authenticated=true / anon=false / service_role=false；192 bookings / memberships、123 Reservations、135 Sessions、131 Parties、`court_slots`-only Realtime 均未改变。Advisors 保持 48 security（2 INFO / 46 WARN）与 60 performance INFO，0 个 Phase 4B.3-specific finding。
 - 线上 asset `index-D2_P4uCy.js` 含 production ref 1、staging ref 0、legacy order RPC 1、canonical order RPC 0。真实馆长 future-30 页面仍显示 2 个 legacy Court rows、2 个改期和 2 个取消入口、0 个 canonical “在排期中查看”，无横向 overflow 或 console error/warn。没有保存 production screenshot，以免把真实客户资料写入仓库。完整发布证据见 [`docs/reservation-migration/phase-4b3-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4b3-default-legacy-production-verification.md)。下一门禁是单独决定是否把 production order selector 设为 exact `canonical`；writer/action scope 与 decommission 仍不在本次范围。
+- 用户随后从明确命名的 production order selector 门禁继续。Fresh read-only preflight 确认 production `ACTIVE_HEALTHY`、49 migrations、manager v1 success、non-manager denial、authenticated-only ACL、48 security / 60 performance advisor baseline，以及 192 bookings/memberships、123 Reservations、135 Sessions、131 Parties、全部 mismatch 0、17/0/17/3 writer、7 FORCE RLS 和 `court_slots`-only Realtime。
+- 设置 exact `VITE_RESERVATION_ORDER_READ_SOURCE=canonical` 后，[Pages run 33039738583](https://github.com/tujiaqi2002/badminton/actions/runs/33039738583) 从 `main@7eea58d` 成功部署 `index-BPOXxt2y.js`；production ref 1、staging ref 0，三个 manager canonical RPC path 均存在。
+- 真实馆长 future-30 页面从 2 条 legacy Court rows / 2 改期 / 2 取消入口切为 2 张 canonical Reservation cards / 2 个“在排期中查看”，旧 inline actions 全部为 0。Schedule focus 命中 1 条当前 Reservation allocation；中英文 1280×720 与 390×844 手机均无 read error、横向 overflow 或 console error/warn，手机为单列且 action 约占 footer 91% 宽度。
+- 切换后的 Supabase API logs 只出现 `admin_search_reservations` 的 8 POST + 1 OPTIONS，全部 HTTP 200；没有新的 `admin_search_bookings`。Postflight 与 preflight 完全相同，没有 migration、DB push、grant、writer、数据、Auth、Realtime、付款或计价变化。回退只需把 selector 设为 `legacy`/删除后重跑 Pages。完整记录见 [`docs/reservation-migration/phase-4b3-production-cutover.md`](./docs/reservation-migration/phase-4b3-production-cutover.md)。下一门禁是另建并确认 Phase 4C aggregate writer/action scope；Phase 5 decommission 仍更晚。
+- Evidence Draft PR [#160](https://github.com/tujiaqi2002/badminton/pull/160) 已在 initial commit `0df9d85` 创建，merge state CLEAN。[CI run 33040401346](https://github.com/tujiaqi2002/badminton/actions/runs/33040401346) 完整通过 PostgreSQL migration/concurrency、Reservation read、lint 与 build；唯一 annotation 是 `pnpm/action-setup@v4` 内部 Node 20 target 的平台弃用提示。Supabase Preview 因无 migration 正常跳过。PR 保持 Draft；合并会再次触发当前 canonical selectors 的 Pages deployment，需用户明确授权。
 
 ### Issue #153 / PR [#154](https://github.com/tujiaqi2002/badminton/pull/154) / evidence PR [#155](https://github.com/tujiaqi2002/badminton/pull/155)：Reservation Phase 4B.2 canonical selected-detail read（production canonical 已启用并验证）
 
@@ -257,7 +262,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 - 独立数据库 staging 已建立并完成 Phase 3B.1 hosted apply，但还没有自动 PR Preview 前端或每 PR 自动重建流程；UI reviewer 仍不能直接体验每个分支版本。
 - Supabase GitHub integration 会自动部署 `main` 的 pending migrations；2026-08-24 PR #126 合并后约 38 秒即应用生产，越过了原计划的 merge 后 manual dry-run 门禁。未来必须在 merge 前完成 production baseline/dry-run/授权，或先关闭该自动部署集成。
-- Phase 4B schedule/capacity 与 selected detail 已在生产启用 canonical source；Phase 4B.3 order/search migration 目前只在 staging，production merge/push 与 selector cutover 都仍是独立高风险门禁。
+- Phase 4B manager schedule/capacity、selected detail 与 order/search 均已在生产启用 canonical source；Phase 4C aggregate writer/action scope 尚未设计或授权，必须新建 Issue 并在涉及权限、付款、计价或数据库变更前由用户确认。
 - 支付代码存在但未形成可证明的生产闭环，不能对客户宣称在线支付可用。
 - Reservation 迁移会跨 schema、权限、计价、付款和审计；必须按 #118 的 Phase 0–5 逐步交付，禁止一次性替换 legacy 模型。
 
@@ -299,21 +304,27 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 不把 AI 功能置于排期正确性、预览环境和测试之前。
 - 不在没有明确授权和未提交工作核对前清理旧 worktree；PR #90 已合并不等于自动授权清理。
 
-## English update: Phase 4B.3 production RPC installed; order UI remains legacy
+## English update: Phase 4B.3 production canonical order/search active
+
+After the default-legacy deployment was recorded in PR #159, the user continued from the separately named exact-canonical order-selector gate. A fresh read-only production preflight confirmed project health, 49 migrations, a manager v1 result, non-manager denial, authenticated-only ACL, the existing 48-security/60-performance advisor baseline, and unchanged 192 bookings/memberships, 123 Reservations, 135 Sessions, 131 Parties, zero mismatch, 17/0/17/3 writers, seven FORCE RLS tables, and `court_slots`-only Realtime.
+
+Exact `VITE_RESERVATION_ORDER_READ_SOURCE=canonical` produced successful [Pages run 33039738583](https://github.com/tujiaqi2002/badminton/actions/runs/33039738583) from `main@7eea58d` and deployed `index-BPOXxt2y.js`. The authenticated future-30 manager view changed from two legacy Court rows with two reschedule/two cancel actions into two canonical Reservation cards with two schedule-focus actions and zero legacy inline actions. Chinese/English desktop and 390x844 mobile checks had no read error, overflow, or console error/warn; schedule focus selected one current effective allocation.
+
+Post-cutover API logs contained only eight POSTs plus one OPTIONS request to `admin_search_reservations`, all HTTP 200, and no new legacy search call. The database postflight was identical to preflight. No migration, DB push, grant, writer, business data, Auth, Realtime, payment, or pricing behavior changed. Rollback remains selector-to-legacy/delete plus rebuild. Full bilingual evidence is in [`docs/reservation-migration/phase-4b3-production-cutover.md`](./docs/reservation-migration/phase-4b3-production-cutover.md); Phase 4C aggregate action scope and Phase 5 decommission remain separate confirmed gates.
 
 Issue [#157](https://github.com/tujiaqi2002/badminton/issues/157) explicitly authorizes only the manager Reservation order-search implementation, isolated-stage migration/verification, reversible selector, and Draft PR. Production migration/cutover, writer/action scope, customer reads, payment/pricing behavior, Stripe, Realtime, and legacy decommission remain excluded.
 
 Append-only migration `20260826181644_reservation_phase_4b3_order_search` preserves the existing `admin_search_reservations(...)` signature and version 1 envelope while adding all-Party matching, `party_count`, venue-local bounds, and `(matched_start_at, reservation_id)` keyset pagination. It remains security-invoker, empty-search-path, manager-gated, and authenticated-only, and it mutates no business data. The isolated-stage apply and pre-merge production preflight both passed.
 
-Only exact `VITE_RESERVATION_ORDER_READ_SOURCE=canonical` enables the new frontend path. Staging opts in, while the production example and workflow default to legacy. Future-30-day browser evidence changed ten Court-allocation rows into five Reservation cards; the first schedule action highlighted two allocations belonging to the same Reservation. All-Party search, manager/non-manager roles, Chinese/English desktop, 390×844 mobile, and zero-error console checks passed. Bundled Node `v24.19.0` / pnpm `11.19.0` passed 36/36 read tests, 36/37 Reservation tests with one explicit no-local-PostgreSQL skip, lint, and build. Full bilingual evidence is in [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md). Draft PR review is next; merge would automatically deploy production migration 49 and therefore requires a fresh preflight and separate explicit authorization.
+Only exact `VITE_RESERVATION_ORDER_READ_SOURCE=canonical` enables the new frontend path. Staging opts in, while the production example and workflow default to legacy. At the isolated-stage gate, future-30-day browser evidence changed ten Court-allocation rows into five Reservation cards; the first schedule action highlighted two allocations belonging to the same Reservation. All-Party search, manager/non-manager roles, Chinese/English desktop, 390×844 mobile, and zero-error console checks passed. Bundled Node `v24.19.0` / pnpm `11.19.0` passed 36/36 read tests, 36/37 Reservation tests with one explicit no-local-PostgreSQL skip, lint, and build. Full bilingual evidence is in [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md). Draft review and the later production gates have since completed as recorded above.
 
-Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) is mergeable and remains Draft. Final [CI run 33013960452](https://github.com/tujiaqi2002/badminton/actions/runs/33013960452) passed 37/37 Reservation PostgreSQL tests and 36/36 read tests with zero skips, plus lint/build, under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL `16.15`. The sole annotation is the runner-platform deprecation notice for the internal Node 20 target of `pnpm/action-setup@v4`, not a repository or Phase 4B.3 failure.
+Before merge authorization, Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) was mergeable and remained Draft. Final [CI run 33013960452](https://github.com/tujiaqi2002/badminton/actions/runs/33013960452) passed 37/37 Reservation PostgreSQL tests and 36/36 read tests with zero skips, plus lint/build, under Node `v22.23.2`, pnpm `11.16.0`, and PostgreSQL `16.15`. The sole annotation was the runner-platform deprecation notice for the internal Node 20 target of `pnpm/action-setup@v4`, not a repository or Phase 4B.3 failure.
 
 The fresh production read-only preflight was clean. At the end of that gate, production had exactly 48 applied migrations and no remote-only drift; migration `20260826181644` was the only local-only/pending item, and the dry run listed only migration 49. Phase 3B/4A diagnostics remained clean, the authenticated non-manager gate denied access, and the predecessor production function had the expected security-invoker, empty-search-path, authenticated-only shape. The candidate query plan completed in 9.335 ms with 95 shared hits, zero shared reads or temp blocks, and existing Session/membership indexes in use. Advisors found no Phase 4B.3-specific issue, so no speculative index was justified. No merge, database push, or production mutation occurred during that preflight.
 
 The user then authorized that exact merge/deployment gate. PR #158 merged at 2026-08-26 21:26:04 UTC as `58d9d59cab0eebd6f0591834217e744ecb2343f1`; the Supabase check advanced production exactly to migration 49, and Pages [run 33015339219](https://github.com/tujiaqi2002/badminton/actions/runs/33015339219) passed. Read-only postflight verified the installed definition, manager v1 envelope, non-manager denial, exact ACL, unchanged 192/123/135/192/131 data baseline, and `court_slots`-only Realtime. Advisors remained at 48 security and 60 performance findings with no Phase 4B.3-specific item.
 
-The live asset `index-D2_P4uCy.js` contains one production ref, zero staging refs, one legacy order RPC, and zero canonical order RPCs. The authenticated future-30 manager view retained two legacy Court rows with two change and two cancellation actions, zero canonical schedule-focus actions, no horizontal overflow, and zero console errors/warnings. The next independent gate is exact-canonical production order-selector cutover; aggregate writer/action scope and legacy decommission remain excluded. Full evidence is in [`docs/reservation-migration/phase-4b3-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4b3-default-legacy-production-verification.md).
+At the default-legacy checkpoint, live asset `index-D2_P4uCy.js` contained one production ref, zero staging refs, one legacy order RPC, and zero canonical order RPCs. The authenticated future-30 manager view retained two legacy Court rows with two change and two cancellation actions, zero canonical schedule-focus actions, no horizontal overflow, and zero console errors/warnings. Exact-canonical production cutover has since completed as recorded at the top of this update; aggregate writer/action scope and legacy decommission remain excluded. Full default-legacy evidence is in [`docs/reservation-migration/phase-4b3-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4b3-default-legacy-production-verification.md).
 
 ## English update: Phase 4B.2 production canonical selected detail active
 

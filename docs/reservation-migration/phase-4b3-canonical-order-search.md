@@ -1,7 +1,7 @@
 # Reservation Phase 4B.3：Canonical Reservation 订单查询
 
 > 关联 Issue：[#157](https://github.com/tujiaqi2002/badminton/issues/157)
-> 当前状态：PR #158 已合并，migration 49 已进入 staging 与 production；production order UI 仍按 selector fallback 使用 legacy。完整发布验证见 [`phase-4b3-default-legacy-production-verification.md`](./phase-4b3-default-legacy-production-verification.md)。
+> 当前状态：PR #158 已合并，migration 49 已进入 staging 与 production；production order UI 已在独立授权后通过 exact `canonical` selector 启用。完整发布与切换验证见 [`phase-4b3-default-legacy-production-verification.md`](./phase-4b3-default-legacy-production-verification.md) 和 [`phase-4b3-production-cutover.md`](./phase-4b3-production-cutover.md)。
 > 范围：馆长订单查询的读取边界、聚合卡片与排期定位。
 > 不在范围：生产 migration/cutover、任何 writer/action 改造、客户读取、付款/计价规则、Stripe、Realtime 或 legacy decommission。
 
@@ -152,17 +152,19 @@ Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) 首轮 [CI ru
 2. fresh production read-only preflight（已完成且 clean）；
 3. 明确授权 merge / production migration 49（已完成）；
 4. production default-legacy 发布验证（已完成）；
-5. 再单独决定是否把 production order selector 设为 exact `canonical`；
+5. 再单独决定是否把 production order selector 设为 exact `canonical`（已完成）；
 6. 最后才重新设计聚合订单上的付款、移动、取消和关系 action scope；legacy decommission 仍属于更晚的 Phase 5。
 
 在 canonical order cutover 后，前端回退只需把 selector 设为 `legacy` 或删除并重新 build；migration 49 保留向后兼容签名，因此不需要数据库回滚。若数据库函数本身出现问题，应通过 append-only follow-up migration 修复，不逆向改写历史。
+
+用户在该独立门禁中继续后，exact selector 触发 [Pages run 33039738583](https://github.com/tujiaqi2002/badminton/actions/runs/33039738583)，从 `main@7eea58d` 部署 `index-BPOXxt2y.js`。真实馆长 future-30 页面由 2 条 legacy rows / 2 reschedule / 2 cancel 切为 2 张 canonical Reservation cards / 2 schedule-focus actions / 0 legacy inline actions；中英文桌面和 390×844 手机均无 read error、overflow 或 console error/warn。API logs 为 canonical search 8 POST + 1 OPTIONS，全部 HTTP 200，且没有新的 legacy search。数据库 postflight 未漂移。完整证据见 [`phase-4b3-production-cutover.md`](./phase-4b3-production-cutover.md)。下一门禁现为另建并确认 Phase 4C aggregate writer/action scope；Phase 5 decommission 继续后置。
 
 ---
 
 # Reservation Phase 4B.3: Canonical Reservation order search
 
 > Related issue: [#157](https://github.com/tujiaqi2002/badminton/issues/157)
-> Current state: PR #158 merged and migration 49 is installed on staging and production; the production order UI still uses the selector's legacy fallback. Full release evidence is in [`phase-4b3-default-legacy-production-verification.md`](./phase-4b3-default-legacy-production-verification.md).
+> Current state: PR #158 merged and migration 49 is installed on staging and production; a separately authorized exact-canonical selector now serves the production order UI. Full release and cutover evidence is in [`phase-4b3-default-legacy-production-verification.md`](./phase-4b3-default-legacy-production-verification.md) and [`phase-4b3-production-cutover.md`](./phase-4b3-production-cutover.md).
 > Scope: manager order-search read boundary, aggregate cards, and schedule focus.
 > Excluded: production migration/cutover, writer or action changes, customer reads, payment/pricing rules, Stripe, Realtime, and legacy decommission.
 
@@ -262,6 +264,6 @@ The entire preflight was read-only or dry-run. At the end of that gate productio
 
 The user explicitly authorized continuing after the merge/production-migration gate was stated. PR #158 merged at 2026-08-26 21:26:04 UTC as `58d9d59cab0eebd6f0591834217e744ecb2343f1`; the Supabase integration advanced production exactly to migration 49, and Pages run 33015339219 passed for the same commit. The production order selector still resolves through the workflow's `legacy` fallback, so this deployment did not cut over the UI.
 
-PR/CI review, production preflight, merge/migration 49, and default-legacy production verification are complete. The next independent gate is deciding whether to set the production selector to exact `canonical`; Reservation-level writer/action scopes come later, and legacy decommission remains a Phase 5 concern.
+PR/CI review, production preflight, merge/migration 49, default-legacy production verification, and the separately authorized exact-canonical selector cutover are complete. Pages run 33039738583 deployed `index-BPOXxt2y.js`; the authenticated future-30 view rendered two canonical Reservation cards and two schedule-focus actions with zero legacy inline actions. Chinese/English desktop and 390x844 mobile checks, canonical API logs, and the unchanged database postflight passed. Full evidence is in [`phase-4b3-production-cutover.md`](./phase-4b3-production-cutover.md). Reservation-level writer/action scopes now require a new confirmed Phase 4C issue, while legacy decommission remains a Phase 5 concern.
 
-After a future canonical UI cutover, frontend rollback is setting/deleting the selector and rebuilding. Migration 49 preserves the old function signature and can remain installed; a database defect must be corrected through a new append-only follow-up migration rather than rewriting history.
+After the canonical UI cutover, frontend rollback is setting/deleting the selector and rebuilding. Migration 49 preserves the old function signature and can remain installed; a database defect must be corrected through a new append-only follow-up migration rather than rewriting history.
