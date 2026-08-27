@@ -2,8 +2,8 @@
 
 > 关联父 Issue：[#161](https://github.com/tujiaqi2002/badminton/issues/161)
 > 实现 Issue：[#162](https://github.com/tujiaqi2002/badminton/issues/162)
-> Draft PR：[#163](https://github.com/tujiaqi2002/badminton/pull/163)
-> 当前状态：两条 append-only migration 已进入独立 `badminton_stage` 并完成事务回滚验证；production 保持 49 migrations，production profile selector 保持 `legacy`。
+> PR：[#163](https://github.com/tujiaqi2002/badminton/pull/163) 已合并
+> 当前状态：两条 append-only migration 已进入 staging 与 production 并完成验证；production 为 51 migrations，profile selector 保持 `legacy`。生产证据见 [`phase-4c1-default-legacy-production-verification.md`](./phase-4c1-default-legacy-production-verification.md)。
 > 范围：馆长显式修改 Reservation notes、Session notes / party size，以及指定 Party 的姓名、邮箱、电话。
 > 不在范围：移动、改时长、取消、付款、计价、merge/split、primary-contact 角色、客户写入、Realtime 或 legacy decommission。
 
@@ -17,7 +17,7 @@ Phase 4C.1 只提供一个公共馆长 RPC，但每次调用必须显式给出 `
 | `session` | Session notes、party size | Reservation notes、Party PII、场地、开始/结束时间 |
 | `party` | 指定 Party 的 display name、email、phone | 隐式 primary contact、role、付款人、merge/split |
 
-Patch 使用严格 allowlist；空 patch、未知字段、超长 notes/联系方式、无效 email、`party_size` 超出 1–8 均 fail closed。Reason 只能是 `manager_maintenance`、`customer_request`、`data_correction` 或 `onsite_operation`。所有新增界面文案均提供中文和英文。
+Patch 使用严格 allowlist；空 patch、未知字段、超长 notes/联系方式、无效 email、`party_size` 超出 1–8 均 fail closed。Reason 只能是 `manager_edit`、`customer_request`、`correction` 或 `operational_update`。所有新增界面文案均提供中文和英文。
 
 ## 2. 数据库实现
 
@@ -53,7 +53,7 @@ Canonical 编辑器把 Reservation、Session 与显式 Party 三类动作分开�
 
 ## 5. Staging 数据库验证
 
-`badminton_stage` 从 49 精确推进到 51，最新版本为 `20260827090512`；production 仍为 49，且没有 Phase 4C.1 function。Hosted Supabase PostgreSQL 17.6 上完成：
+`badminton_stage` 从 49 精确推进到 51，最新版本为 `20260827090512`；当时 production 仍为 49，且没有 Phase 4C.1 function。后续经独立授权，production 也已精确推进到 51。Hosted Supabase PostgreSQL 17.6 上完成：
 
 - Reservation、Session、Party 三个 scope 成功；
 - 同 key / 同 payload 幂等重试；
@@ -90,6 +90,6 @@ Draft PR #163 的 [CI run 33058546239](https://github.com/tujiaqi2002/badminton/
 
 ## 8. 发布与回退门禁
 
-本阶段 Draft PR 不能自动视为 production 授权。仓库的 Supabase integration 会在 migration PR merge 后应用 pending production migrations，因此 **Ready/merge 本身就是 production DB deployment gate**，必须另获用户明确授权。
+本阶段 Draft PR 未被自动视为 production 授权。用户在明确的 Ready/merge 门禁后另行授权，PR #163 才合并并由 Supabase integration 应用 migrations 50–51。完整 pre/postflight 见 [`phase-4c1-default-legacy-production-verification.md`](./phase-4c1-default-legacy-production-verification.md)。
 
-生产若未来获准安装 migration，Pages 仍会因 selector 默认 `legacy` 而保留旧 editor。Production canonical profile cutover 需要再做独立 preflight、设置 exact selector、发布和真实馆长观察。紧急 UI 回退只需把 profile selector 设为 `legacy`/删除并重新构建；两条数据库 migration 是 additive，不能回写或删除生产历史。
+Production 已安装 migration，但 Pages 因 selector 默认 `legacy` 继续保留旧 editor。Production canonical profile cutover 仍需要独立 preflight、设置 exact selector、发布和真实馆长观察。紧急 UI 回退只需把 profile selector 设为 `legacy`/删除并重新构建；两条数据库 migration 是 additive，不能回写或删除生产历史。
