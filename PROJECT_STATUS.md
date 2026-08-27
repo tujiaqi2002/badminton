@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-27。当前工作分支：`codex/reservation-reset-r1-evidence`。
+> 项目：`project-001-badminton`。核对日期：2026-08-27。当前工作分支：`codex/reservation-reset-r2-rehearsal`。
 
 ## 1. 一句话结论
 
@@ -8,7 +8,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 换句话说，当前主要问题不是“功能太少”，而是**功能增长快于工程保障**。下一阶段应优先稳定、验证和协作，不宜马上扩张到多商户、AI 或市场平台。
 
-近期执行重点已经改为 Issue #165 的 test-data reset 路线：R0/R1 已完成，下一步先在独立 staging 用 synthetic data 演练 reset/restore；production 清理仍是更晚的独立破坏性门禁。
+近期执行重点已经改为 Issue #165 的 test-data reset 路线：R0–R2 已完成，下一步只有在 fresh production backup/manifest、production-specific runner review 和再次明确 destructive confirmation 后才可进入 R3；当前 production 保持不变。
 
 ## 2. 当前可验证事实
 
@@ -43,14 +43,16 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue [#165](https://github.com/tujiaqi2002/badminton/issues/165)：Reservation test-data reset（R0 / R1 已完成；等待 R2 staging runner 授权）
+### Issue [#165](https://github.com/tujiaqi2002/badminton/issues/165)：Reservation test-data reset（R0–R2 已完成；等待 R3 production destructive gate 授权）
 
 - 用户确认当前 Reservation 交易域、2 条场馆活动、2 条场馆会员及其 audit、以及唯一非馆长 Auth 用户都只是试用数据，没有业务保留价值；3 名馆长 Auth/staff/manager 关系、场地与馆务配置、定价/营业时间、会员等级定义、安全/配置审计和 migration history 必须保留。
 - R0 只读盘点确认拟清理交易域为 192 bookings、139 court slots、123 Reservations、135 Sessions、131 Parties、192 memberships、23 Payments、26 allocations、2 recurrence series，以及对应 transition/source/audit/admin-action 记录。没有 provider payment reference；现有 Payment 均为 `legacy_unknown`。
 - R1 已完成 repo 外的加密 logical snapshot 与隔离内存恢复：66 个关系、4,687 行、173 个 encrypted chunks；ciphertext SHA-256 为 `7550613970a36081abc2e5c104be6ed18e5edbe6f2b7ed2c82895ec606014c12`。生产前后 66 个内容指纹完全一致，没有生产 mutation。
 - 恢复证明完成 66 个稳定 JSON round-trip fingerprints、33 个真实 FK constraints、30 个业务完整性断言，并守恒 CAD 1,642.00 ledger。明文只存在于内存，没有写入仓库或磁盘。
 - 隔离恢复 runtime 是 PGlite PostgreSQL 18.3，而 production/staging 是 PostgreSQL 17.6；因此 R1 证明备份可解密和关系可重建，但不能替代同版本 hosted reset/restore 演练，也没有给出真实 RTO。
-- 下一门禁 R2 只能在 `badminton_stage` 使用 synthetic data 编写并演练 one-time reset/restore runner；尚未授权 production 删除、Auth 删除、migration/selector/deploy、PR merge 或 Phase 5 decommission。完整证据见 [`docs/reservation-migration/reservation-reset-r1-backup-restore.md`](./docs/reservation-migration/reservation-reset-r1-backup-restore.md)。
+- R2 在 `badminton_stage` / PostgreSQL 17.6 完成真实 transaction reset/restore：17 个 preserve relations / 134 rows 与 24 个 purge relations / 1,563 rows 的精确 fingerprints 全部复原，6 个 sequences 不变；reset 111.372 ms、restore 184.523 ms、total 295.895 ms，Auth deletion 为 0。
+- 注入 reset 后故障按设计整笔 rollback；成功后同一 operation 第二次运行在任何 delete 前返回 `tiger_r2_rehearsal_already_completed`。Manager canonical read 为 clean / 0 mismatch，non-manager 仍拒绝；28/28 public RLS、`court_slots`-only Realtime、51 migrations 与 CAD 1,642.00 ledger 不变。
+- Maintenance SQL 位于 `supabase/maintenance`，不在 migration auto-apply path，不含 production ref，也不创建 persistent RPC/DDL。下一门禁 R3 必须刷新 production backup/manifest、另写 production-specific runner、规划维护窗口/RTO，并再次取得明确 destructive authorization；production/Auth 删除、selector/deploy、PR merge 和 Phase 5 decommission 仍未授权。R1 证据见 [`reservation-reset-r1-backup-restore.md`](./docs/reservation-migration/reservation-reset-r1-backup-restore.md)，R2 证据见 [`reservation-reset-r2-stage-rehearsal.md`](./docs/reservation-migration/reservation-reset-r2-stage-rehearsal.md)。
 
 ### Issue [#161](https://github.com/tujiaqi2002/badminton/issues/161) / [#162](https://github.com/tujiaqi2002/badminton/issues/162) / PR [#163](https://github.com/tujiaqi2002/badminton/pull/163) / evidence PR [#164](https://github.com/tujiaqi2002/badminton/pull/164)：Reservation Phase 4C.1 canonical profile mutation（production capability 已安装；UI default legacy）
 

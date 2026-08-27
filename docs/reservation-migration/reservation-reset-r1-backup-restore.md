@@ -2,7 +2,7 @@
 
 > 关联 Issue：[#165](https://github.com/tujiaqi2002/badminton/issues/165)
 > 时间基线：2026-08-27
-> 当前状态：R0 / R1 已完成；等待 R2 `badminton_stage` synthetic reset runner 授权。
+> 当前状态：R0 / R1 已完成；R2 `badminton_stage` synthetic reset/restore rehearsal 后续已完成。
 
 ## 1. 决策与授权边界
 
@@ -113,7 +113,7 @@ R1 不能证明：
 5. `court_slots`-only Realtime 与 migration history 不变；
 6. synthetic restore、postflight assertions、failure recovery 与 hosted RTO。
 
-R2 完成后仍不能自动进入 production。Production preflight、最终 purge manifest、Auth deletion、执行窗口、rollback/RTO 和 destructive confirmation 必须形成下一次独立门禁。
+R2 后续已在 `badminton_stage` / PostgreSQL 17.6 完成 reset/restore、故障 rollback 与重复运行拒绝；完整结果见 [`reservation-reset-r2-stage-rehearsal.md`](./reservation-reset-r2-stage-rehearsal.md)。R2 完成后仍不能自动进入 production。Production preflight、最终 purge manifest、Auth deletion、执行窗口、rollback/RTO 和 destructive confirmation 必须形成下一次独立门禁。
 
 ---
 
