@@ -41,14 +41,14 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue [#161](https://github.com/tujiaqi2002/badminton/issues/161) / [#162](https://github.com/tujiaqi2002/badminton/issues/162)：Reservation Phase 4C.1 canonical profile mutation（staging 已验证；production 未变）
+### Issue [#161](https://github.com/tujiaqi2002/badminton/issues/161) / [#162](https://github.com/tujiaqi2002/badminton/issues/162) / Draft PR [#163](https://github.com/tujiaqi2002/badminton/pull/163)：Reservation Phase 4C.1 canonical profile mutation（staging 已验证；production 未变）
 
 - 用户已确认高风险父 Issue #161；实现被收窄到 #162 的 profile-only scope。Reservation 只改 notes，Session 只改 notes / party size，Party 只改显式目标的姓名、邮箱、电话；移动、改时长、取消、付款、计价、merge/split、primary role 和客户 writer 均不在范围。
 - Staging append-only migrations `20260827084719` 与 `20260827090512` 安装 authenticated-only manager RPC、PII-free audit 与双向 Party transition lineage。公共入口 manager-auth first、空 `search_path`、optimistic concurrency 与 idempotency；私有 helper 无 client EXECUTE，核心表没有新增 client DML。
 - Hosted rollback tests 覆盖三个 scope、幂等重试、stale/invalid/non-manager 拒绝，以及真实 merge 后从无 legacy group ID 的 current Party 反向同步 canonical lineage 与 legacy projection。所有测试 mutation 均回滚，incomplete operation 为 0；Phase 3B/4A 与 Realtime 边界保持 clean。
 - Staging 当前 51 migrations、production 仍为 49。Security advisor 只有一条目标函数的预期 authenticated `SECURITY DEFINER` warning；performance advisor 无新增 finding。
 - Frontend 只有 profile 与 selected-detail selectors 同时 exact `canonical` 才显示显式 Reservation/Session/Party editor；staging example canonical，Pages workflow 与 production example 默认 legacy。中英文 desktop / 390×844 mobile Before/After 已保存在 [`docs/screenshots/issue-162`](./docs/screenshots/issue-162)。
-- 完整设计、验证和后续 production gate 见 [`docs/reservation-migration/phase-4c1-profile-mutation.md`](./docs/reservation-migration/phase-4c1-profile-mutation.md)。Draft PR 创建后仍不得自动 Ready/merge；merge 会触发 production migration integration，必须另获明确授权。
+- 完整设计、验证和后续 production gate 见 [`docs/reservation-migration/phase-4c1-profile-mutation.md`](./docs/reservation-migration/phase-4c1-profile-mutation.md)。Draft PR #163 不得自动 Ready/merge；merge 会触发 production migration integration，必须另获明确授权。
 
 ### Issue [#157](https://github.com/tujiaqi2002/badminton/issues/157) / PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) / evidence PR [#160](https://github.com/tujiaqi2002/badminton/pull/160)：Reservation Phase 4B.3 canonical order/search（production canonical 已启用并验证）
 

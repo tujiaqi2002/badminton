@@ -2,6 +2,7 @@
 
 > 关联父 Issue：[#161](https://github.com/tujiaqi2002/badminton/issues/161)
 > 实现 Issue：[#162](https://github.com/tujiaqi2002/badminton/issues/162)
+> Draft PR：[#163](https://github.com/tujiaqi2002/badminton/pull/163)
 > 当前状态：两条 append-only migration 已进入独立 `badminton_stage` 并完成事务回滚验证；production 保持 49 migrations，production profile selector 保持 `legacy`。
 > 范围：馆长显式修改 Reservation notes、Session notes / party size，以及指定 Party 的姓名、邮箱、电话。
 > 不在范围：移动、改时长、取消、付款、计价、merge/split、primary-contact 角色、客户写入、Realtime 或 legacy decommission。
