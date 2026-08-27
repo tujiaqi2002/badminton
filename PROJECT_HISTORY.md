@@ -416,7 +416,7 @@ Bundled Node `v24.19.0` / pnpm `11.19.0` 下，Reservation read 36/36；Reservat
 
 Cutover timestamp 之后 Supabase API logs 只有 `admin_search_reservations` 的 8 POST + 1 OPTIONS，全部 HTTP 200；没有新的 `admin_search_bookings`。Postflight 与 preflight 完全一致；没有 migration、DB push、DDL/grant、writer、业务数据、Auth、Realtime、付款或计价变化。
 
-阶段结果：production 馆长 schedule/capacity、selected detail 与 order/search 三个 read surfaces 现全部保持 canonical。回退为把 order selector 设为 `legacy`/删除并重跑 Pages，不需要数据库 rollback。下一步必须另建并确认 Phase 4C aggregate writer/action scope；Phase 5 decommission 继续后置。完整证据见 [`docs/reservation-migration/phase-4b3-production-cutover.md`](./docs/reservation-migration/phase-4b3-production-cutover.md)。
+阶段结果：production 馆长 schedule/capacity、selected detail 与 order/search 三个 read surfaces 现全部保持 canonical。回退为把 order selector 设为 `legacy`/删除并重跑 Pages，不需要数据库 rollback。Evidence Draft PR #160 已建立，initial CI run 33040401346 完整通过 PostgreSQL/Reservation read/lint/build，Supabase Preview 因无 migration 正常跳过；PR 保持 Draft 等待独立 merge/Pages 授权。下一步必须另建并确认 Phase 4C aggregate writer/action scope；Phase 5 decommission 继续后置。完整证据见 [`docs/reservation-migration/phase-4b3-production-cutover.md`](./docs/reservation-migration/phase-4b3-production-cutover.md)。
 
 ## English record
 
@@ -648,4 +648,4 @@ The authenticated future-30 manager view changed from two legacy Court rows with
 
 API logs after the selector timestamp contained only eight POSTs plus one OPTIONS request to `admin_search_reservations`, all HTTP 200, and no new `admin_search_bookings` request. Postflight was identical to preflight. No migration, DB push, DDL/grant, writer, business data, Auth, Realtime, payment, or pricing behavior changed.
 
-Stage result: all three production manager read surfaces—schedule/capacity, selected detail, and order/search—now remain canonical. Rollback is selector-to-legacy/delete plus a Pages rebuild, without database rollback. Phase 4C aggregate writer/action scope requires a new confirmed issue; Phase 5 decommission remains later. Full evidence is in [`docs/reservation-migration/phase-4b3-production-cutover.md`](./docs/reservation-migration/phase-4b3-production-cutover.md).
+Stage result: all three production manager read surfaces—schedule/capacity, selected detail, and order/search—now remain canonical. Rollback is selector-to-legacy/delete plus a Pages rebuild, without database rollback. Evidence Draft PR #160 is open; initial CI run 33040401346 passed PostgreSQL, Reservation-read, lint, and build gates while Supabase Preview correctly skipped because there is no migration. The PR remains Draft pending separate merge/Pages authorization. Phase 4C aggregate writer/action scope requires a new confirmed issue; Phase 5 decommission remains later. Full evidence is in [`docs/reservation-migration/phase-4b3-production-cutover.md`](./docs/reservation-migration/phase-4b3-production-cutover.md).

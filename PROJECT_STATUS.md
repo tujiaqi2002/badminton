@@ -41,7 +41,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue [#157](https://github.com/tujiaqi2002/badminton/issues/157) / PR [#158](https://github.com/tujiaqi2002/badminton/pull/158)：Reservation Phase 4B.3 canonical order/search（production canonical 已启用并验证）
+### Issue [#157](https://github.com/tujiaqi2002/badminton/issues/157) / PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) / evidence PR [#160](https://github.com/tujiaqi2002/badminton/pull/160)：Reservation Phase 4B.3 canonical order/search（production canonical 已启用并验证）
 
 - 用户已明确确认 Issue #157。范围只包括馆长 Reservation 订单查询、聚合卡片、可回退 selector、staging migration/验证和 Draft PR；不授权 production migration/cutover、writer/action scope、客户读取、付款/计价、Stripe、Realtime 或 decommission。
 - append-only migration `20260826181644_reservation_phase_4b3_order_search` 保持现有 `admin_search_reservations(...)` signature/version 1 envelope，新增 all-Party 搜索、`party_count`、venue-local date bounds 与 `(matched_start_at, reservation_id)` keyset pagination。函数继续 security invoker、空 `search_path`、authenticated-only，并独立要求 manager；不写业务数据。
@@ -57,6 +57,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 设置 exact `VITE_RESERVATION_ORDER_READ_SOURCE=canonical` 后，[Pages run 33039738583](https://github.com/tujiaqi2002/badminton/actions/runs/33039738583) 从 `main@7eea58d` 成功部署 `index-BPOXxt2y.js`；production ref 1、staging ref 0，三个 manager canonical RPC path 均存在。
 - 真实馆长 future-30 页面从 2 条 legacy Court rows / 2 改期 / 2 取消入口切为 2 张 canonical Reservation cards / 2 个“在排期中查看”，旧 inline actions 全部为 0。Schedule focus 命中 1 条当前 Reservation allocation；中英文 1280×720 与 390×844 手机均无 read error、横向 overflow 或 console error/warn，手机为单列且 action 约占 footer 91% 宽度。
 - 切换后的 Supabase API logs 只出现 `admin_search_reservations` 的 8 POST + 1 OPTIONS，全部 HTTP 200；没有新的 `admin_search_bookings`。Postflight 与 preflight 完全相同，没有 migration、DB push、grant、writer、数据、Auth、Realtime、付款或计价变化。回退只需把 selector 设为 `legacy`/删除后重跑 Pages。完整记录见 [`docs/reservation-migration/phase-4b3-production-cutover.md`](./docs/reservation-migration/phase-4b3-production-cutover.md)。下一门禁是另建并确认 Phase 4C aggregate writer/action scope；Phase 5 decommission 仍更晚。
+- Evidence Draft PR [#160](https://github.com/tujiaqi2002/badminton/pull/160) 已在 initial commit `0df9d85` 创建，merge state CLEAN。[CI run 33040401346](https://github.com/tujiaqi2002/badminton/actions/runs/33040401346) 完整通过 PostgreSQL migration/concurrency、Reservation read、lint 与 build；唯一 annotation 是 `pnpm/action-setup@v4` 内部 Node 20 target 的平台弃用提示。Supabase Preview 因无 migration 正常跳过。PR 保持 Draft；合并会再次触发当前 canonical selectors 的 Pages deployment，需用户明确授权。
 
 ### Issue #153 / PR [#154](https://github.com/tujiaqi2002/badminton/pull/154) / evidence PR [#155](https://github.com/tujiaqi2002/badminton/pull/155)：Reservation Phase 4B.2 canonical selected-detail read（production canonical 已启用并验证）
 

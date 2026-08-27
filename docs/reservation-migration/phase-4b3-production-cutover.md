@@ -1,6 +1,7 @@
 # Reservation Phase 4B.3：Production canonical order/search cutover
 
 > 关联 Issue：[#157](https://github.com/tujiaqi2002/badminton/issues/157)
+> Evidence PR：[#160](https://github.com/tujiaqi2002/badminton/pull/160)（Draft）
 > 生产切换：2026-08-27
 > Pages run：[33039738583](https://github.com/tujiaqi2002/badminton/actions/runs/33039738583)
 > 部署 commit：`7eea58d5e0ce9c3caf796d05236a3bf2102b020f`
@@ -164,6 +165,8 @@ Postflight 与 preflight 完全相同：
 - Realtime 仍只有 `public.court_slots`。
 
 Selector 切换没有执行任何数据库写入。
+
+Evidence Draft PR #160 的 initial commit 为 `0df9d85`，merge state CLEAN。[CI run 33040401346](https://github.com/tujiaqi2002/badminton/actions/runs/33040401346) 通过真实 PostgreSQL migration/concurrency、Reservation read、lint 和 build；Supabase Preview 因没有 migration 正常跳过。唯一 annotation 是 `pnpm/action-setup@v4` 内部 Node 20 target 的平台弃用提示。该 PR 保持 Draft，合并需要新的明确授权，因为 `main` push 会再次触发当前 canonical selectors 的 Pages deployment。
 
 ## 7. 回退与下一门禁
 
