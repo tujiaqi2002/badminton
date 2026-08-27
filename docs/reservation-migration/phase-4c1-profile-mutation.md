@@ -84,9 +84,9 @@ Staging advisor 相对安装前只增加一条预期 security warning：authenti
 
 ## 7. 本地验证与环境差异
 
-使用 Codex Desktop bundled Node `v24.19.0`、pnpm `11.19.0` 与 Vite `6.4.3` 运行验证：Reservation read suite 42/42；Reservation migration suite 41 total / 39 pass / 2 个 no-local-PostgreSQL skip / 0 fail；lint 与 build 通过。Build 只有既有的 500 kB bundle-size warning。真实 PostgreSQL 并发用例在没有 `PHASE3B_POSTGRES_URL` 的本机明确 skip；锁、stale 与 idempotency 已由 hosted staging 事务测试覆盖，但 CI 仍需在仓库规定的 PostgreSQL 16 环境运行该并发用例。
+使用 Codex Desktop bundled Node `v24.19.0`、pnpm `11.19.0` 与 Vite `6.4.3` 运行验证：Reservation read suite 42/42；Reservation migration suite 41 total / 39 pass / 2 个 no-local-PostgreSQL skip / 0 fail；lint 与 build 通过。Build 只有既有的 500 kB bundle-size warning。本机没有 `PHASE3B_POSTGRES_URL`，因此两个真实 PostgreSQL 并发用例明确 skip；锁、stale 与 idempotency 同时由 hosted staging 事务测试覆盖。
 
-仓库 CI 固定 Node 22、pnpm 11.16 和 PostgreSQL 16；staging 为 PostgreSQL 17.6。本地与 staging 通过不能替代 CI 或 production preflight。
+Draft PR #163 的 [CI run 33058546239](https://github.com/tujiaqi2002/badminton/actions/runs/33058546239) 在 Node `v22.23.2`、pnpm `11.16.0` 与 PostgreSQL `16.15` 下完成 Reservation migration/concurrency 41/41、Reservation read 42/42、0 skip，并通过 lint/build。唯一 annotation 是 `pnpm/action-setup@v4` 内部 Node 20 target 的平台弃用提示。Staging 为 PostgreSQL 17.6；本地、CI 与 staging 均通过仍不能替代 production preflight。
 
 ## 8. 发布与回退门禁
 
