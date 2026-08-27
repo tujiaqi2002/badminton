@@ -251,6 +251,8 @@ export const canonicalReservationDetailToAdminInspectorViewModel = (
     phone: nullableText(primaryParty.phone || detail.reservation.primaryContact.phone),
     source: primaryParty.source,
     roles: [...primaryParty.roles],
+    createdAt: primaryParty.createdAt,
+    updatedAt: primaryParty.updatedAt,
   }
   const mappedParties = parties.map((party) => ({
     partyId: party.partyId,
@@ -261,6 +263,8 @@ export const canonicalReservationDetailToAdminInspectorViewModel = (
     source: party.source,
     roles: [...party.roles],
     isPrimaryContact: party.partyId === primaryParty.partyId,
+    createdAt: party.createdAt,
+    updatedAt: party.updatedAt,
   }))
   const mappedSessions = sessions.map((session) => ({
     sessionId: session.sessionId,

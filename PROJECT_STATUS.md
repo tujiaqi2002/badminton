@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-27。当前工作分支：`codex/reservation-phase-4b3-production-cutover`。
+> 项目：`project-001-badminton`。核对日期：2026-08-27。当前工作分支：`codex/reservation-phase-4c1-profile-mutations`。
 
 ## 1. 一句话结论
 
@@ -13,11 +13,11 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 仓库：`tujiaqi2002/badminton`，默认分支 `main`。
 - 生产前端：`https://tujiaqi2002.github.io/badminton/`，由 GitHub Actions 从 `main` 发布。
 - 后端：Supabase project `ldbtrouofmqmnkyxiewk`，PostgreSQL + Auth + Realtime + RPC/RLS。
-- 独立数据库 staging：Supabase project `badminton_stage` / `vcoujmzsgdboidndtzzg`，已应用 Issue #157 的第 49 个 Phase 4B.3 Reservation order-search migration，只含确定性合成数据，不复制生产客户或 Auth 数据。
+- 独立数据库 staging：Supabase project `badminton_stage` / `vcoujmzsgdboidndtzzg`，已应用 Issue #162 的 Phase 4C.1 migrations 50–51，只含确定性合成数据，不复制生产客户或 Auth 数据。
 - `main` 已包含 PR #143 的 Phase 4A.1 manager read contract；生产 Supabase 已由受保护分支 integration 原子应用 migration 48。
-- 生产与 staging migration history 均为 49 个版本，最新为 `20260826181644_reservation_phase_4b3_order_search`。Production 的 manager schedule/capacity、selected detail 与 order/search 三个读取面均已通过独立 selector 启用 canonical；writer/action、客户读取、Stripe 与 legacy decommission 未切换。
+- Production migration history 保持 49 个版本，最新为 `20260826181644_reservation_phase_4b3_order_search`；staging 为 51 个版本，最新为 `20260827090512_reservation_phase_4c1_party_lineage`。Production 的 manager schedule/capacity、selected detail 与 order/search 三个读取面均为 canonical，但 profile writer selector 保持 legacy；客户读取、其余 action、Stripe 与 legacy decommission 未切换。
 - Phase 4A.3 受控生产 shadow observation 已完成：四个馆长排期窗口全部 clean，两个 canonical 只读 RPC 各 4 次 POST / HTTP 200；观察后已删除临时 feature variable 并重新部署默认关闭版本。
-- `main` 已包含 PR #149/#151 的 canonical schedule foundation/selector、PR #154/#155 的 selected-detail foundation/evidence，以及 PR #158/#159 的 canonical order-search 与 default-legacy evidence。生产三个 manager read selectors 当前均为 exact `canonical`；actions 与所有 writer 仍保持既有 contract。
+- `main` 已包含 PR #149/#151 的 canonical schedule foundation/selector、PR #154/#155 的 selected-detail foundation/evidence，以及 PR #158/#160 的 canonical order-search 与 evidence。当前 Phase 4C.1 只在本分支和 staging 增加显式 Reservation/Session/Party profile mutation；production profile writer 尚未安装或切换。
 - 构建命令包含 `dev`、`build`、`preview`、`lint` 和 `test`；Reservation Phase 2/3A/3B/4A 已有 migration-chain 与真实 PostgreSQL 并发测试，但仍没有浏览器 E2E test script。
 - 当前仅有 `deploy.yml`；没有证据表明仓库已有独立 PR Preview 工作流。
 - `App.jsx`、`AdminSchedule.jsx`、`i18n.js` 和 `styles.css` 已成为大型集中模块，后续改动的回归面较大。
@@ -40,6 +40,15 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 | 多商户 SaaS、AI 助理、市场平台 | 未开始 / 非当前范围 | 来自早期长期蓝图，不应在单馆核心稳定前启动 |
 
 ## 4. 当前进行中工作
+
+### Issue [#161](https://github.com/tujiaqi2002/badminton/issues/161) / [#162](https://github.com/tujiaqi2002/badminton/issues/162)：Reservation Phase 4C.1 canonical profile mutation（staging 已验证；production 未变）
+
+- 用户已确认高风险父 Issue #161；实现被收窄到 #162 的 profile-only scope。Reservation 只改 notes，Session 只改 notes / party size，Party 只改显式目标的姓名、邮箱、电话；移动、改时长、取消、付款、计价、merge/split、primary role 和客户 writer 均不在范围。
+- Staging append-only migrations `20260827084719` 与 `20260827090512` 安装 authenticated-only manager RPC、PII-free audit 与双向 Party transition lineage。公共入口 manager-auth first、空 `search_path`、optimistic concurrency 与 idempotency；私有 helper 无 client EXECUTE，核心表没有新增 client DML。
+- Hosted rollback tests 覆盖三个 scope、幂等重试、stale/invalid/non-manager 拒绝，以及真实 merge 后从无 legacy group ID 的 current Party 反向同步 canonical lineage 与 legacy projection。所有测试 mutation 均回滚，incomplete operation 为 0；Phase 3B/4A 与 Realtime 边界保持 clean。
+- Staging 当前 51 migrations、production 仍为 49。Security advisor 只有一条目标函数的预期 authenticated `SECURITY DEFINER` warning；performance advisor 无新增 finding。
+- Frontend 只有 profile 与 selected-detail selectors 同时 exact `canonical` 才显示显式 Reservation/Session/Party editor；staging example canonical，Pages workflow 与 production example 默认 legacy。中英文 desktop / 390×844 mobile Before/After 已保存在 [`docs/screenshots/issue-162`](./docs/screenshots/issue-162)。
+- 完整设计、验证和后续 production gate 见 [`docs/reservation-migration/phase-4c1-profile-mutation.md`](./docs/reservation-migration/phase-4c1-profile-mutation.md)。Draft PR 创建后仍不得自动 Ready/merge；merge 会触发 production migration integration，必须另获明确授权。
 
 ### Issue [#157](https://github.com/tujiaqi2002/badminton/issues/157) / PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) / evidence PR [#160](https://github.com/tujiaqi2002/badminton/pull/160)：Reservation Phase 4B.3 canonical order/search（production canonical 已启用并验证）
 

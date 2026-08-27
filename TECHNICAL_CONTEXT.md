@@ -376,15 +376,27 @@ Merge 前的 fresh production preflight 已只读完成：migration list 为 rem
 
 Cutover 后 API logs 从 variable timestamp 起只有 `admin_search_reservations` 8 POST + 1 OPTIONS，全部 HTTP 200；没有新的 `admin_search_bookings`。Postflight 仍为 49 migrations、192 bookings/memberships、123 Reservations、135 Sessions、131 Parties、全部 mismatch 0、17/0/17/3 writer、7 FORCE RLS、manager-only search ACL 与 `court_slots`-only Realtime。没有 migration、DB push、DDL/grant、writer、业务数据、Auth、Realtime、付款或计价变化。回退为变量设 `legacy`/删除后重跑 Pages；migration 49 保留。完整记录见 [`docs/reservation-migration/phase-4b3-production-cutover.md`](./docs/reservation-migration/phase-4b3-production-cutover.md)。
 
+### Phase 4C.1 canonical profile mutation（Issue #161 / #162；staging 51，production 49）
+
+两条 append-only migrations `20260827084719_reservation_phase_4c1_profile_mutation` 与 `20260827090512_reservation_phase_4c1_party_lineage` 在 staging 安装一个 public manager RPC 与五个 private helper。Public wrapper 为 `SECURITY DEFINER`、`search_path = ''`，先执行 manager authorization，再解析 scope/target；仅 authenticated EXECUTE，anon/service_role/PUBLIC 无入口。Private helper 无 client EXECUTE，Reservation、Session、Party 与 legacy bookings 没有新增 client DML grant。
+
+RPC 强制显式 `reservation` / `session` / `party` scope、目标 ID、strict allowlisted patch、reason、idempotency key 与 `expected_updated_at`。数据库锁定目标后重新检查版本，stale fail closed；同 key / 同 payload 返回第一次结果，不同 payload 复用 key 拒绝。响应和 audit summary 只包含 operation/scope/target/version/changed-field names，不含 Party PII 或 notes 内容。
+
+Party helper 用 `reservation_transition_parties` 构建双向 recursive lineage graph；即使 current Party 没有 `legacy_booking_group_id`，也能穿过历史 merge/split transition 找到 canonical 副本与 legacy projection。图不完整、split 无法安全投影或 identity 不一致时拒绝，不猜 primary role 或自动合并身份。
+
+前端 `VITE_RESERVATION_PROFILE_WRITE_SOURCE` 必须与 `VITE_RESERVATION_SELECTED_DETAIL_READ_SOURCE` 同时 exact `canonical` 才生效。Adapter 对 patch、响应和错误做 allowlist，ambiguous retry 复用 idempotency key；成功后失效 detail cache 并刷新 schedule/order/audit。`.env.staging.example` 为 canonical，`.env.example` 和 Pages workflow fallback 为 legacy。
+
+Hosted PostgreSQL 17.6 rollback tests 覆盖三个 scope、stale、invalid、non-manager、idempotency 和真实 merge 后的反向 Party lineage；最终业务与 operation/audit 测试增量为 0，Phase 3B/4A、incomplete operation 与 Realtime diagnostic clean。Advisor 相对 stage baseline 只新增一条有意的 authenticated-callable security-definer warning，performance 无新增。Production 尚未安装 migrations 或切换 selector；merge/production migration 与 production canonical cutover 是两个后续明确门禁。完整记录见 [`docs/reservation-migration/phase-4c1-profile-mutation.md`](./docs/reservation-migration/phase-4c1-profile-mutation.md)。
+
 ## 8. 线上迁移状态
 
-2026-08-26 Phase 4B.3 staging apply 后，环境状态为：
+2026-08-27 Phase 4C.1 staging apply 后，环境状态为：
 
 - 首个：`20260812161833_private_manager_schedule`
 - 生产最新：`20260826181644_reservation_phase_4b3_order_search`
-- staging 最新：`20260826181644_reservation_phase_4b3_order_search`
+- staging 最新：`20260827090512_reservation_phase_4c1_party_lineage`
 
-Production 与独立 `badminton_stage` 现均精确为 49 个版本，最新都是 `20260826181644_reservation_phase_4b3_order_search`。Stage 的 Phase 2 migration DDL/回填逻辑未变，只把四个冻结生产数据指纹替换为合成 fixture 的 staging 指纹；Phase 2 diagnostic 也必须使用相同 staging 指纹专门化，原样 production-fingerprint 版本会按设计 fail closed。Production migrations 45–49 均由 protected-branch integration 成功应用；Phase 4B.3 UI selector 当前为 exact `canonical`，缺失或未知值仍按 workflow fail closed 到 legacy。
+Production 保持 49 个版本；独立 `badminton_stage` 为 51 个版本。Stage 的 Phase 2 migration DDL/回填逻辑未变，只把四个冻结生产数据指纹替换为合成 fixture 的 staging 指纹；Phase 2 diagnostic 也必须使用相同 staging 指纹专门化，原样 production-fingerprint 版本会按设计 fail closed。Production migrations 45–49 均由 protected-branch integration 成功应用；Phase 4C.1 migrations 50–51 尚未进入 production。Production 三个 manager read selectors 为 exact canonical，profile writer workflow fallback 仍为 legacy。
 
 本次未发现之前的 “Remote migration versions not found in local migrations directory” 漂移。
 
