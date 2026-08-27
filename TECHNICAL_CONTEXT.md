@@ -402,6 +402,16 @@ R1 snapshot 在 production 内使用 `extensions.pgp_sym_encrypt` 的 AES-256 �
 
 Production 与 staging 均为 PostgreSQL 17.6，而隔离 runtime 是 18.3；R1 只证明 encrypted logical round-trip、关系和 ledger 可恢复，不证明同版本 hosted reset、Auth Admin API 删除顺序或真实 RTO。下一门禁 R2 必须只在 `badminton_stage` 以 synthetic data 演练 one-time reset/restore runner，并再次确认 preserve/purge selectors、FK 顺序、sequence reset、manager login/RLS/RPC/realtime/config postflight。R2、production purge、Auth deletion、deployment 和 merge 均需分别授权。完整证据见 [`docs/reservation-migration/reservation-reset-r1-backup-restore.md`](./docs/reservation-migration/reservation-reset-r1-backup-restore.md)。
 
+### Reservation reset R2（Issue #165；hosted stage rehearsal complete）
+
+R2 maintenance SQL 位于 [`supabase/maintenance`](./supabase/maintenance)，不在 `supabase/migrations`，不会由 integration 或 bootstrap 自动执行。Stage-only fixture 为原本为空的 production purge categories 增加 2 events / 2 event-court rows、2 members、2 booking actions 和 4 PII-free audits；所有 identity/audit fixture 使用 explicit deterministic IDs，联系人只使用 `example.invalid`，Auth 保持 3 users 不变。
+
+Runner 冻结 17 个 preserve relations / 134 rows / fingerprint `5d5f491dfb3f49b9aeb11208c34c9e64`，以及 24 个 purge relations / 1,563 rows / fingerprint `d7b8917ef74c84b6dc8472966aab6203`。它使用 serializable transaction、transaction advisory lock、explicit table locks、`pg_temp` snapshot/fingerprint helpers、stable child-to-parent DELETE 和 parent-to-child restore。Append-only trigger bypass 只在锁内通过 `session_replication_role=replica` 生效，恢复后立即回 `origin`；不使用 TRUNCATE/CASCADE，不创建 persistent RPC/schema/table，不删除 Auth/profile/staff/manager/config/migration facts。
+
+Hosted PostgreSQL 17.6 failure probe 在实际 reset/assert 后注入异常并完整 rollback。成功协议 reset 1,563 rows 后从 transaction-local snapshot 精确恢复，reset 111.372 ms、restore 184.523 ms、total 295.895 ms；逐关系 fingerprints、六个 identity sequences、CAD 1,642.00 ledger、192 memberships、28/28 public RLS、`court_slots`-only Realtime 和 51 migrations 均通过。固定 negative-ID audit marker 让第二次运行在 delete 前安全拒绝。Synthetic login manager read status 为 clean / 0 mismatch，non-manager 仍 `Manager access required`。
+
+四张 private Phase 3 internal tables 未启用 RLS，但 `private` schema 对 anon/authenticated 无 USAGE，且四表 client DML/SELECT grants 均为 0；因此不根据通用 inventory warning 自动加 policy。Current official stage advisors 为 51 security（既有 2 INFO / 49 WARN）与 56 performance unused-index INFO，没有 R2 persistent-object finding。完整 evidence 与 R3 门禁见 [`docs/reservation-migration/reservation-reset-r2-stage-rehearsal.md`](./docs/reservation-migration/reservation-reset-r2-stage-rehearsal.md)。R3 必须 fresh production backup/manifest、另写 production-specific runner 并取得 final destructive confirmation；R2 文件禁止改 ref 后复用。
+
 ## 8. 线上迁移状态
 
 2026-08-27 Phase 4C.1 production apply 后，环境状态为：
