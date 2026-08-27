@@ -41,7 +41,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue [#161](https://github.com/tujiaqi2002/badminton/issues/161) / [#162](https://github.com/tujiaqi2002/badminton/issues/162) / PR [#163](https://github.com/tujiaqi2002/badminton/pull/163)：Reservation Phase 4C.1 canonical profile mutation（production capability 已安装；UI default legacy）
+### Issue [#161](https://github.com/tujiaqi2002/badminton/issues/161) / [#162](https://github.com/tujiaqi2002/badminton/issues/162) / PR [#163](https://github.com/tujiaqi2002/badminton/pull/163) / evidence PR [#164](https://github.com/tujiaqi2002/badminton/pull/164)：Reservation Phase 4C.1 canonical profile mutation（production capability 已安装；UI default legacy）
 
 - 用户已确认高风险父 Issue #161；实现被收窄到 #162 的 profile-only scope。Reservation 只改 notes，Session 只改 notes / party size，Party 只改显式目标的姓名、邮箱、电话；移动、改时长、取消、付款、计价、merge/split、primary role 和客户 writer 均不在范围。
 - Staging append-only migrations `20260827084719` 与 `20260827090512` 安装 authenticated-only manager RPC、PII-free audit 与双向 Party transition lineage。公共入口 manager-auth first、空 `search_path`、optimistic concurrency 与 idempotency；私有 helper 无 client EXECUTE，核心表没有新增 client DML。
@@ -52,7 +52,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 用户从明确的 Ready/merge gate 继续后，PR #163 于 2026-08-27 09:36:33 UTC 合并为 `a387a0a844084eb52a905db2fe92e161c231253b`；protected Supabase check success，将 production 原子推进到 51。Pages [run 33059345777](https://github.com/tujiaqi2002/badminton/actions/runs/33059345777) build/deploy 全绿。
 - Production postflight 为 `phase_4c1_profile_mutation_verified`：1 public RPC、5 private helpers、bidirectional Party lineage、0 private client EXECUTE、0 profile operation/audit、0 incomplete operation，Phase 3B/4A 和 `court_slots`-only Realtime 均 clean。Manager 可到达 strict validation，random authenticated non-manager 在参数/目标验证前被拒绝；ACL 为 authenticated=true / anon=false / service_role=false。
 - 生产 asset `index-6CF1VAe2.js` 为 HTTP 200、production ref 1 / staging ref 0。真实馆长 future-30 页面仍是 canonical detail read + legacy profile edit：canonical profile editor 0、旧“编辑资料”1、detail error 0；合并后 API logs 的 profile RPC 为 0。没有提交 mutation 或保存生产 PII screenshot。
-- 完整设计见 [`docs/reservation-migration/phase-4c1-profile-mutation.md`](./docs/reservation-migration/phase-4c1-profile-mutation.md)，生产发布证据见 [`docs/reservation-migration/phase-4c1-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4c1-default-legacy-production-verification.md)。下一门禁是单独决定 production profile selector 是否设为 exact `canonical`；这不随 migration merge 自动授权。
+- Evidence Draft PR [#164](https://github.com/tujiaqi2002/badminton/pull/164) 只记录本次生产验证，没有 migration、应用代码、部署配置、selector 或数据库写入；PR 保持 Draft，合并仍需明确授权。完整设计见 [`docs/reservation-migration/phase-4c1-profile-mutation.md`](./docs/reservation-migration/phase-4c1-profile-mutation.md)，生产发布证据见 [`docs/reservation-migration/phase-4c1-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4c1-default-legacy-production-verification.md)。下一门禁是单独决定 production profile selector 是否设为 exact `canonical`；这不随 migration merge 自动授权。
 
 ### Issue [#157](https://github.com/tujiaqi2002/badminton/issues/157) / PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) / evidence PR [#160](https://github.com/tujiaqi2002/badminton/pull/160)：Reservation Phase 4B.3 canonical order/search（production canonical 已启用并验证）
 

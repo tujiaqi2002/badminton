@@ -2,6 +2,7 @@
 
 > 关联 Issue：[#161](https://github.com/tujiaqi2002/badminton/issues/161)、[#162](https://github.com/tujiaqi2002/badminton/issues/162)
 > 实现 PR：[#163](https://github.com/tujiaqi2002/badminton/pull/163)
+> 生产证据 Draft PR：[#164](https://github.com/tujiaqi2002/badminton/pull/164)
 > Merge commit：`a387a0a844084eb52a905db2fe92e161c231253b`
 > 当前状态：production migrations 50–51 已安装并通过 postflight；production profile selector 仍为 `legacy`。
 
