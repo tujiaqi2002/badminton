@@ -1,6 +1,6 @@
 # Tiger Technical Context
 
-> Tiger 的长期工程、Supabase、安全和部署上下文。最后核对：2026-08-25。
+> Tiger 的长期工程、Supabase、安全和部署上下文。最后核对：2026-08-27。
 
 先阅读 [`PRODUCT_CONTEXT.md`](./PRODUCT_CONTEXT.md) 理解产品行为。本文用于在聊天 compact、任务交接或长期维护后快速恢复技术上下文。
 
@@ -352,7 +352,7 @@ PR [#154](https://github.com/tujiaqi2002/badminton/pull/154) 于 2026-08-26 10:1
 
 PR #155 随后以 `a16e5f6` 合并上述 default-legacy 证据。用户在单独门禁中授权生产 canonical detail；fresh diagnostic clean 后设置 exact variable，[Pages run 32961018071](https://github.com/tujiaqi2002/badminton/actions/runs/32961018071) 从同一 `main` 部署 `index-DLJKKuT_.js`，production ref 1、staging ref 0、detail RPC 1。真实馆长的 canonical ViewModel v1 ready 卡为 1、error 为 0；同一 3 Session / 3 allocation Reservation 的两个 sibling allocations 保持相同 reference 且只发一次 POST，跨 Reservation 才新增 POST。三个 Reservation 共 3 POST + 1 OPTIONS，全部 200；console error/warn 为 0。随机 authenticated non-manager 在 read-only transaction 中得到 `Manager access required`，anon 无 EXECUTE。post-cutover diagnostic 完全不变；没有 migration、DB push、grant、writer、数据、Auth 或 Realtime 变化。完整证据见 [`docs/reservation-migration/phase-4b2-production-cutover.md`](./docs/reservation-migration/phase-4b2-production-cutover.md)。
 
-### Phase 4B.3 canonical Reservation order/search（Issue #157；production RPC 已安装，UI legacy）
+### Phase 4B.3 canonical Reservation order/search（Issue #157；production canonical 已启用）
 
 append-only migration `20260826181644_reservation_phase_4b3_order_search` 只替换既有 `public.admin_search_reservations(date,date,text,text,text,integer,timestamptz,uuid)` 定义，保持 signature 与 schema version 1 response envelope。它增加所有 `reservation_parties` 的姓名/邮箱/电话搜索、`party_count`、venue-local date bounds、显式 Reservation/payment filter allowlist，以及 `(matched_start_at, reservation_id)` keyset pagination。每页最多 50 条，日期范围最多 367 天。
 
@@ -360,7 +360,7 @@ Migration preflight 要求精确 48-version Phase 4A baseline、clean Phase 3B a
 
 查询先用 Session starts-at 的 venue-local 367-day 上限缩小 Reservation，再执行 all-Party/Court/notes matching。当前未添加推测性索引；现有 Session、membership 和 Party access paths 已满足 synthetic stage 规模。Fresh production read-only preflight 的候选查询 `EXPLAIN (ANALYZE, BUFFERS)` 为 9.335 ms、95 shared-hit blocks、0 shared read/temp；使用 `reservation_sessions_admin_window_idx` 与 membership effective-session index，Party scope 只扫描 131 行。因此目前没有新增索引证据；未来只有可复现的慢计划才能通过独立 append-only migration 增加索引。
 
-`VITE_RESERVATION_ORDER_READ_SOURCE` 是独立 build-time selector。只有 exact `canonical` 启用，`.env.staging.example` 为 canonical，`.env.example` 与 Pages workflow 缺省 legacy。`reservationOrderRead.js` 把 canonical DTO 映射为 explicit version 1 `AdminReservationOrderViewModel`，并 fail-closed 校验 Reservation/Party/schedule/Court/payment/currency/cursor。请求使用 AbortController 与 React request identity 防 stale commit；失败不 per-request 回 legacy，也不伪装空结果。
+`VITE_RESERVATION_ORDER_READ_SOURCE` 是独立 build-time selector。只有 exact `canonical` 启用，`.env.staging.example` 为 canonical，`.env.example` 与 Pages workflow 缺省 legacy；当前 production repository variable 为 exact `canonical`。`reservationOrderRead.js` 把 canonical DTO 映射为 explicit version 1 `AdminReservationOrderViewModel`，并 fail-closed 校验 Reservation/Party/schedule/Court/payment/currency/cursor。请求使用 AbortController 与 React request identity 防 stale commit；失败不 per-request 回 legacy，也不伪装空结果。
 
 AdminBookings 在 canonical 下以一笔 Reservation 一张卡渲染，分开 matched Session range 与 full Reservation range，并展示 Party count 和 canonical payment aggregate。聚合卡只提供 schedule focus；该动作使用 effective Reservation identity 高亮当天全部 allocations。旧 booking row 的 reschedule/cancel/payment actions 没有被复用到 aggregate card，writer/action scope 保留后续门禁。
 
@@ -370,15 +370,21 @@ Merge 前的 fresh production preflight 已只读完成：migration list 为 rem
 
 用户随后授权该精确门禁。PR #158 以 `58d9d59cab0eebd6f0591834217e744ecb2343f1` 合并，Supabase integration 将 production 从 48 原子推进到 49；Pages run 33015339219 同 commit build/deploy 成功。Read-only postflight 验证 function definition、security-invoker/空 search path、authenticated-only ACL、manager v1 envelope 和 non-manager denial；192 bookings/memberships、123 Reservations、135 Sessions、131 Parties 与 `court_slots`-only Realtime 不变。Advisor 仍是 48 security / 60 performance，目标 function 无新 finding。Production bundle `index-D2_P4uCy.js` 的 canonical order RPC occurrence 为 0、legacy order RPC 为 1，因此 migration 安装没有切换 UI source。完整证据见 [`docs/reservation-migration/phase-4b3-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4b3-default-legacy-production-verification.md)。
 
+用户随后从单独命名的 production exact-canonical order selector 门禁继续。Cutover 前 production project 为 `ACTIVE_HEALTHY` / PostgreSQL 17.6.1；49 migrations、manager v1 envelope、non-manager denial、security-invoker/空 `search_path`、authenticated-only ACL、48 security / 60 performance advisor baseline 与所有 Phase 3B/4A counts/mismatch/writer/RLS/Realtime assertions 均 clean。Bundled Node `v24.19.0` / pnpm `11.19.0` 下 read suite 36/36、Reservation suite 36 pass / 1 explicit skip / 0 fail、lint 与 exact-canonical build 通过；仓库 Pages 仍固定 Node 22 / pnpm 11.16.0。
+
+设置 exact variable 后，[Pages run 33039738583](https://github.com/tujiaqi2002/badminton/actions/runs/33039738583) 从 `main@7eea58d5e0ce9c3caf796d05236a3bf2102b020f` 成功构建部署 `index-BPOXxt2y.js`。Live artifact 为 HTTP 200、production ref 1、staging ref 0，并包含 schedule/order/detail 三个 canonical RPC path。浏览器 future-30 由 2 条 legacy rows / 2 reschedule / 2 cancel 变为 2 张 Reservation cards / 2 schedule-focus actions / 0 legacy inline actions；schedule focus 命中 1 allocation。中英文 1280×720 与 390×844 均 0 read error、0 overflow、0 console error/warn；手机 grid 为一列，action width ratio 0.91。
+
+Cutover 后 API logs 从 variable timestamp 起只有 `admin_search_reservations` 8 POST + 1 OPTIONS，全部 HTTP 200；没有新的 `admin_search_bookings`。Postflight 仍为 49 migrations、192 bookings/memberships、123 Reservations、135 Sessions、131 Parties、全部 mismatch 0、17/0/17/3 writer、7 FORCE RLS、manager-only search ACL 与 `court_slots`-only Realtime。没有 migration、DB push、DDL/grant、writer、业务数据、Auth、Realtime、付款或计价变化。回退为变量设 `legacy`/删除后重跑 Pages；migration 49 保留。完整记录见 [`docs/reservation-migration/phase-4b3-production-cutover.md`](./docs/reservation-migration/phase-4b3-production-cutover.md)。
+
 ## 8. 线上迁移状态
 
 2026-08-26 Phase 4B.3 staging apply 后，环境状态为：
 
 - 首个：`20260812161833_private_manager_schedule`
-- 生产最新：`20260825091608_reservation_phase_4a_manager_read_contract`
+- 生产最新：`20260826181644_reservation_phase_4b3_order_search`
 - staging 最新：`20260826181644_reservation_phase_4b3_order_search`
 
-Production 与独立 `badminton_stage` 现均精确为 49 个版本，最新都是 `20260826181644_reservation_phase_4b3_order_search`。Stage 的 Phase 2 migration DDL/回填逻辑未变，只把四个冻结生产数据指纹替换为合成 fixture 的 staging 指纹；Phase 2 diagnostic 也必须使用相同 staging 指纹专门化，原样 production-fingerprint 版本会按设计 fail closed。Production migrations 45–49 均由 protected-branch integration 成功应用；Phase 4B.3 UI selector 仍缺失并按 workflow fallback 为 legacy。
+Production 与独立 `badminton_stage` 现均精确为 49 个版本，最新都是 `20260826181644_reservation_phase_4b3_order_search`。Stage 的 Phase 2 migration DDL/回填逻辑未变，只把四个冻结生产数据指纹替换为合成 fixture 的 staging 指纹；Phase 2 diagnostic 也必须使用相同 staging 指纹专门化，原样 production-fingerprint 版本会按设计 fail closed。Production migrations 45–49 均由 protected-branch integration 成功应用；Phase 4B.3 UI selector 当前为 exact `canonical`，缺失或未知值仍按 workflow fail closed 到 legacy。
 
 本次未发现之前的 “Remote migration versions not found in local migrations directory” 漂移。
 
@@ -609,11 +615,13 @@ Confirmed Issue #157 adds append-only migration `20260826181644_reservation_phas
 
 Strict pre/postflight checks require the exact 48-version Phase 4A baseline and clean Phase 3B/4A contracts. The function remains stable, security-invoker, empty-search-path, manager-gated, and authenticated-only. No business data, RLS/client DML, Auth, Realtime, pricing, or payment facts change. No speculative index was added. The fresh production read-only candidate plan completed in 9.335 ms with 95 shared-hit blocks, zero shared reads or temp blocks, and the existing Session/membership indexes in use. Any future justified index must still use a separate append-only migration.
 
-Only exact `VITE_RESERVATION_ORDER_READ_SOURCE=canonical` enables the frontend path. The version 1 order ViewModel validates Reservation/Party/schedule/Court/payment/currency/cursor facts and fails closed without per-request legacy fallback. Canonical AdminBookings renders one card per Reservation, separates matched from complete schedule, and exposes only schedule focus, which highlights all same-Reservation allocations for the day. Migration 49 is installed on both staging and production, while the production UI selector still resolves to legacy. Full bilingual design evidence is in [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md).
+Only exact `VITE_RESERVATION_ORDER_READ_SOURCE=canonical` enables the frontend path. The version 1 order ViewModel validates Reservation/Party/schedule/Court/payment/currency/cursor facts and fails closed without per-request legacy fallback. Canonical AdminBookings renders one card per Reservation, separates matched from complete schedule, and exposes only schedule focus, which highlights all same-Reservation allocations for the day. Migration 49 is installed on both staging and production, and the production UI selector now resolves to exact canonical. Full bilingual design evidence is in [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md).
 
 The pre-merge production preflight confirmed 48 remote-applied migrations, zero remote-only drift, and only `20260826181644` local-only/pending; the dry run listed only migration 49. Phase 3B/4A diagnostics and the authenticated non-manager gate remained clean. Existing advisor findings were unchanged and none were specific to Phase 4B.3. At the end of that gate PR #158 remained Draft, and no merge, production push, or data mutation had occurred; separate merge/automatic-migration authorization followed.
 
 The user then authorized the exact merge/automatic-migration gate. PR #158 merged as `58d9d59cab0eebd6f0591834217e744ecb2343f1`, the protected integration advanced production from 48 to 49, and Pages run 33015339219 deployed the same commit. Postflight verified the function definition/security/ACL, a valid manager v1 envelope, authenticated non-manager denial, unchanged 192/123/135/192/131 counts, and `court_slots`-only Realtime. The production bundle contained zero canonical-order RPC occurrence and one legacy-order RPC occurrence, proving that database capability deployment did not cut over the UI. See [`docs/reservation-migration/phase-4b3-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4b3-default-legacy-production-verification.md).
+
+The user later continued from the separately named production selector gate. Exact canonical produced successful Pages run 33039738583 from `main@7eea58d` and deployed `index-BPOXxt2y.js`. The authenticated future-30 view rendered two canonical Reservation cards and two schedule-focus actions with zero legacy inline actions; Chinese/English desktop and 390x844 mobile had no read error, overflow, or console error/warn. API logs showed eight canonical POSTs plus one OPTIONS, all HTTP 200, and no new legacy search request. The database postflight was unchanged. Rollback is selector-to-legacy/delete plus rebuild; no database rollback is required. See [`docs/reservation-migration/phase-4b3-production-cutover.md`](./docs/reservation-migration/phase-4b3-production-cutover.md).
 
 ## English update: Phase 4A.1 production read contract and Phase 3B technical record
 

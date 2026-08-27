@@ -1,6 +1,6 @@
 # Tiger Project History
 
-> 从项目起点到 2026-08-25 的阶段性开发历史。本文解释“如何走到现在”，当前状态以 [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) 为准。
+> 从项目起点到 2026-08-27 的阶段性开发历史。本文解释“如何走到现在”，当前状态以 [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) 为准。
 
 ## 0. 起点：从通用预约系统蓝图收敛到真实球馆
 
@@ -402,6 +402,22 @@ Draft PR [#158](https://github.com/tujiaqi2002/badminton/pull/158) 已创建并�
 
 阶段结果：canonical order-search database capability 已进入 production，但 asset 与真实馆长 future-30 页面证明 order UI 仍严格走 legacy。下一步只允许在独立 preflight/授权后设置 exact canonical selector；聚合 writer/action 与 decommission 继续后置。完整中英文记录见 [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md) 和 [`docs/reservation-migration/phase-4b3-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4b3-default-legacy-production-verification.md)。
 
+## 40. 2026-08-27：Phase 4B.3 production canonical order/search 切换完成
+
+用户从上一阶段明确命名的 exact-canonical production order selector 门禁继续，授权范围仅包括可回退的馆长订单读取切换和受控生产观察；writer/action、客户读取、付款/计价、Stripe、Realtime、数据库变更和 legacy decommission 均排除。
+
+Fresh read-only preflight 确认 production project `ACTIVE_HEALTHY`、PostgreSQL 17.6.1、49 migrations / latest `20260826181644`。Manager 在 read-only transaction 中得到 schema version 1，随机 authenticated non-manager 返回 `Manager access required`；函数继续 stable、security-invoker、空 `search_path`、authenticated=true / anon=false / service_role=false。Phase 3B/4A diagnostic 为 192 bookings/memberships、123 Reservations、135 Sessions、131 Parties、全部 mismatch 0、17/0/17/3 writers、7 FORCE RLS 与 `court_slots`-only Realtime。Advisors 保持 48 security（2 INFO / 46 WARN）和 60 performance INFO，目标函数无 finding。
+
+Bundled Node `v24.19.0` / pnpm `11.19.0` 下，Reservation read 36/36；Reservation suite 37 total / 36 pass / 1 个既有 no-local-PostgreSQL skip / 0 fail；lint 与 exact-canonical production build 通过。仓库 Pages workflow 继续固定 Node 22 / pnpm 11.16.0，本地 runtime 差异已记录。
+
+把 `VITE_RESERVATION_ORDER_READ_SOURCE` 设为 exact `canonical` 后，[Pages run 33039738583](https://github.com/tujiaqi2002/badminton/actions/runs/33039738583) 从 `main@7eea58d5e0ce9c3caf796d05236a3bf2102b020f` 成功 build/deploy。Live HTTP 200 asset 为 `index-BPOXxt2y.js`，production ref 1、staging ref 0，并包含 schedule/order/detail 三个 canonical RPC path。
+
+真实馆长 future-30 页面从 2 条 legacy Court rows、2 个改期和 2 个取消入口切为 2 张 canonical Reservation cards、2 个“在排期中查看”和 0 个旧 inline actions。首张卡的 schedule focus 命中 1 条当天有效 allocation。中英文 1280×720 与 390×844 手机均 0 read error、0 horizontal overflow、0 console error/warn；手机 card grid 为一列，action 约占 footer 91% 宽度。为避免把真实客户 PII 写入仓库，本次没有保存 production screenshot；Issue #157 已保存 synthetic staging Before/After。
+
+Cutover timestamp 之后 Supabase API logs 只有 `admin_search_reservations` 的 8 POST + 1 OPTIONS，全部 HTTP 200；没有新的 `admin_search_bookings`。Postflight 与 preflight 完全一致；没有 migration、DB push、DDL/grant、writer、业务数据、Auth、Realtime、付款或计价变化。
+
+阶段结果：production 馆长 schedule/capacity、selected detail 与 order/search 三个 read surfaces 现全部保持 canonical。回退为把 order selector 设为 `legacy`/删除并重跑 Pages，不需要数据库 rollback。下一步必须另建并确认 Phase 4C aggregate writer/action scope；Phase 5 decommission 继续后置。完整证据见 [`docs/reservation-migration/phase-4b3-production-cutover.md`](./docs/reservation-migration/phase-4b3-production-cutover.md)。
+
 ## English record
 
 ### 24. 2026-08-24: Phase 3B.2 atomic staging activation
@@ -617,3 +633,19 @@ A fresh production read-only preflight then confirmed 48 remote migrations, zero
 After the exact merge/production-migration gate was stated, the user authorized continuing. PR #158 merged at 21:26:04 UTC as `58d9d59cab0eebd6f0591834217e744ecb2343f1`; the Supabase integration advanced production from 48 to 49 at 21:26:47 UTC, and Pages run 33015339219 deployed the same commit successfully. Postflight verified the manager v1 RPC, non-manager denial, ACL/security shape, unchanged 192/123/135/192/131 baseline, Realtime, and no target-specific advisor finding.
 
 Stage result: canonical order-search database capability is now installed in production, while the shipped asset and authenticated future-30 manager view prove that the order UI remains strictly legacy. Exact-canonical selector cutover requires its own preflight and authorization; aggregate writer/actions and decommission remain later gates. Full bilingual evidence is in [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md) and [`docs/reservation-migration/phase-4b3-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4b3-default-legacy-production-verification.md).
+
+### 40. 2026-08-27: Phase 4B.3 production canonical order/search cutover completed
+
+The user continued from the separately named exact-canonical production order-selector gate. Scope was limited to the reversible manager order-read switch and bounded production observation; writer/actions, customer reads, payment/pricing, Stripe, Realtime, database changes, and legacy decommission remained excluded.
+
+Fresh read-only preflight confirmed an `ACTIVE_HEALTHY` project, PostgreSQL 17.6.1, and 49 migrations through `20260826181644`. A manager received schema version 1 inside a read-only transaction, a random authenticated non-manager received `Manager access required`, and the function remained stable, security-invoker, empty-search-path, authenticated-only, with no anon/service-role entry. Phase 3B/4A diagnostics stayed at 192 bookings/memberships, 123 Reservations, 135 Sessions, 131 Parties, zero mismatch, 17/0/17/3 writers, seven FORCE RLS tables, and `court_slots`-only Realtime. Advisors remained at 48 security and 60 performance findings with no target-function item.
+
+Bundled Node `v24.19.0` / pnpm `11.19.0` passed 36/36 Reservation-read tests, 36 Reservation tests with one known no-local-PostgreSQL skip and zero failures, lint, and an exact-canonical production build. The Pages workflow remains pinned to Node 22 and pnpm 11.16.0.
+
+Exact `VITE_RESERVATION_ORDER_READ_SOURCE=canonical` produced successful [Pages run 33039738583](https://github.com/tujiaqi2002/badminton/actions/runs/33039738583) from `main@7eea58d5e0ce9c3caf796d05236a3bf2102b020f`. The live HTTP-200 asset became `index-BPOXxt2y.js`, with one production ref, zero staging refs, and the three manager canonical RPC paths.
+
+The authenticated future-30 manager view changed from two legacy Court rows with two reschedule and two cancel actions into two canonical Reservation cards with two schedule-focus actions and zero legacy inline actions. The first focus action selected one effective allocation for the matched day. Chinese/English 1280x720 and 390x844 mobile checks had no read error, horizontal overflow, or console error/warn. The mobile grid was one column and the action occupied about 91% of its footer. No production screenshot was stored to avoid committing real customer PII; Issue #157 already retains synthetic staging Before/After evidence.
+
+API logs after the selector timestamp contained only eight POSTs plus one OPTIONS request to `admin_search_reservations`, all HTTP 200, and no new `admin_search_bookings` request. Postflight was identical to preflight. No migration, DB push, DDL/grant, writer, business data, Auth, Realtime, payment, or pricing behavior changed.
+
+Stage result: all three production manager read surfaces—schedule/capacity, selected detail, and order/search—now remain canonical. Rollback is selector-to-legacy/delete plus a Pages rebuild, without database rollback. Phase 4C aggregate writer/action scope requires a new confirmed issue; Phase 5 decommission remains later. Full evidence is in [`docs/reservation-migration/phase-4b3-production-cutover.md`](./docs/reservation-migration/phase-4b3-production-cutover.md).
