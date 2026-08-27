@@ -663,6 +663,27 @@ a { color: inherit; text-decoration: none; }
 .admin-canonical-detail.loading > header, .admin-canonical-detail.error > header { justify-content: flex-start; align-items: center; color: #315c3f; }
 .admin-canonical-detail.error { border-color: rgba(199,70,54,.24); border-left-color: var(--red-dark); background: rgba(199,70,54,.055); }
 .admin-canonical-detail.error > header { color: var(--red-dark); }
+.admin-profile-mutation { display: grid; gap: 9px; padding-top: 9px; border-top: 1px solid rgba(49,92,63,.13); }
+.admin-profile-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.admin-profile-actions button, .admin-profile-party { min-width: 0; min-height: 31px; padding: 6px 7px; display: flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid rgba(49,92,63,.2); color: #315c3f; background: rgba(255,255,255,.62); cursor: pointer; font: inherit; font-size: .46875rem; font-weight: 700; }
+.admin-profile-actions button:disabled, .admin-profile-party:disabled { cursor: wait; opacity: .52; }
+.admin-profile-parties { display: grid; gap: 5px; }
+.admin-profile-parties > small { color: var(--ink-soft); font-size: .4375rem; }
+.admin-profile-party { width: 100%; justify-content: space-between; text-align: left; }
+.admin-profile-party > span { min-width: 0; display: grid; gap: 2px; }
+.admin-profile-party strong, .admin-profile-party small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-profile-party small { color: var(--ink-soft); font-size: .40625rem; font-weight: 500; }
+.admin-profile-party svg { flex: 0 0 auto; }
+.admin-profile-form { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 9px; border: 1px solid rgba(49,92,63,.2); background: rgba(255,255,255,.58); }
+.admin-profile-form > header { display: grid; gap: 2px; }
+.admin-profile-form > header span { display: flex; align-items: center; gap: 5px; color: #315c3f; font-size: .5rem; font-weight: 800; }
+.admin-profile-form > header small { color: var(--ink-soft); font-size: .40625rem; line-height: 1.45; }
+.admin-profile-form label { min-width: 0; display: grid; gap: 4px; }
+.admin-profile-form label > span { color: var(--ink-soft); font-size: .46875rem; }
+.admin-profile-form input, .admin-profile-form textarea, .admin-profile-form select { width: 100%; min-height: 31px; padding: 6px 8px; border: 1px solid var(--line); color: var(--ink); background: rgba(255,255,255,.82); font: inherit; font-size: .5rem; outline: 0; }
+.admin-profile-form textarea { resize: vertical; }
+.admin-profile-error { padding: 7px; display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 5px; border: 1px solid rgba(199,70,54,.22); color: var(--red-dark); background: rgba(199,70,54,.055); font-size: .4375rem; line-height: 1.45; }
+.admin-profile-error button { grid-column: 2; justify-self: start; padding: 3px 0; border: 0; color: var(--red-dark); background: transparent; cursor: pointer; font: inherit; font-size: .4375rem; font-weight: 800; }
 .admin-schedule-inspector dl { min-width: 0; flex: 0 0 auto; margin: 0; display: grid; grid-template-columns: 1fr; gap: 15px; align-content: start; }
 .admin-schedule-inspector dl > div { min-width: 0; display: grid; gap: 4px; }
 .admin-schedule-inspector dt { color: var(--ink-soft); font-size: 0.5rem; }
@@ -1079,6 +1100,11 @@ footer small { text-align: right; }
   .admin-schedule-inspector.has-booking dl { min-width: 0; overflow-y: auto; padding-right: 3px; }
   .admin-schedule-inspector .admin-canonical-detail > dl { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 12px; overflow: visible; padding: 0; }
   .admin-canonical-detail { padding: 12px 13px; }
+  .admin-profile-actions { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-profile-parties { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-profile-parties > small { grid-column: 1/-1; }
+  .admin-profile-form { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-profile-form > header, .admin-profile-form .notes, .admin-profile-form .admin-profile-error, .admin-profile-form .admin-inspector-form-actions { grid-column: 1/-1; }
   .admin-schedule-inspector dl > div.admin-group-schedule, .admin-schedule-inspector dl > div.admin-booking-status { grid-column: 1/-1; }
   .admin-quick-payment, .admin-related-payment { min-height: 38px; }
   .admin-inspector-form { min-width: 0; grid-template-columns: 1fr; }

@@ -18,10 +18,15 @@ import {
   RESERVATION_ORDER_READ_SOURCE_LEGACY,
   reservationOrderSafeErrorCode,
 } from './lib/reservationOrderRead'
+import {
+  createAdminReservationProfileMutationExecutor,
+  reservationProfileSafeErrorCode,
+  RESERVATION_PROFILE_WRITE_SOURCE_CANONICAL,
+} from './lib/reservationProfileMutation'
 import { runReservationScheduleShadow } from './lib/reservationReadShadow'
 import { fetchCanonicalAdminScheduleWindow, RESERVATION_SCHEDULE_READ_SOURCE_CANONICAL, RESERVATION_SCHEDULE_READ_SOURCE_LEGACY } from './lib/reservationScheduleRead'
 import { createAdminReservationDetailLoader, RESERVATION_SELECTED_DETAIL_READ_SOURCE_CANONICAL } from './lib/reservationSelectedDetailRead'
-import { googleAuthEnabled, isSupabaseConfigured, reservationOrderReadSource, reservationReadShadowEnabled, reservationScheduleReadSource, reservationSelectedDetailReadSource, stagingPasswordAuthEnabled, stripeEnabled, supabase } from './lib/supabase'
+import { googleAuthEnabled, isSupabaseConfigured, reservationOrderReadSource, reservationProfileWriteSource, reservationReadShadowEnabled, reservationScheduleReadSource, reservationSelectedDetailReadSource, stagingPasswordAuthEnabled, stripeEnabled, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
 
 const getAuthRedirectUrl = () => authRedirectUrl({
@@ -97,6 +102,17 @@ const rescheduleErrorMessage = (message = '', t) => {
   return t('errors.adminReschedule')
 }
 
+const reservationProfileErrorMessage = (error, t) => {
+  const code = reservationProfileSafeErrorCode(error)
+  if (code === 'reservation_profile_manager_required') return t('errors.managerRequired')
+  if (code === 'reservation_profile_stale_target') return t('errors.adminProfileStale')
+  if (code === 'reservation_profile_busy') return t('errors.adminProfileBusy')
+  if (code === 'reservation_profile_party_lineage_split') return t('errors.adminProfileLineage')
+  if (code === 'reservation_profile_target_not_found') return t('errors.adminProfileMissing')
+  if (code.includes('invalid') || code.includes('mismatch')) return t('errors.adminProfileInvalid')
+  return t('errors.adminProfile')
+}
+
 const validateActiveBookingChange = (booking, startAt, endAt, courtId, t, historyLocked = true) => {
   const current = venueNow()
   if (!historyLocked && booking.start_at <= current.dateTime) return null
@@ -156,6 +172,7 @@ export default function App() {
   const adminScheduleReadAbortRef = useRef(null)
   const adminScheduleRequestRef = useRef(0)
   const adminReservationDetailLoaderRef = useRef(null)
+  const adminReservationProfileMutationRef = useRef(null)
   const adminAccessRequestRef = useRef(0)
   const authUserIdRef = useRef(null)
   const adminLandingUserRef = useRef(null)
@@ -164,6 +181,9 @@ export default function App() {
 
   if (!adminReservationDetailLoaderRef.current && supabase) {
     adminReservationDetailLoaderRef.current = createAdminReservationDetailLoader({ client: supabase })
+  }
+  if (!adminReservationProfileMutationRef.current && supabase) {
+    adminReservationProfileMutationRef.current = createAdminReservationProfileMutationExecutor({ client: supabase })
   }
 
   const notify = useCallback((message, tone = 'success') => {
@@ -1316,6 +1336,29 @@ export default function App() {
     return true
   }
 
+  const adminUpdateReservationProfile = async (booking, command) => {
+    if (
+      !isSupabaseConfigured
+      || reservationProfileWriteSource !== RESERVATION_PROFILE_WRITE_SOURCE_CANONICAL
+      || !adminReservationProfileMutationRef.current
+    ) return { saved: false, errorCode: 'reservation_profile_unavailable' }
+
+    setAdminScheduleBusy(true)
+    try {
+      const result = await adminReservationProfileMutationRef.current.mutate(command)
+      invalidateAdminReservationDetail(command.reservationId)
+      await Promise.all([fetchAdminBookings(), fetchAdminOrderBookings(), fetchAdminAuditOperations()])
+      notify(t(result.status === 'unchanged' ? 'success.adminProfileUnchanged' : 'success.adminProfile'))
+      return { saved: true, result }
+    } catch (error) {
+      const errorCode = reservationProfileSafeErrorCode(error)
+      notify(reservationProfileErrorMessage(error, t), 'error')
+      return { saved: false, errorCode }
+    } finally {
+      setAdminScheduleBusy(false)
+    }
+  }
+
   const loginByEmail = async (email) => {
     if (!isSupabaseConfigured) return false
     const { error } = await supabase.auth.signInWithOtp({
@@ -1500,7 +1543,9 @@ export default function App() {
           onSwap={adminSwapBookings}
           onLink={adminLinkBookings}
           selectedDetailReadSource={reservationSelectedDetailReadSource}
+          profileWriteSource={reservationProfileWriteSource}
           onLoadSelectedDetail={adminLoadReservationDetail}
+          onUpdateReservationProfile={adminUpdateReservationProfile}
           onLoadRelationship={adminLoadBookingRelationship}
           onUnlink={adminUnlinkBookingGroup}
           onMarkPaid={adminMarkBookingPaid}

@@ -172,6 +172,10 @@ Phase 4B.3 已在确认的 Issue #157 范围内完成 canonical 馆长订单查�
 
 Canonical 聚合卡当前只提供“在排期中查看”，并聚焦该 Reservation 当天的全部有效 allocations。它不提供含糊的单 booking 改期/取消入口；付款、移动、取消和关系动作必须在后续 Phase 4C 明确 allocation/session/reservation scope 后才能迁移。Production order/search 已通过 exact `canonical` selector 启用；回退是把变量设为 `legacy`/删除并重新部署，不需要数据库回滚。完整设计和生产证据见 [`docs/reservation-migration/phase-4b3-canonical-order-search.md`](./docs/reservation-migration/phase-4b3-canonical-order-search.md) 与 [`docs/reservation-migration/phase-4b3-production-cutover.md`](./docs/reservation-migration/phase-4b3-production-cutover.md)。
 
+Phase 4C.1 / Issue #162 接受了第一个 canonical 馆长写入界面，但只覆盖 profile mutation。馆长必须显式选择 Reservation、当前 Session 或具体 Party，并选择变更原因；Reservation 只允许修改整笔 notes，Session 只允许修改当前场次 notes / 人数，Party 只允许修改该联系人的姓名、邮箱、电话。界面不能从 primary contact、当前选中 Court 或旧 booking row 隐式推断作用域。
+
+Canonical profile editor 不提供付款状态、价格、场地、时间、取消、关系或 Party role 修改。并发版本过期时必须要求重新加载，网络重试复用同一 idempotency identity；错误不能静默改走 legacy writer。只有 selected-detail 与 profile 两个 selector 同时 exact `canonical` 时才启用该界面，production 默认仍为 legacy。完整契约见 [`docs/reservation-migration/phase-4c1-profile-mutation.md`](./docs/reservation-migration/phase-4c1-profile-mutation.md)。
+
 订单较多时，“我的预订”默认展示即将开始的订单，并提供 Upcoming/Past/Cancelled tabs、日期/场地/编号等搜索、折叠式高级筛选、已应用筛选 chip 与清除入口。结果按月份分组，筛选和搜索只改变列表可见性，不隐藏单张订单卡片上的既有信息或取消动作。
 
 ## 6. 馆长预订管理

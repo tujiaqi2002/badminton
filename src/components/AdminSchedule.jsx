@@ -8,6 +8,7 @@ import { bookingSwapPreview } from '../lib/bookingSwap'
 import { DRAG_LOCK_COURT_ONLY, DRAG_LOCK_FREE, DRAG_LOCK_TIME_ONLY, useDisplay } from '../lib/display'
 import { useI18n } from '../lib/i18n'
 import { RESERVATION_SELECTED_DETAIL_READ_SOURCE_CANONICAL, selectedDetailSafeErrorCode } from '../lib/reservationSelectedDetailRead'
+import { RESERVATION_PROFILE_SCOPES, RESERVATION_PROFILE_WRITE_SOURCE_CANONICAL } from '../lib/reservationProfileMutation'
 import AdminAuditDrawer, { AdminAuditQuickPanel } from './AdminAuditDrawer'
 
 const durationMinutes = (booking) => Math.round(
@@ -32,7 +33,149 @@ function DragOperationPanel({ details }) {
   )
 }
 
-function CanonicalReservationDetailPanel({ detail, loading, errorCode, locale, t }) {
+function CanonicalProfileEditor({ detail, busy, onUpdate, onRefresh, t }) {
+  const [editor, setEditor] = useState(null)
+  const [reason, setReason] = useState('manager_edit')
+  const [errorCode, setErrorCode] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    setEditor(null)
+    setErrorCode(null)
+    setReason('manager_edit')
+  }, [detail.reservation.reservationId, detail.selection.sessionId])
+
+  const beginReservation = () => {
+    setErrorCode(null)
+    setEditor({
+      scope: RESERVATION_PROFILE_SCOPES.RESERVATION,
+      targetId: detail.reservation.reservationId,
+      expectedUpdatedAt: detail.reservation.updatedAt,
+      notes: detail.reservation.notes || '',
+    })
+  }
+
+  const beginSession = () => {
+    setErrorCode(null)
+    setEditor({
+      scope: RESERVATION_PROFILE_SCOPES.SESSION,
+      targetId: detail.selectedSession.sessionId,
+      expectedUpdatedAt: detail.selectedSession.updatedAt,
+      notes: detail.selectedSession.notes || '',
+      partySize: detail.selectedSession.partySize,
+    })
+  }
+
+  const beginParty = (party) => {
+    setErrorCode(null)
+    setEditor({
+      scope: RESERVATION_PROFILE_SCOPES.PARTY,
+      targetId: party.partyId,
+      expectedUpdatedAt: party.updatedAt,
+      name: party.name || '',
+      email: party.email || '',
+      phone: party.phone || '',
+    })
+  }
+
+  const submit = async (event) => {
+    event.preventDefault()
+    if (!editor || submitting || busy) return
+    const patch = editor.scope === RESERVATION_PROFILE_SCOPES.RESERVATION
+      ? { notes: editor.notes }
+      : editor.scope === RESERVATION_PROFILE_SCOPES.SESSION
+        ? { notes: editor.notes, party_size: Number(editor.partySize) }
+        : { display_name: editor.name, email: editor.email, phone: editor.phone }
+
+    setSubmitting(true)
+    setErrorCode(null)
+    const response = await onUpdate({
+      scope: editor.scope,
+      reservationId: detail.reservation.reservationId,
+      targetId: editor.targetId,
+      expectedUpdatedAt: editor.expectedUpdatedAt,
+      patch,
+      reason,
+    })
+    setSubmitting(false)
+    if (!response?.saved) {
+      setErrorCode(response?.errorCode || 'reservation_profile_failed')
+      return
+    }
+    setEditor(null)
+    await onRefresh()
+  }
+
+  const reload = async () => {
+    setEditor(null)
+    setErrorCode(null)
+    await onRefresh()
+  }
+
+  const partyAction = (party) => (
+    <button
+      type="button"
+      className="admin-profile-party"
+      key={party.partyId}
+      onClick={() => beginParty(party)}
+      disabled={busy || submitting}
+    >
+      <span><strong>{party.name}</strong><small>{[party.email, party.phone].filter(Boolean).join(' · ') || t('admin.schedule.notProvided')}</small></span>
+      <Pencil size={11} />
+    </button>
+  )
+
+  return (
+    <div className="admin-profile-mutation" data-profile-write-source="canonical">
+      <div className="admin-profile-actions" aria-label={t('admin.profile.actions')}>
+        <button type="button" onClick={beginReservation} disabled={busy || submitting}><MessageSquareText size={12} /> {t('admin.profile.editReservation')}</button>
+        <button type="button" onClick={beginSession} disabled={busy || submitting}><UsersRound size={12} /> {t('admin.profile.editSession')}</button>
+      </div>
+      <div className="admin-profile-parties">
+        <small>{t('admin.profile.chooseParty')}</small>
+        {detail.parties.map(partyAction)}
+      </div>
+
+      {editor && (
+        <form className="admin-profile-form" onSubmit={submit} data-profile-scope={editor.scope}>
+          <header>
+            <span><Pencil size={12} /> {t(`admin.profile.scope.${editor.scope}`)}</span>
+            <small>{t('admin.profile.explicitTarget')}</small>
+          </header>
+          {editor.scope === RESERVATION_PROFILE_SCOPES.RESERVATION && (
+            <label className="notes"><span>{t('admin.detail.reservationNotes')}</span><textarea maxLength="4000" rows="3" value={editor.notes} onChange={(event) => setEditor((current) => ({ ...current, notes: event.target.value }))} /></label>
+          )}
+          {editor.scope === RESERVATION_PROFILE_SCOPES.SESSION && (
+            <>
+              <label><span>{t('admin.schedule.partySize')}</span><input type="number" min="1" max="8" value={editor.partySize} onChange={(event) => setEditor((current) => ({ ...current, partySize: event.target.value }))} /></label>
+              <label className="notes"><span>{t('admin.detail.sessionNotes')}</span><textarea maxLength="2000" rows="3" value={editor.notes} onChange={(event) => setEditor((current) => ({ ...current, notes: event.target.value }))} /></label>
+            </>
+          )}
+          {editor.scope === RESERVATION_PROFILE_SCOPES.PARTY && (
+            <>
+              <label><span>{t('admin.schedule.customerName')}</span><input required maxLength="200" value={editor.name} onChange={(event) => setEditor((current) => ({ ...current, name: event.target.value }))} /></label>
+              <label><span>{t('admin.schedule.customerEmailOptional')}</span><input type="email" maxLength="320" value={editor.email} onChange={(event) => setEditor((current) => ({ ...current, email: event.target.value }))} /></label>
+              <label><span>{t('admin.schedule.customerPhoneOptional')}</span><input type="tel" maxLength="40" value={editor.phone} onChange={(event) => setEditor((current) => ({ ...current, phone: event.target.value }))} /></label>
+            </>
+          )}
+          <label><span>{t('admin.profile.reason')}</span><select value={reason} onChange={(event) => setReason(event.target.value)}>
+            <option value="manager_edit">{t('admin.profile.reason.manager_edit')}</option>
+            <option value="customer_request">{t('admin.profile.reason.customer_request')}</option>
+            <option value="correction">{t('admin.profile.reason.correction')}</option>
+            <option value="operational_update">{t('admin.profile.reason.operational_update')}</option>
+          </select></label>
+          {errorCode && <div className="admin-profile-error" role="alert"><AlertTriangle size={13} /><span>{t(errorCode === 'reservation_profile_stale_target' ? 'admin.profile.stale' : 'admin.profile.failed')}</span><button type="button" onClick={reload}>{t('admin.profile.reload')}</button></div>}
+          <div className="admin-inspector-form-actions">
+            <button type="button" onClick={() => { setEditor(null); setErrorCode(null) }}>{t('admin.schedule.discardDetails')}</button>
+            <button className="save" disabled={busy || submitting}><Save size={12} /> {busy || submitting ? t('admin.schedule.saving') : t('admin.schedule.saveDetails')}</button>
+          </div>
+        </form>
+      )}
+    </div>
+  )
+}
+
+function CanonicalReservationDetailPanel({ detail, loading, errorCode, locale, t, profileWriteSource, busy, onUpdate, onRefresh }) {
   if (loading) {
     return (
       <section
@@ -73,6 +216,7 @@ function CanonicalReservationDetailPanel({ detail, loading, errorCode, locale, t
   const paymentPlan = detail.payment.plan
     ? t(`admin.detail.paymentPlan.${detail.payment.plan}`)
     : t('admin.schedule.notRecorded')
+  const profileWritable = profileWriteSource === RESERVATION_PROFILE_WRITE_SOURCE_CANONICAL
 
   return (
     <section
@@ -83,7 +227,7 @@ function CanonicalReservationDetailPanel({ detail, loading, errorCode, locale, t
     >
       <header>
         <span><Layers3 size={14} /><small>{t('admin.detail.eyebrow')}</small><strong>{reference}</strong></span>
-        <em>{t('admin.detail.readOnly')}</em>
+        <em>{t(profileWritable ? 'admin.profile.writeEnabled' : 'admin.detail.readOnly')}</em>
       </header>
       <dl>
         <div><dt>{t('admin.detail.primaryContact')}</dt><dd><strong>{detail.primaryContact.name}</strong><span>{contact || t('admin.schedule.notProvided')}</span></dd></div>
@@ -94,7 +238,8 @@ function CanonicalReservationDetailPanel({ detail, loading, errorCode, locale, t
         <div><dt>{t('admin.detail.payment')}</dt><dd className="admin-canonical-payment"><span>{paymentStatus} · {paymentPlan}</span><strong>{formatMoney(detail.payment.paidAmount, locale, detail.payment.currency, true)} / {formatMoney(detail.payment.totalAmount, locale, detail.payment.currency, true)}</strong><small>{t('admin.detail.outstanding', { amount: formatMoney(detail.payment.outstandingAmount, locale, detail.payment.currency, true) })}</small></dd></div>
         <div><dt>{t('admin.detail.lineage')}</dt><dd>{t('admin.detail.lineageValue', { sources: lineageCount, transitions: transitionCount })}</dd></div>
       </dl>
-      <p className="admin-canonical-compatibility">{t('admin.detail.compatibilityScope')}</p>
+      {profileWritable && <CanonicalProfileEditor detail={detail} busy={busy} onUpdate={onUpdate} onRefresh={onRefresh} t={t} />}
+      <p className="admin-canonical-compatibility">{t(profileWritable ? 'admin.profile.compatibilityScope' : 'admin.detail.compatibilityScope')}</p>
     </section>
   )
 }
@@ -336,7 +481,7 @@ function NewBookingModal({ draft, busy, onClose, onSubmit, onPreviewPrice, confi
   )
 }
 
-export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onSwap, onLink, selectedDetailReadSource, onLoadSelectedDetail, onLoadRelationship, onUnlink, onMarkPaid, onCancel, onUpdateDetails, onDateChange, focusTime, focusReservationId, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onViewAuditLog, onRevertAudit, configuration }) {
+export default function AdminSchedule({ bookings, events = [], initialDate, busy, onCreate, onPreviewPrice, onReschedule, onRescheduleGroup, onSwap, onLink, selectedDetailReadSource, profileWriteSource, onLoadSelectedDetail, onUpdateReservationProfile, onLoadRelationship, onUnlink, onMarkPaid, onCancel, onUpdateDetails, onDateChange, focusTime, focusReservationId, onClearFocus, auditOperations = [], auditLoading = false, auditRevertingId = null, onOpenAudit, onViewAuditLog, onRevertAudit, configuration }) {
   const { bookingColorScheme, dragLockMode } = useDisplay()
   const { courtTitle, locale, t } = useI18n()
   const [dateKey, setDateKey] = useState(initialDate)
@@ -610,6 +755,30 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
       if (selectedDetailRequest.current === requestId) selectedDetailRequest.current += 1
     }
   }, [activeSelection, onLoadSelectedDetail, selectedDetailReadSource])
+
+  const refreshSelectedDetail = useCallback(async () => {
+    if (!activeSelection || typeof onLoadSelectedDetail !== 'function') return false
+    const requestId = selectedDetailRequest.current + 1
+    selectedDetailRequest.current = requestId
+    setSelectedDetailLoading(true)
+    setSelectedDetailError(null)
+    try {
+      const next = await onLoadSelectedDetail(activeSelection)
+      if (selectedDetailRequest.current !== requestId) return false
+      setSelectedDetail(next)
+      setSelectedDetailLoading(false)
+      return true
+    } catch (error) {
+      if (selectedDetailRequest.current !== requestId) return false
+      setSelectedDetailError(selectedDetailSafeErrorCode(error))
+      setSelectedDetailLoading(false)
+      return false
+    }
+  }, [activeSelection, onLoadSelectedDetail])
+
+  const updateSelectedProfile = useCallback((command) => (
+    onUpdateReservationProfile(activeSelection, command)
+  ), [activeSelection, onUpdateReservationProfile])
 
   useEffect(() => {
     if (!linkMode && !linkConfirmation && !linkMenuOpen && !unlinkConfirmation) return undefined
@@ -1063,7 +1232,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
               <span>{t('admin.schedule.bookingDetails')}</span>
               <strong>{activeSelection.customer_name}</strong>
               <span className={`status-pill ${activeSelection.status}`}>{t(`status.${activeSelection.status}`)}</span>
-              {!editingDetails && <button className="admin-inspector-edit" onClick={() => setEditingDetails(true)}><Pencil size={12} /> {t('admin.schedule.editDetails')}</button>}
+              {profileWriteSource !== RESERVATION_PROFILE_WRITE_SOURCE_CANONICAL && !editingDetails && <button className="admin-inspector-edit" onClick={() => setEditingDetails(true)}><Pencil size={12} /> {t('admin.schedule.editDetails')}</button>}
               {!editingDetails && <button
                 ref={linkMenuTriggerRef}
                 type="button"
@@ -1168,9 +1337,13 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                 errorCode={selectedDetailError}
                 locale={locale}
                 t={t}
+                profileWriteSource={profileWriteSource}
+                busy={busy}
+                onUpdate={updateSelectedProfile}
+                onRefresh={refreshSelectedDetail}
               />
             )}
-            {editingDetails ? (
+            {profileWriteSource !== RESERVATION_PROFILE_WRITE_SOURCE_CANONICAL && editingDetails ? (
               <form className="admin-inspector-form" onSubmit={async (event) => {
                 event.preventDefault()
                 const saved = await onUpdateDetails(activeSelection, detailsForm)

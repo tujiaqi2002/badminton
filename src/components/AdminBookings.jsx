@@ -54,7 +54,9 @@ export default function AdminBookings({
   onSwap,
   onLink,
   selectedDetailReadSource,
+  profileWriteSource,
   onLoadSelectedDetail,
+  onUpdateReservationProfile,
   onLoadRelationship,
   onUnlink,
   onMarkPaid,
@@ -249,7 +251,9 @@ export default function AdminBookings({
         onSwap={onSwap}
         onLink={onLink}
         selectedDetailReadSource={selectedDetailReadSource}
+        profileWriteSource={profileWriteSource}
         onLoadSelectedDetail={onLoadSelectedDetail}
+        onUpdateReservationProfile={onUpdateReservationProfile}
         onLoadRelationship={onLoadRelationship}
         onUnlink={onUnlink}
         onMarkPaid={onMarkPaid}

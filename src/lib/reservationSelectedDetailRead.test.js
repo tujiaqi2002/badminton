@@ -67,6 +67,8 @@ const detailPayload = (overrides = {}) => ({
       phone: '416-555-0100',
       source: 'manager',
       roles: ['primary_contact', 'payer'],
+      created_at: '2026-08-20T10:00:00+00:00',
+      updated_at: '2026-08-20T10:00:00+00:00',
     },
     {
       party_id: otherPartyId,
@@ -76,6 +78,8 @@ const detailPayload = (overrides = {}) => ({
       phone: '416-555-0101',
       source: 'manager',
       roles: ['participant'],
+      created_at: '2026-08-20T10:00:00+00:00',
+      updated_at: '2026-08-20T10:00:00+00:00',
     },
   ],
   sessions: [
@@ -219,6 +223,7 @@ test('canonical detail maps one selected allocation into the versioned inspector
   assert.equal(model.selection.sessionId, sessionId)
   assert.equal(model.selection.allocationId, allocationId)
   assert.equal(model.primaryContact.name, 'Synthetic Primary')
+  assert.equal(model.primaryContact.updatedAt, '2026-08-20T10:00:00+00:00')
   assert.deepEqual(model.otherParties.map((party) => party.name), ['Synthetic Partner'])
   assert.equal(model.reservation.notes, 'Reservation-level synthetic note')
   assert.equal(model.selectedSession.notes, 'Selected Session synthetic note')
