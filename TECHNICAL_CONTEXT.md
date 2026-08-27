@@ -392,6 +392,16 @@ Hosted PostgreSQL 17.6 rollback tests 覆盖三个 scope、stale、invalid、non
 
 Production Pages workflow 没有 profile variable，因此 `VITE_RESERVATION_PROFILE_WRITE_SOURCE` 继续 fallback legacy。Live DOM 为 canonical detail 1、canonical profile editor 0、legacy Edit details 1；post-merge API logs 的 profile RPC 为 0。Production canonical profile cutover 仍是后续明确门禁。完整记录见 [`docs/reservation-migration/phase-4c1-profile-mutation.md`](./docs/reservation-migration/phase-4c1-profile-mutation.md) 与 [`docs/reservation-migration/phase-4c1-default-legacy-production-verification.md`](./docs/reservation-migration/phase-4c1-default-legacy-production-verification.md)。
 
+### Reservation reset R0 / R1（Issue #165；只读盘点与加密恢复证明）
+
+用户已确认当前交易域、2 条 `venue_events`、2 条 `venue_members` 及其 audit、唯一非馆长 Auth user/identity/session/profile 都是可清理测试数据。3 名 manager 的 Auth/identity/session/profile 与 `staff_members` / `manager_accounts` 关系，Court/设置/营业时间/定价/会员等级定义，配置与安全审计、Phase 3 writer config 和 migration history 都是 preserve set。该分类不等于 production 删除授权。
+
+R1 snapshot 在 production 内使用 `extensions.pgp_sym_encrypt` 的 AES-256 与压缩把每个 chunk 先加密，再只把 ciphertext 写到 repo 外 operator-local storage。随机 32-byte key 由 Windows DPAPI CurrentUser 保护，目录只授予当前用户和 SYSTEM；仓库未写入 key、明文、PII、Auth credential 或备份文件。最终 artifact 为 760,974 bytes、173 encrypted chunks、66 relations / 4,687 rows，覆盖 28 public tables、7 private tables、23 auth tables、`supabase_migrations.schema_migrations` 和 7 sequences；SHA-256 为 `7550613970a36081abc2e5c104be6ed18e5edbe6f2b7ed2c82895ec606014c12`。Production before/after 的 66 个内容指纹完全相同。
+
+隔离恢复在不持久化明文的 PGlite in-memory PostgreSQL 18.3 中完成，验证 66 个 stable JSON round-trip fingerprints、33 个按当前 schema 重建的 FK constraints、30 个业务完整性断言，以及 Payments/allocations CAD 1,642.00 守恒。6 条 legacy bookings 的 `recurrence_series_id` 没有 canonical parent，而 6 条 canonical Reservations 均正确引用 2 个 series；现有 schema 没有 legacy recurrence 到 canonical series 的 FK，因此它是待清理的 test-only legacy 差异，不做数据修复。
+
+Production 与 staging 均为 PostgreSQL 17.6，而隔离 runtime 是 18.3；R1 只证明 encrypted logical round-trip、关系和 ledger 可恢复，不证明同版本 hosted reset、Auth Admin API 删除顺序或真实 RTO。下一门禁 R2 必须只在 `badminton_stage` 以 synthetic data 演练 one-time reset/restore runner，并再次确认 preserve/purge selectors、FK 顺序、sequence reset、manager login/RLS/RPC/realtime/config postflight。R2、production purge、Auth deletion、deployment 和 merge 均需分别授权。完整证据见 [`docs/reservation-migration/reservation-reset-r1-backup-restore.md`](./docs/reservation-migration/reservation-reset-r1-backup-restore.md)。
+
 ## 8. 线上迁移状态
 
 2026-08-27 Phase 4C.1 production apply 后，环境状态为：
