@@ -43,7 +43,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue [#165](https://github.com/tujiaqi2002/badminton/issues/165)：Reservation test-data reset（R0–R3A 已完成；等待 R3B destructive execution 授权）
+### Issue [#165](https://github.com/tujiaqi2002/badminton/issues/165) / Draft PR [#168](https://github.com/tujiaqi2002/badminton/pull/168)：Reservation test-data reset（R0–R3A 已完成；等待 R3B destructive execution 授权）
 
 - 用户确认当前 Reservation 交易域、2 条场馆活动、2 条场馆会员及其 audit、以及唯一非馆长 Auth 用户都只是试用数据，没有业务保留价值；3 名馆长 Auth/staff/manager 关系、场地与馆务配置、定价/营业时间、会员等级定义、安全/配置审计和 migration history 必须保留。
 - R0 只读盘点确认拟清理交易域为 192 bookings、139 court slots、123 Reservations、135 Sessions、131 Parties、192 memberships、23 Payments、26 allocations、2 recurrence series，以及对应 transition/source/audit/admin-action 记录。没有 provider payment reference；现有 Payment 均为 `legacy_unknown`。
@@ -56,6 +56,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - R3A fresh read-only production preflight 已冻结 15 个 preserve selectors / 206 rows 与 25 个 database purge selectors / 4,327 rows；Audit purge selector 通过 booking/event/member 实体 ID 集命中 1,661 行并保留 77 行。唯一 non-manager 账号以 ID SHA-256 冻结，不在仓库记录 UUID/邮箱；28 个 public/private Auth FK 落点仅有 2 bookings、2 parties、1 profile，Storage ownership 为 0。
 - R3A 刷新 repo 外 encrypted artifact：66 relations / 4,687 rows / 242 chunks / 1,106,060 bytes，SHA-256 `7e4e3f877940cc92e79268ae28f71211097e71efaa12bdb9775b256fd377f115`；66/66 production fingerprints before/after 相同。PGlite 18.3 内存恢复验证 66 fingerprints、3 manager graphs、CAD 1,642.00 ledger 与 51 migrations，明文未落盘。
 - 新 production draft 位于 `supabase/maintenance/reservation_reset_r3b_production_draft.sql`，固定 `execution_authorized=false`；disabled draft SHA-256 为 `0f8a9d990988c5fcecb44c23829be99199484bd1b98fe31340c22e2a1e1261bf`。它不在 migration path、不删除 `auth.*`、不重置 sequence；serializable/locks/catalog/FK/fingerprint/postflight 全部 fail closed。Auth 删除按独立 runbook 排在 DB commit 后，并明确 JWT 到自身 expiry 前不会立即失效。R3A 证据见 [`reservation-reset-r3a-production-preflight.md`](./docs/reservation-migration/reservation-reset-r3a-production-preflight.md)。Production/Auth mutation、runner enable、merge/deploy 与 Phase 5 仍未授权；hosted production restore RTO 仍未测量。
+- Draft PR #168 stacked on R2 Draft PR #167，只包含 R3A tools/draft/tests/evidence；当前保持 Draft。其 merge 也需要明确授权，且 merge 本身仍不会启用或执行 production runner。
 
 ### Issue [#161](https://github.com/tujiaqi2002/badminton/issues/161) / [#162](https://github.com/tujiaqi2002/badminton/issues/162) / PR [#163](https://github.com/tujiaqi2002/badminton/pull/163) / evidence PR [#164](https://github.com/tujiaqi2002/badminton/pull/164)：Reservation Phase 4C.1 canonical profile mutation（production capability 已安装；UI default legacy）
 
