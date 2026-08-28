@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-27。当前工作分支：`codex/reservation-reset-r2-rehearsal`。
+> 项目：`project-001-badminton`。核对日期：2026-08-28。当前工作分支：`codex/reservation-reset-r3a-preflight`。
 
 ## 1. 一句话结论
 
@@ -8,7 +8,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 换句话说，当前主要问题不是“功能太少”，而是**功能增长快于工程保障**。下一阶段应优先稳定、验证和协作，不宜马上扩张到多商户、AI 或市场平台。
 
-近期执行重点已经改为 Issue #165 的 test-data reset 路线：R0–R2 已完成，下一步只有在 fresh production backup/manifest、production-specific runner review 和再次明确 destructive confirmation 后才可进入 R3；当前 production 保持不变。
+近期执行重点已经改为 Issue #165 的 test-data reset 路线：R0–R3A 已完成。Fresh production backup/manifest、默认关闭的 production-specific runner 与独立 Auth runbook 已形成；下一步只有在再次明确授权最终 runner hash、4,327-row database purge 和唯一 non-manager Auth graph 后才可进入 R3B。当前 production 保持不变。
 
 ## 2. 当前可验证事实
 
@@ -43,7 +43,7 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 
 ## 4. 当前进行中工作
 
-### Issue [#165](https://github.com/tujiaqi2002/badminton/issues/165)：Reservation test-data reset（R0–R2 已完成；等待 R3 production destructive gate 授权）
+### Issue [#165](https://github.com/tujiaqi2002/badminton/issues/165) / Draft PR [#168](https://github.com/tujiaqi2002/badminton/pull/168)：Reservation test-data reset（R0–R3A 已完成；等待 R3B destructive execution 授权）
 
 - 用户确认当前 Reservation 交易域、2 条场馆活动、2 条场馆会员及其 audit、以及唯一非馆长 Auth 用户都只是试用数据，没有业务保留价值；3 名馆长 Auth/staff/manager 关系、场地与馆务配置、定价/营业时间、会员等级定义、安全/配置审计和 migration history 必须保留。
 - R0 只读盘点确认拟清理交易域为 192 bookings、139 court slots、123 Reservations、135 Sessions、131 Parties、192 memberships、23 Payments、26 allocations、2 recurrence series，以及对应 transition/source/audit/admin-action 记录。没有 provider payment reference；现有 Payment 均为 `legacy_unknown`。
@@ -52,7 +52,11 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 - 隔离恢复 runtime 是 PGlite PostgreSQL 18.3，而 production/staging 是 PostgreSQL 17.6；因此 R1 证明备份可解密和关系可重建，但不能替代同版本 hosted reset/restore 演练，也没有给出真实 RTO。
 - R2 在 `badminton_stage` / PostgreSQL 17.6 完成真实 transaction reset/restore：17 个 preserve relations / 134 rows 与 24 个 purge relations / 1,563 rows 的精确 fingerprints 全部复原，6 个 sequences 不变；reset 111.372 ms、restore 184.523 ms、total 295.895 ms，Auth deletion 为 0。
 - 注入 reset 后故障按设计整笔 rollback；成功后同一 operation 第二次运行在任何 delete 前返回 `tiger_r2_rehearsal_already_completed`。Manager canonical read 为 clean / 0 mismatch，non-manager 仍拒绝；28/28 public RLS、`court_slots`-only Realtime、51 migrations 与 CAD 1,642.00 ledger 不变。
-- Maintenance SQL 位于 `supabase/maintenance`，不在 migration auto-apply path，不含 production ref，也不创建 persistent RPC/DDL。下一门禁 R3 必须刷新 production backup/manifest、另写 production-specific runner、规划维护窗口/RTO，并再次取得明确 destructive authorization；production/Auth 删除、selector/deploy、PR merge 和 Phase 5 decommission 仍未授权。R1 证据见 [`reservation-reset-r1-backup-restore.md`](./docs/reservation-migration/reservation-reset-r1-backup-restore.md)，R2 证据见 [`reservation-reset-r2-stage-rehearsal.md`](./docs/reservation-migration/reservation-reset-r2-stage-rehearsal.md)。
+- R2 maintenance SQL 位于 `supabase/maintenance`，不在 migration auto-apply path，不含 production ref，也不创建 persistent RPC/DDL；R2 文件禁止改 ref 后复用。R1 证据见 [`reservation-reset-r1-backup-restore.md`](./docs/reservation-migration/reservation-reset-r1-backup-restore.md)，R2 证据见 [`reservation-reset-r2-stage-rehearsal.md`](./docs/reservation-migration/reservation-reset-r2-stage-rehearsal.md)。
+- R3A fresh read-only production preflight 已冻结 15 个 preserve selectors / 206 rows 与 25 个 database purge selectors / 4,327 rows；Audit purge selector 通过 booking/event/member 实体 ID 集命中 1,661 行并保留 77 行。唯一 non-manager 账号以 ID SHA-256 冻结，不在仓库记录 UUID/邮箱；28 个 public/private Auth FK 落点仅有 2 bookings、2 parties、1 profile，Storage ownership 为 0。
+- R3A 刷新 repo 外 encrypted artifact：66 relations / 4,687 rows / 242 chunks / 1,106,060 bytes，SHA-256 `7e4e3f877940cc92e79268ae28f71211097e71efaa12bdb9775b256fd377f115`；66/66 production fingerprints before/after 相同。PGlite 18.3 内存恢复验证 66 fingerprints、3 manager graphs、CAD 1,642.00 ledger 与 51 migrations，明文未落盘。
+- 新 production draft 位于 `supabase/maintenance/reservation_reset_r3b_production_draft.sql`，固定 `execution_authorized=false`；disabled draft SHA-256 为 `0f8a9d990988c5fcecb44c23829be99199484bd1b98fe31340c22e2a1e1261bf`。它不在 migration path、不删除 `auth.*`、不重置 sequence；serializable/locks/catalog/FK/fingerprint/postflight 全部 fail closed。Auth 删除按独立 runbook 排在 DB commit 后，并明确 JWT 到自身 expiry 前不会立即失效。R3A 证据见 [`reservation-reset-r3a-production-preflight.md`](./docs/reservation-migration/reservation-reset-r3a-production-preflight.md)。Production/Auth mutation、runner enable、merge/deploy 与 Phase 5 仍未授权；hosted production restore RTO 仍未测量。
+- Draft PR #168 stacked on R2 Draft PR #167，只包含 R3A tools/draft/tests/evidence；当前保持 Draft。其 merge 也需要明确授权，且 merge 本身仍不会启用或执行 production runner。
 
 ### Issue [#161](https://github.com/tujiaqi2002/badminton/issues/161) / [#162](https://github.com/tujiaqi2002/badminton/issues/162) / PR [#163](https://github.com/tujiaqi2002/badminton/pull/163) / evidence PR [#164](https://github.com/tujiaqi2002/badminton/pull/164)：Reservation Phase 4C.1 canonical profile mutation（production capability 已安装；UI default legacy）
 

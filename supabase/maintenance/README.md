@@ -29,3 +29,13 @@ R2 hosted 协议依次验证：
 不要删除 marker、修改 frozen fingerprint 或换 project 后重跑来绕过门禁。需要新的 staging rehearsal 时，应创建新 operation/version 并重新盘点；需要 production 执行时，必须进入 Issue #165 R3，刷新 production backup/manifest，重新生成 production-specific runner，并再次取得 destructive confirmation。R2 文件不得直接改成 production ref 后复用。
 
 Supabase 官方逻辑备份/恢复流程见 [Database Backups](https://supabase.com/docs/guides/platform/backups) 与 [Backup and Restore using the CLI](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore)。
+
+## Issue #165 / R3A
+
+- `reservation_reset_r3a_backup_writer.mjs`：只接受 header/ciphertext/footer 的 repo-external exclusive writer；拒绝明文/rows 字段和仓库内路径。
+- `reservation_reset_r3a_verify_backup.mjs`：在 PGlite + pgcrypto 内存环境解密并验证 chunk/relation hash、Auth/Reservation 关系与 ledger；明文不落盘。
+- `reservation_reset_r3b_production_draft.sql`：production-specific R3B review artifact，当前固定 `execution_authorized = false`。
+
+R3A 已完成 production read-only manifest、fresh encrypted backup 和 isolated recovery proof，但没有 production/Auth mutation。Production draft 冻结 15 个 preserve selectors / 206 rows 与 25 个 purge selectors / 4,327 rows；它不删除 `auth.*`，也不重置 sequence。任何 future R3B 执行都需要 fresh preflight、最终文件 hash review 和用户再次明确 destructive confirmation；Auth 必须在 database commit/postflight 后按独立 runbook 处理。
+
+R3A/R3B 边界与恢复限制见 [`docs/reservation-migration/reservation-reset-r3a-production-preflight.md`](../../docs/reservation-migration/reservation-reset-r3a-production-preflight.md) 和 [`reservation-reset-r3b-auth-runbook.md`](../../docs/reservation-migration/reservation-reset-r3b-auth-runbook.md)。
