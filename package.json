@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "test": "node --test",
     "test:phase2": "node --test supabase/tests/phase_2_backfill.test.mjs",
-    "test:reservation": "node --test --test-concurrency=1 supabase/tests/phase_2_backfill.test.mjs supabase/tests/phase_3b_activation_contract.test.mjs supabase/tests/phase_4a_read_contract.test.mjs supabase/tests/phase_4c1_profile_mutation.test.mjs supabase/tests/reservation_reset_r2_rehearsal.test.mjs",
+    "test:reservation": "node --test --test-concurrency=1 supabase/tests/phase_2_backfill.test.mjs supabase/tests/phase_3b_activation_contract.test.mjs supabase/tests/phase_4a_read_contract.test.mjs supabase/tests/phase_4c1_profile_mutation.test.mjs supabase/tests/reservation_reset_r2_rehearsal.test.mjs supabase/tests/reservation_reset_r3a_preflight.test.mjs",
     "test:reservation-read": "node --test src/lib/reservationDeploymentSource.test.js src/lib/reservationReadModel.test.js src/lib/reservationOrderRead.test.js src/lib/reservationProfileMutation.test.js src/lib/reservationScheduleRead.test.js src/lib/reservationSelectedDetailRead.test.js",
     "test:staging-fixture": "node --test supabase/tests/staging_fixture.test.mjs",
     "test:reservation-reset": "node --test supabase/tests/reservation_reset_r2_rehearsal.test.mjs supabase/tests/reservation_reset_r3a_preflight.test.mjs"
