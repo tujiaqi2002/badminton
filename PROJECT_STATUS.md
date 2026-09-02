@@ -1,6 +1,6 @@
 # Tiger Project Status
 
-> 项目：`project-001-badminton`。核对日期：2026-08-27。当前工作分支：`codex/reservation-phase-4c1-profile-mutations`。
+> 项目：`project-001-badminton`。核对日期：2026-09-02。当前工作分支：`codex/manager-booking-color-system`。
 
 ## 1. 一句话结论
 
@@ -237,14 +237,15 @@ Tiger 已经越过基础 MVP，进入**单馆运营 Beta / 私有馆长试运行
 | --- | --- | --- |
 | #84 | Activity log section refine | Tusu + Kevin |
 | #85 | Remove Customer Booking Selection and Redesign Booking UI | Tusu + Kevin |
-| #86 | Manager Booking page color design | Kevin |
 
 这些 issue 有明显 UI 重叠，合并前需要指定每个 issue 的页面边界，避免同时修改 `styles.css`、`App.jsx` 或同一组件造成冲突。
 
-### 本地进行中：Issue #87 My Booking section redesign
+### 本地进行中：Issue #86 Manager Booking page color design
 
-- 分支：`codex-my-bookings-search-filter`。
-- 内容：客户“我的预订”列表改为扫描优先的订单卡片，突出日期、时段、场地、订单状态、支付状态、金额和下单时间；同时间多场地订单合并为一张可识别的多场地卡片；新增 Upcoming/Past/Cancelled tabs、搜索、折叠筛选、已应用筛选 chip 和按月分组，取消入口仍按单条 booking 沿用原有条件与回调。
+- 分支：`codex/manager-booking-color-system`。
+- 内容：馆长排期把按客户确定分配的颜色词汇收敛为最多 12 种可学习、可复用的低饱和纯色；场地原色模式固定为每片场地一种颜色。订单块贴合网格并移除渐变、常态阴影和拖拽装饰 icon；时间轴保持每 30 分钟 30px，并按有效 `slot_minutes` 把 15/30/60 分钟行分别设为 15/30/60px。默认只突出姓名、时间和需要处理的付款/备注，已付与免费状态退回详情层；选中、关联、循环、异常状态和拖拽反馈继续使用独立轮廓或 icon，不依赖颜色单独表达。
+- PR #169 review 修正：待付款轮廓改读 `data-payment-status`；付款 `attention` class 直接拥有提示样式；颜色注释明确第 13 位客户起会有意复用有限词汇；“现在”线与行高共用同一时间尺度，避免 30px 改版或 15/60 分钟配置产生位置漂移。
+- 验证：新增颜色分配稳定性、12 色上限、纯色输出、文字对比、场地固定色和 15/30/60 分钟排期尺度测试；`src/lib` 74 项测试、ESLint 与 Vite production build 通过。浏览器确认 15/30/60 分钟行高分别为 15/30/60px 且“现在”线位置一致；1440×900 桌面、773×876 平板和 390×844 手机无页面横向 overflow 或 console error/warn，773px 无订单裁切。Before/After 及 review 后截图保存在 `docs/screenshots/issue-86`。
 - Supabase：不需要 schema、migration 或 RPC 变更。
 
 ## 5. 早期蓝图完成度

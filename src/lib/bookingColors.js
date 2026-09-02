@@ -48,10 +48,9 @@ const CREAM_PALETTE = [
 ]
 
 // Court-first spectrum inspired by the five elemental pigments in the venue
-// artwork. These are only hue anchors: party size controls chroma density
-// band, while the stable customer slot creates small variations inside that
-// court's colour family. It therefore scales far beyond five customers without
-// losing the instant "which court is this?" cue.
+// artwork. This mode intentionally uses one learned colour per court so the
+// grid remains an information map instead of creating another customer shade
+// inside every court family.
 const COURT_ORIGIN_BASES = [
   { name: 'ivory', hex: '#C9BFA8', saturation: [12, 30], lightness: [44, 82] },
   { name: 'cyan', hex: '#3B8A91', saturation: [32, 58], lightness: [28, 68] },
@@ -70,13 +69,13 @@ const PALETTES = {
   cream: CREAM_PALETTE,
 }
 
-// A theme's swatches are anchors, not a hard limit. The schedule derives a
-// large, deterministic colour field from them so busy days are not reduced to
-// five repeating cards. 4093 is prime, which makes the probing sequence visit
-// every slot before it repeats.
-const GENERATED_COLOR_SLOTS = 4093
-const COLOR_CANDIDATES_PER_CUSTOMER = 32
-const COLOR_PROBE_STEP = 1597
+// A manager only needs to distinguish the bookings visible together, not learn
+// thousands of one-off colours. Twelve stable slots cover a busy five-court
+// day while keeping the palette small enough to become familiar. Colours are
+// deliberately reused after the visible vocabulary is exhausted.
+const GENERATED_COLOR_SLOTS = 12
+const COLOR_CANDIDATES_PER_CUSTOMER = GENERATED_COLOR_SLOTS
+const COLOR_PROBE_STEP = 5
 const LIGHT_INK = '#FFF9F1'
 const DARK_INK = '#211D17'
 // Every generated booking card sits on the same perceptual brightness plane.
@@ -381,49 +380,16 @@ const courtIndexForBooking = (booking) => {
   return stableHash(String(booking?.court_id || 'court')) % COURT_ORIGIN_BASES.length
 }
 
-const partyDepthForBooking = (booking) => {
-  const people = Math.max(1, Number(booking?.party_size || 2))
-  if (people <= 1) return 0
-  if (people <= 2) return 1
-  if (people <= 4) return 2
-  if (people <= 6) return 3
-  return 4
-}
-
-const generatedCourtOriginColor = (booking, slot) => {
+const generatedCourtOriginColor = (booking) => {
   const base = COURT_ORIGIN_BASES[courtIndexForBooking(booking)]
-  const baseHsl = rgbToHsl(hexToRgb(base.hex))
-  const depth = partyDepthForBooking(booking)
-  // Party size changes chroma rather than lightness, so the optional court
-  // spectrum keeps its extra cue without breaking the shared brightness plane.
-  const depthSaturationShift = [-8, -4, 0, 4, 8][depth]
-  const sequence = slot + 1
-  // Neutral ink needs a wider chroma window than the coloured families;
-  // otherwise many generated HSL values round to the same RGB swatch.
-  const hueWindow = base.name === 'ink' ? 16 : 8
-  const saturationWindow = base.name === 'ink' ? 14 : 8
-  const hueJitter = (radicalInverse(sequence, 2) * 2 - 1) * hueWindow
-  const saturationJitter = (radicalInverse(sequence, 3) * 2 - 1) * saturationWindow
-  const startHsl = {
-    h: (baseHsl.h + hueJitter + 360) % 360,
-    s: clamp(baseHsl.s + depthSaturationShift + saturationJitter, base.saturation[0], base.saturation[1]),
-    l: clamp(baseHsl.l, base.lightness[0], base.lightness[1]),
-  }
-  const endHsl = {
-    h: (startHsl.h + (radicalInverse(sequence, 7) * 3 - 1.5) + 360) % 360,
-    s: clamp(startHsl.s + 2, base.saturation[0], base.saturation[1]),
-    l: clamp(startHsl.l - 8, base.lightness[0] - 2, base.lightness[1] - 3),
-  }
-  const readable = readableCardPair(hslToRgb(startHsl), hslToRgb(endHsl))
-  const uniform = uniformCardPair(readable.startRgb, readable.endRgb)
+  const uniform = uniformCardPair(hexToRgb(base.hex), hexToRgb(base.hex))
+  const fill = rgbToHex(uniform.startRgb)
   return {
-    name: `${base.name}-people-${depth + 1}-${slot}`,
-    start: rgbToHex(uniform.startRgb),
-    end: rgbToHex(uniform.endRgb),
+    name: base.name,
+    start: fill,
+    end: fill,
     foreground: uniform.foreground,
-    textShadow: uniform.foreground === LIGHT_INK
-      ? '0 1px 1px rgba(24,25,23,.24)'
-      : '0 1px 1px rgba(255,249,241,.18)',
+    textShadow: 'none',
   }
 }
 
@@ -436,20 +402,14 @@ export const customerIdentityForBooking = (booking) => String([
   booking.id,
 ].find((value) => String(value || '').trim()) || 'guest').trim().toLocaleLowerCase()
 
-// Prefer a stable hash so a regular customer normally keeps the same color.
-// Resolve collisions within the visible day so two customers do not become
-// visually indistinguishable just because their hashes land on the same slot.
+// Stable hashes let regular customers normally keep the same color. The
+// default schemes probe unused slots while the bounded 12-color vocabulary has
+// room, then intentionally reuse those slots once the vocabulary is exhausted.
 export const createCustomerColorMap = (bookings, scheme = DEFAULT_BOOKING_COLOR_SCHEME) => {
   if (scheme === COURT_ORIGIN_SCHEME) {
     const identities = [...new Set(bookings.map(customerIdentityForBooking))]
       .sort((left, right) => stableHash(left) - stableHash(right) || left.localeCompare(right))
-    const occupied = new Set()
-    return new Map(identities.map((identity) => {
-      let slot = stableHash(identity) % GENERATED_COLOR_SLOTS
-      while (occupied.has(slot)) slot = (slot + COLOR_PROBE_STEP) % GENERATED_COLOR_SLOTS
-      occupied.add(slot)
-      return [identity, slot]
-    }))
+    return new Map(identities.map((identity) => [identity, stableHash(identity) % GENERATED_COLOR_SLOTS]))
   }
   const palette = paletteFor(scheme)
   const identities = [...new Set(bookings.map(customerIdentityForBooking))]
@@ -505,13 +465,15 @@ export const customerColorForBooking = (booking, colorMap, scheme = DEFAULT_BOOK
   const identity = customerIdentityForBooking(booking)
   const colorSlot = colorMap?.get(identity) ?? stableHash(identity) % GENERATED_COLOR_SLOTS
   if (scheme === COURT_ORIGIN_SCHEME) {
-    return { index: colorSlot + 1, ...generatedCourtOriginColor(booking, colorSlot) }
+    return { index: colorSlot + 1, ...generatedCourtOriginColor(booking) }
   }
   const palette = paletteFor(scheme)
   const generated = generatedColorForSlot(palette, colorSlot)
   return {
     index: colorSlot + 1,
     ...generated,
+    end: generated.start,
+    textShadow: 'none',
     lab: undefined,
   }
 }

@@ -5,6 +5,7 @@ import { createCustomerColorMap, customerColorForBooking } from '../lib/bookingC
 import { activeBookingGroup, activeBookingGroupSize, BOOKING_MOVE_SCOPE_GROUP, bookingMoveScope, resizeAppliesToBooking } from '../lib/bookingMoveScope'
 import { canLinkBookings } from '../lib/bookingRelationships'
 import { bookingSwapPreview } from '../lib/bookingSwap'
+import { adminScheduleOffsetPx, adminScheduleSlotHeightPx, normalizeAdminScheduleSlotMinutes } from '../lib/adminScheduleLayout'
 import { DRAG_LOCK_COURT_ONLY, DRAG_LOCK_FREE, DRAG_LOCK_TIME_ONLY, useDisplay } from '../lib/display'
 import { useI18n } from '../lib/i18n'
 import { RESERVATION_SELECTED_DETAIL_READ_SOURCE_CANONICAL, selectedDetailSafeErrorCode } from '../lib/reservationSelectedDetailRead'
@@ -526,7 +527,8 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
   const editorRef = useRef(null)
   const linkMenuTriggerRef = useRef(null)
   const linkMenuRef = useRef(null)
-  const slotMinutes = Number(configuration?.settings?.slot_minutes || 30)
+  const slotMinutes = normalizeAdminScheduleSlotMinutes(configuration?.settings?.slot_minutes)
+  const slotHeightPx = adminScheduleSlotHeightPx(slotMinutes)
   const managerMaxMinutes = Number(configuration?.settings?.manager_max_minutes || 240)
   const openMinutes = Number(configuration?.opening_hours?.open_minute || 600)
   const closeMinutes = Number(configuration?.opening_hours?.close_minute || 1440)
@@ -1417,8 +1419,8 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
           </div>
         </aside>
         <div className="admin-schedule-scroll">
-          <div className={`admin-schedule-grid ${venueClosed ? 'venue-closed' : ''}`} style={{ '--slot-count': timeSlots.length }}>
-          {currentLineOffset !== null && <div className="admin-now-line" style={{ '--now-top': `${50 + currentLineOffset * 26}px` }} aria-label={t('admin.schedule.nowLine', { time: nowAtVenue.time })}><span>{t('admin.schedule.now')} {nowAtVenue.time}</span></div>}
+          <div className={`admin-schedule-grid ${venueClosed ? 'venue-closed' : ''}`} style={{ '--slot-count': timeSlots.length, '--slot-height': `${slotHeightPx}px` }}>
+          {currentLineOffset !== null && <div className="admin-now-line" style={{ '--now-offset': `${adminScheduleOffsetPx(currentLineOffset, slotMinutes)}px` }} aria-label={t('admin.schedule.nowLine', { time: nowAtVenue.time })}><span>{t('admin.schedule.now')} {nowAtVenue.time}</span></div>}
           <div className="admin-schedule-corner"><Clock3 size={14} /></div>
           {COURTS.map((court) => <div className={`admin-schedule-court ${court.tone}`} key={court.id}><span>{court.name}</span><strong>{courtTitle(court)}</strong></div>)}
           <div className="admin-schedule-times">
@@ -1546,6 +1548,10 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                 const hasMultiCourtGroup = groupSize > 1
                 const paymentStatus = booking.payment_status || 'unpaid'
                 const paymentSettled = paymentStatus === 'paid' || paymentStatus === 'no_charge'
+                const hasNotes = Boolean(booking.customer_notes?.trim() || booking.has_notes)
+                const displayEndTime = resizeAffectsCurrentBooking
+                  ? timeFromMinutes(startMinutes + minutes)
+                  : endTimeFromDateTime(booking.start_at, booking.end_at)
                 const indicatorCount = Number(hasBusinessLink || hasMultiCourtGroup) + Number(Boolean(booking.recurrence_series_id))
                 const isRelationshipSource = linkMode?.id === booking.id || linkDrag?.booking.id === booking.id
                 const isRelationshipTarget = Boolean((linkMode && canLinkBookings(linkMode, booking)) || linkDropId === booking.id)
@@ -1560,6 +1566,7 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                     role="button"
                     tabIndex="0"
                     aria-pressed={activeSelection?.id === booking.id}
+                    aria-label={`${booking.customer_name}, ${timeFromDateTime(booking.start_at)}–${displayEndTime}, ${t(`status.${booking.status || 'confirmed'}`)}, ${t(`payment.${paymentStatus}`)}`}
                     onClick={(event) => {
                       event.stopPropagation()
                       if (pointerMoved.current) { pointerMoved.current = false; return }
@@ -1595,19 +1602,21 @@ export default function AdminSchedule({ bookings, events = [], initialDate, busy
                     data-customer-color={customerColor.index}
                     data-effective-reservation-id={booking.effective_reservation_id || undefined}
                     data-booking-id={booking.id}
+                    data-booking-status={booking.status || 'confirmed'}
+                    data-payment-status={paymentStatus}
                     data-origin-label={draggedId === booking.id ? `${t('admin.schedule.originPosition')} · ${timeFromDateTime(booking.start_at)}–${endTimeFromDateTime(booking.start_at, booking.end_at)}` : undefined}
                     key={booking.id}
                     title={linkMode ? t(isRelationshipTarget ? 'admin.relationship.chooseThisTarget' : 'admin.relationship.invalidTarget') : t(canMove ? 'admin.schedule.dragTitle' : bookingPhase === 'in-progress' ? 'admin.schedule.inProgressResizeTitle' : 'admin.schedule.endedReadOnly', { name: booking.customer_name })}
                   >
                     {linkMode && isRelationshipTarget && <span className="admin-relationship-target-action"><Plus size={11} /> {t('admin.relationship.choose')}</span>}
-                    {canMove ? <GripVertical size={14} /> : <Clock3 className="admin-booking-state-icon" size={14} />}
+                    {!canMove && <Clock3 className="admin-booking-state-icon" size={14} />}
                     <div>
                       <strong>{booking.customer_name}</strong>
-                      <span>{timeFromDateTime(booking.start_at)}–{resizeAffectsCurrentBooking ? timeFromMinutes(startMinutes + minutes) : endTimeFromDateTime(booking.start_at, booking.end_at)}</span>
-                      <span className="admin-booking-tags">
-                        <small className={`admin-booking-payment ${paymentSettled ? 'paid' : 'unpaid'}`}>{t(`payment.${paymentStatus}`)}</small>
-                        {(booking.customer_notes?.trim() || booking.has_notes) && <small className="admin-booking-note" title={booking.customer_notes || t('admin.schedule.hasNote')}><MessageSquareText size={8} /> {t('admin.schedule.hasNote')}</small>}
-                      </span>
+                      <span>{timeFromDateTime(booking.start_at)}–{displayEndTime}</span>
+                      {(!paymentSettled || hasNotes) && <span className="admin-booking-tags">
+                        {!paymentSettled && <small className={`admin-booking-payment attention ${paymentStatus}`}>{t(`payment.${paymentStatus}`)}</small>}
+                        {hasNotes && <small className="admin-booking-note" title={booking.customer_notes || t('admin.schedule.hasNote')}><MessageSquareText size={8} /> {t('admin.schedule.hasNote')}</small>}
+                      </span>}
                     </div>
                     {indicatorCount > 0 && <span className="admin-booking-indicators">
                       {hasBusinessLink ? <span className="admin-booking-indicator is-link" title={t('admin.schedule.businessLinked', { count: linkedGroupCount })}><Link2 size={11} /><small>{linkedGroupCount || '·'}</small></span> : hasMultiCourtGroup && <span className="admin-booking-indicator is-group" title={t('admin.schedule.multiCourtLinked', { count: groupSize })}><Layers3 size={11} /></span>}
